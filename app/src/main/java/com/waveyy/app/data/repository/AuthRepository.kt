@@ -55,9 +55,13 @@ class AuthRepository @Inject constructor(
         (status as? SessionStatus.Authenticated)?.session?.user?.toAuthUser()
     }
 
-    /** One-shot current user, or null. */
+    /**
+     * One-shot current user, or null. Never throws: with placeholder or
+     * unreachable Supabase values the app stays in guest mode instead of
+     * crashing the caller (notably the fire-and-forget history hookup).
+     */
     fun currentUser(): AuthUser? {
-        return auth.currentSessionOrNull()?.user?.toAuthUser()
+        return runCatching { auth.currentSessionOrNull()?.user?.toAuthUser() }.getOrNull()
     }
 
     /**
