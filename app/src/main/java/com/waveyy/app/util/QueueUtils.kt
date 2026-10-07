@@ -22,11 +22,7 @@ object QueueUtils {
 
     /** Normalizes a DTO into a queue [Song]; null when it has no id. */
     fun normalize(dto: SongDto): Song? {
-        val song = SongMapper.toDomain(dto) ?: return null
-        return song.copy(
-            image = song.imageUrl,
-            album = song.album
-        )
+        return SongMapper.toDomain(dto)
     }
 
     /** Maps a queue song to the up-next handoff shape. */
