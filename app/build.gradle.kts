@@ -97,6 +97,7 @@ dependencies {
     implementation(libs.serialization.json)
     implementation(libs.coroutines.core)
     implementation(libs.coroutines.android)
+    implementation(libs.coroutines.guava)
 
     // Local persistence — used in Phase 3.
     implementation(libs.room.runtime)
