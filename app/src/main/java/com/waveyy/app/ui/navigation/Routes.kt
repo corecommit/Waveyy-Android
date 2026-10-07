@@ -9,7 +9,7 @@ object Routes {
     const val PLAYLISTS = "playlists"
     const val PLAYLIST_DETAIL = "playlists/{id}"
     const val PROFILE = "profile"
-    const val TOGETHER = "together"
+    const val TOGETHER = "together?roomId={roomId}"
     const val CONNECTIONS = "connections"
     const val LOGIN = "login"
     const val SIGNUP = "signup"

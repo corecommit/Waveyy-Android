@@ -29,6 +29,10 @@
                     android:scheme="waveyy"
                     android:host="room"
                     android:pathPattern="/.*" />
+                <data android:scheme="waveyy" android:host="song" />
+                <data android:scheme="waveyy" android:host="album" />
+                <data android:scheme="waveyy" android:host="artist" />
+                <data android:scheme="waveyy" android:host="playlist" />
             </intent-filter>
         </activity>
         <service
