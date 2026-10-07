@@ -1,6 +1,5 @@
 package com.waveyy.app.ui.components
 
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
@@ -72,14 +71,4 @@ fun WaveyyTextButton(
     TextButton(onClick = onClick, modifier = modifier) {
         Text(text)
     }
-}
-
-/**
- * Icon slot helper for buttons with leading icons.
- */
-@Composable
-fun WaveyyButtonIcon(
-    content: @Composable RowScope.() -> Unit
-) {
-    content()
 }

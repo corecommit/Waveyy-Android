@@ -6,6 +6,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import com.waveyy.app.ui.theme.WaveyyShapes
 
 /**
  * Loading placeholder block. Ports `components/ui/skeleton.jsx`.
