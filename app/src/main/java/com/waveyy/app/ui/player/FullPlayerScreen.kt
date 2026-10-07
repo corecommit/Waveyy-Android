@@ -161,6 +161,7 @@ private fun NowPlayingTab(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .navigationBarsPadding()
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp)
