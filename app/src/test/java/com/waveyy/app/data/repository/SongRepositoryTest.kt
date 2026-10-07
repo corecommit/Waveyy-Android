@@ -27,7 +27,8 @@ class SongRepositoryTest {
             .build()
         return SongRepository(
             retrofit.create(JiosaavnApi::class.java),
-            retrofit.create(SpotifyRecApi::class.java)
+            retrofit.create(SpotifyRecApi::class.java),
+            direct = null
         )
     }
 
