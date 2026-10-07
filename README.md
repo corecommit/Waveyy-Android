@@ -61,6 +61,23 @@ the run's **Artifacts** on the Actions tab.
 The backend (Next.js + Socket.IO) lives in the Waveyy web repo and is used
 unchanged. See that repo's README for deployment.
 
+## Play Store listing (draft)
+
+- Title: Waveyy — Sound like real waves
+- Short description: High-fidelity streaming, playlists, lyrics, and
+  real-time Listen Together rooms.
+- Full description: Waveyy for Android streams millions of tracks with a
+  dark, immersive Material 3 interface. Build playlists, follow lyrics in
+  sync (with Hinglish romanization), sync across devices with
+  Listen Together rooms, and take downloads offline.
+- Feature graphic: placeholder — 1024x500 banner with the Waveyy mark on
+  `#0B0B0F` (see `res/drawable/ic_launcher_foreground.xml`).
+- Screenshot checklist: Home rails, Search + top result, Artist page,
+  Full player (Now Playing / Lyrics tabs), Together room, dark theme only.
+- Category: Music & Audio. Content rating: Everyone (lyrics unfiltered —
+  confirm before submission).
+- Crashlytics: not integrated (pending explicit approval).
+
 ## License
 
 MIT

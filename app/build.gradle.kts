@@ -38,6 +38,21 @@ android {
         buildConfigField("String", "SAAVN_API_URL", "\"${localProperty("SAAVN_API_URL", "")}\"")
     }
 
+    // Release signing template (Phase 12). All values come from
+    // local.properties (local) or CI secrets; the keystore itself is never
+    // committed. Unsigned release builds still assemble for local testing.
+    signingConfigs {
+        create("release") {
+            val keystorePath = localProperty("RELEASE_KEYSTORE_PATH", "")
+            if (keystorePath.isNotBlank()) {
+                storeFile = file(keystorePath)
+                storePassword = localProperty("RELEASE_KEYSTORE_PASSWORD", "")
+                keyAlias = localProperty("RELEASE_KEY_ALIAS", "")
+                keyPassword = localProperty("RELEASE_KEY_PASSWORD", "")
+            }
+        }
+    }
+
     buildTypes {
         debug {
             applicationIdSuffix = ".debug"
@@ -48,8 +63,12 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            if (localProperty("RELEASE_KEYSTORE_PATH", "").isNotBlank()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
+
 
     buildFeatures {
         compose = true
