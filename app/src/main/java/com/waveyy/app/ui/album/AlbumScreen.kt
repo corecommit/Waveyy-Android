@@ -23,6 +23,7 @@ import com.waveyy.app.ui.components.AdaptiveImage
 import com.waveyy.app.ui.components.SongCard
 import com.waveyy.app.ui.components.WaveyyBadge
 import com.waveyy.app.ui.components.WaveyyProgress
+import com.waveyy.app.ui.theme.WaveyyShapes
 import com.waveyy.app.ui.components.WaveyyShapes
 
 /**
