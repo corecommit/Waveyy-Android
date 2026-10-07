@@ -19,6 +19,8 @@ import com.waveyy.app.ui.auth.SignupScreen
 import com.waveyy.app.ui.debug.ComponentGalleryScreen
 import com.waveyy.app.ui.debug.ThemeGalleryScreen
 import com.waveyy.app.ui.home.HomeScreen
+import com.waveyy.app.ui.library.PlaylistDetailScreen
+import com.waveyy.app.ui.library.PlaylistsScreen
 import com.waveyy.app.ui.placeholder.PlaceholderScreen
 import com.waveyy.app.ui.player.BottomBarPlayer
 import com.waveyy.app.ui.player.FullPlayerScreen
@@ -69,8 +71,12 @@ fun WaveyyNavHost(
                     onAlbum = { id -> navController.navigate(Routes.withId(Routes.ALBUM, id)) }
                 )
             }
-            composable(Routes.PLAYLISTS) { PlaceholderScreen("Playlists") }
-            composable(Routes.PLAYLIST_DETAIL) { PlaceholderScreen("Playlist detail") }
+            composable(Routes.PLAYLISTS) {
+                PlaylistsScreen(
+                    onOpen = { id -> navController.navigate(Routes.withId(Routes.PLAYLIST_DETAIL, id)) }
+                )
+            }
+            composable(Routes.PLAYLIST_DETAIL) { PlaylistDetailScreen() }
             composable(Routes.PROFILE) { PlaceholderScreen("Profile") }
             composable(Routes.TOGETHER) { PlaceholderScreen("Together") }
             composable(Routes.CONNECTIONS) { PlaceholderScreen("Connections") }

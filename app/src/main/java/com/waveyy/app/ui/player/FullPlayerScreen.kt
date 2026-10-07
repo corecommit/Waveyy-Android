@@ -62,7 +62,7 @@ private enum class PlayerTab { NOW_PLAYING, UP_NEXT, LYRICS }
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FullPlayerScreen(
-    viewModel: PlayerViewModel = hiltViewModel()
+    viewModel: PlayerViewModel = sharedPlayerViewModel()
 ) {
     val connection = viewModel.connection
     val state by connection.state.collectAsState()

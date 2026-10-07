@@ -8,4 +8,12 @@
     <string name="gallery_shapes">Shapes</string>
     <string name="home_error">Couldn\'t load home. Check your connection and retry.</string>
     <string name="action_retry">Retry</string>
+    <string name="library_title">Your Library</string>
+    <string name="library_guest">Log in to see your playlists.</string>
+    <string name="playlist_create">New playlist</string>
+    <string name="playlist_name_hint">Playlist name</string>
+    <string name="playlist_delete">Delete playlist</string>
+    <string name="playlist_backend_missing">Playlists are not configured yet. Run supabase/playlists.sql in Supabase.</string>
+    <string name="action_create">Create</string>
+    <string name="action_cancel">Cancel</string>
 </resources>
