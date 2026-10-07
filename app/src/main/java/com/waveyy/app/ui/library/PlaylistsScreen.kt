@@ -123,10 +123,9 @@ fun PlaylistsScreen(
                 }
             }
         }
-    }
         if (creating) {
             item {
-                Card(modifier = Modifier.padding(horizontal = 16.dp)) {
+            Card(modifier = Modifier.padding(horizontal = 16.dp)) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         WaveyyInput(
                             value = name,
