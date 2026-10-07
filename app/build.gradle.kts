@@ -66,6 +66,9 @@ android {
 
 detekt {
     config.setFrom(files("${rootProject.projectDir}/config/detekt/detekt.yml"))
+    // Unit tests live under src/test and are excluded from static analysis;
+    // assertion literals would otherwise trip naming/magic-number rules.
+    source.setFrom(files("src/main/java"))
 }
 
 dependencies {
