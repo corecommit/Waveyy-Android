@@ -71,7 +71,6 @@ fun AlbumCard(
             maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-            }
         }
     }
 }
