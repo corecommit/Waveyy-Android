@@ -105,8 +105,10 @@ dependencies {
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
     implementation(libs.supabase.postgrest)
-    implementation(libs.supabase.gotrue)
+    implementation(libs.supabase.auth)
     implementation(libs.supabase.realtime)
+    // Ktor engine required by the Supabase Kotlin client (no Ktor version pinned in TOML).
+    implementation("io.ktor:ktor-client-okhttp:3.0.0")
     implementation(libs.socketio.client)
 
     implementation(libs.timber)
