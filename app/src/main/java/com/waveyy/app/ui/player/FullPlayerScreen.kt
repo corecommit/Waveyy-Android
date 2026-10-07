@@ -6,7 +6,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Pause
@@ -73,7 +75,10 @@ fun FullPlayerScreen(
     val currentSong = queue.firstOrNull { it.id == state.mediaId }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        PrimaryTabRow(selectedTabIndex = tab) {
+        PrimaryTabRow(
+            selectedTabIndex = tab,
+            modifier = Modifier.statusBarsPadding()
+        ) {
             PlayerTab.entries.forEachIndexed { index, entry ->
                 Tab(
                     selected = tab == index,

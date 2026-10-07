@@ -1,23 +1,33 @@
 package com.waveyy.app.ui.search
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.waveyy.app.R
 import com.waveyy.app.domain.model.Song
+import com.waveyy.app.ui.components.AdaptiveImage
 import com.waveyy.app.ui.components.AlbumCard
 import com.waveyy.app.ui.components.ArtistCard
 import com.waveyy.app.ui.components.SongCard
@@ -80,17 +90,12 @@ private fun SearchResults(
         }
         item {
             SectionTitle("Songs")
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                itemsIndexed(current.songs, key = { _, song -> song.id }) { index, song ->
-                    SongCard(
-                        title = song.name,
-                        artist = song.artist,
-                        imageUrl = song.imageUrl,
-                        songId = song.id,
-                        onPlay = { onPlaySong(current.songs, index) }
-                    )
-                }
-            }
+        }
+        itemsIndexed(current.songs, key = { _, song -> song.id }) { index, song ->
+            SongRow(
+                song = song,
+                onPlay = { onPlaySong(current.songs, index) }
+            )
         }
         if (current.albums.isNotEmpty()) {
             item {
@@ -134,4 +139,59 @@ private fun SectionTitle(text: String) {
         style = MaterialTheme.typography.titleLarge,
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
     )
+}
+
+/** Vertical song row: thumbnail, title, artist, duration. Tappable to play. */
+@Composable
+private fun SongRow(
+    song: Song,
+    onPlay: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onPlay)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        AdaptiveImage(
+            imageUrl = song.imageUrl,
+            contentDescription = song.name,
+            modifier = Modifier
+                .size(56.dp)
+                .clip(RoundedCornerShape(8.dp))
+        )
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(horizontal = 12.dp)
+        ) {
+            Text(
+                text = song.name,
+                style = MaterialTheme.typography.titleMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = song.artist,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        Text(
+            text = formatDuration(song.durationSec),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+/** Formats seconds as m:ss. */
+private fun formatDuration(totalSeconds: Long): String {
+    if (totalSeconds <= 0L) return "--:--"
+    val minutes = totalSeconds / 60L
+    val seconds = (totalSeconds % 60L).toString().padStart(2, '0')
+    return "$minutes:$seconds"
 }
