@@ -16,11 +16,17 @@ import retrofit2.http.Query
  */
 interface JiosaavnApi {
 
+    /** Default page size, matching the web client's explicit limits. */
+    companion object {
+        const val SEARCH_LIMIT = 20
+    }
+
     /** Proxies `search/songs` on the upstream deployment. */
     @GET("jiosaavn")
     suspend fun searchSongs(
         @Query("path") path: String = "searchSongs",
-        @Query("q") query: String
+        @Query("q") query: String,
+        @Query("limit") limit: Int = SEARCH_LIMIT
     ): SongsResponse
 
     /** Proxies the trending/modules upstream with chart normalization. */

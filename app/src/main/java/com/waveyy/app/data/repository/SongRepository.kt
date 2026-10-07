@@ -34,9 +34,9 @@ class SongRepository @Inject constructor(
     @Named("saavnDirect") private val direct: SaavnDirectApi?
 ) {
 
-    /** Searches songs, mirroring `getSongsByQuery`. */
-    fun searchSongs(query: String): Flow<List<Song>> = flow {
-        val body = api.searchSongs(query = query)
+    /** Searches songs, mirroring `getSongsByQuery` (limit 20 like the web). */
+    fun searchSongs(query: String, limit: Int = 20): Flow<List<Song>> = flow {
+        val body = api.searchSongs(query = query, limit = limit)
         val dtos = body.data?.results.orEmpty() + body.data?.songs.orEmpty()
         emit(SongMapper.toDomainList(dtos.distinctBy { it.id }))
     }.flowOn(Dispatchers.IO)
@@ -65,8 +65,8 @@ class SongRepository @Inject constructor(
     }.flowOn(Dispatchers.IO)
 
     /** Raw song DTOs for callers needing pre-normalization shapes. */
-    fun searchSongDtos(query: String): Flow<List<SongDto>> = flow {
-        val body = api.searchSongs(query = query)
+    fun searchSongDtos(query: String, limit: Int = 20): Flow<List<SongDto>> = flow {
+        val body = api.searchSongs(query = query, limit = limit)
         emit((body.data?.results.orEmpty() + body.data?.songs.orEmpty()).distinctBy { it.id })
     }.flowOn(Dispatchers.IO)
 

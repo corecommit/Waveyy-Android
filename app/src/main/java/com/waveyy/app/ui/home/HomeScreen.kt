@@ -62,7 +62,7 @@ fun HomeScreen(
     }
 }
 
-/** Skeleton rails while loading. Blocks carry real height so loading is visible. */
+/** Skeleton rails while loading: card-sized shimmer tiles per rail. */
 @Composable
 private fun HomeLoading(modifier: Modifier = Modifier) {
     LazyColumn(
@@ -72,11 +72,7 @@ private fun HomeLoading(modifier: Modifier = Modifier) {
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         items(3) {
-            WaveyySkeleton(
-                modifier = Modifier
-                    .fillParentMaxWidth()
-                    .height(120.dp)
-            )
+            com.waveyy.app.ui.components.ShimmerRail()
         }
     }
 }

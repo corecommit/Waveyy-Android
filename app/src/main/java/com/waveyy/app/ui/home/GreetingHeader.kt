@@ -23,12 +23,7 @@ fun GreetingHeader(
     modifier: Modifier = Modifier
 ) {
     val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
-    val greeting = when {
-        hour < 12 -> "Good morning"
-        hour < 17 -> "Good afternoon"
-        hour < 21 -> "Good evening"
-        else -> "Good night"
-    }
+    val greeting = greetingForHour(hour)
     Column(modifier = modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
         Text(
             text = greeting,
@@ -42,12 +37,12 @@ fun GreetingHeader(
     }
 }
 
-/** Preview-friendly greeting resolver (hour in 0..23). */
+/** Preview-friendly greeting resolver (hour in 0..23, 24-hour clock). */
 fun greetingForHour(hour: Int): String {
-    return when {
-        hour < 12 -> "Good morning"
-        hour < 17 -> "Good afternoon"
-        hour < 21 -> "Good evening"
+    return when (hour) {
+        in 5..11 -> "Good morning"
+        in 12..16 -> "Good afternoon"
+        in 17..20 -> "Good evening"
         else -> "Good night"
     }
 }
