@@ -2,4 +2,8 @@
 <resources>
     <string name="app_name">Waveyy</string>
     <string name="home_placeholder">Waveyy — Home (Phase 1 placeholder)</string>
+    <string name="gallery_title">Theme Gallery (debug)</string>
+    <string name="gallery_colors">Colors</string>
+    <string name="gallery_typography">Typography</string>
+    <string name="gallery_shapes">Shapes</string>
 </resources>
