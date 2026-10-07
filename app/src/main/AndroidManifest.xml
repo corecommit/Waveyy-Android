@@ -28,6 +28,19 @@
                 <action android:name="androidx.media3.session.MediaSessionService" />
             </intent-filter>
         </service>
+        <activity
+            android:name=".ui.auth.AuthCallbackActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="com.waveyy.app"
+                    android:host="auth"
+                    android:path="/callback" />
+            </intent-filter>
+        </activity>
     </application>
 
 </manifest>

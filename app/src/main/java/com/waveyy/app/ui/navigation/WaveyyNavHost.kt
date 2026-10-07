@@ -7,6 +7,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
 import androidx.navigation.compose.rememberNavController
 import com.waveyy.app.BuildConfig
+import com.waveyy.app.ui.auth.LoginScreen
+import com.waveyy.app.ui.auth.SignupScreen
 import com.waveyy.app.ui.debug.ComponentGalleryScreen
 import com.waveyy.app.ui.debug.ThemeGalleryScreen
 import com.waveyy.app.ui.home.HomeScreen
@@ -35,8 +37,26 @@ fun WaveyyNavHost() {
             composable(Routes.PROFILE) { PlaceholderScreen("Profile") }
             composable(Routes.TOGETHER) { PlaceholderScreen("Together") }
             composable(Routes.CONNECTIONS) { PlaceholderScreen("Connections") }
-            composable(Routes.LOGIN) { PlaceholderScreen("Login") }
-            composable(Routes.SIGNUP) { PlaceholderScreen("Signup") }
+            composable(Routes.LOGIN) {
+                LoginScreen(
+                    onSignedIn = {
+                        navController.navigate(Routes.HOME) {
+                            popUpTo(Routes.LOGIN) { inclusive = true }
+                        }
+                    },
+                    onSignup = { navController.navigate(Routes.SIGNUP) }
+                )
+            }
+            composable(Routes.SIGNUP) {
+                SignupScreen(
+                    onSignedIn = {
+                        navController.navigate(Routes.HOME) {
+                            popUpTo(Routes.SIGNUP) { inclusive = true }
+                        }
+                    },
+                    onLogin = { navController.popBackStack() }
+                )
+            }
             if (BuildConfig.DEBUG) {
                 composable(Routes.THEME_GALLERY) { ThemeGalleryScreen() }
                 composable(DebugRoutes.COMPONENT_GALLERY) { ComponentGalleryScreen() }
