@@ -188,7 +188,7 @@ class PlaylistRepository @Inject constructor(
         getPlaylists(userId).onSuccess { playlists ->
             playlists.find { it.id == id }?.let { return Result.success(it) }
         }.onFailure { error ->
-            if (isBackendMissing(error.exceptionOrNull())) return missing()
+            if (isBackendMissing(error)) return missing()
         }
         return runCatching {
             val liked = Playlist(id = id, name = LIKED_NAME, songs = emptyList(), createdAt = 0L)
