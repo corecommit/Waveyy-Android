@@ -43,7 +43,7 @@ data class ProfileRow(
  */
 @Singleton
 class AuthRepository @Inject constructor(
-    clientProvider: SupabaseClientProvider,
+    private val clientProvider: SupabaseClientProvider,
     private val userPrefs: UserPrefs
 ) {
 
