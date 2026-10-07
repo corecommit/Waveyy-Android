@@ -1,0 +1,62 @@
+name: Android CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Write local.properties
+        run: |
+          cat > local.properties <<EOF
+          sdk.dir=$ANDROID_SDK_ROOT
+          API_BASE_URL=${{ secrets.API_BASE_URL }}
+          SOCKET_URL=${{ secrets.SOCKET_URL }}
+          SUPABASE_URL=${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
+          EOF
+
+      - name: Lint
+        run: gradle :app:lintDebug --no-daemon --console=plain
+
+      - name: Detekt
+        run: gradle :app:detekt --no-daemon --console=plain
+
+      - name: Assemble debug
+        run: gradle :app:assembleDebug --no-daemon --console=plain
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: waveyy-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
+          retention-days: 14
+
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reports
+          path: |
+            app/build/reports/tests/
+            app/build/reports/lint-results-debug.html
+            app/build/reports/detekt/
+          retention-days: 14

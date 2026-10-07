@@ -1,39 +1,64 @@
-# Waveyy-Android
+# Waveyy Android
 
-Native Android client for Waveyy (Jetpack Compose + Material 3), backed by the
-existing Next.js API routes and Socket.IO servers. The web app at
-`/root/Waveyy` is the reference implementation and is treated as read-only.
+Native Android client for Waveyy — a music streaming app built with
+**Jetpack Compose** and **Material 3 Expressive**.
 
-## Prerequisites
+Backed by the existing Waveyy Next.js API routes and Socket.IO server. This
+app does **not** reimplement the backend.
 
-- JDK 17 (Gradle/AGP run on 17; `org.gradle.java.home` must point at it)
-- Android SDK with `platforms;android-35` + `build-tools;35.0.0`
-- Copy `local.properties.example` to `local.properties` and fill in
-  `API_BASE_URL`, `SOCKET_URL`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`
-  (dummy values keep debug builds compiling)
+## Tech Stack
 
-## Build / verify (Phase 1 gate)
+- Kotlin 2.1 · AGP 8.7 · Gradle 8.9
+- Jetpack Compose (BOM 2025.x) + Material 3 + Material 3 Adaptive
+- Navigation Compose
+- Media3 (ExoPlayer + MediaSessionService) for playback
+- Hilt for dependency injection
+- Retrofit + OkHttp + kotlinx-serialization
+- Room + DataStore for local persistence
+- Coil for image loading
+- Supabase Kotlin SDK (auth + PostgREST)
+- socket.io-client-java for Listen Together
+- Detekt + ktlint for static analysis
 
-```bash
-./gradlew :app:assembleDebug :app:lintDebug :app:detekt
+## Architecture
+
+MVVM + Clean Architecture, single `:app` module.
+
+```
+com.waveyy.app/
+├── di/               Hilt modules
+├── data/             remote (Retrofit), local (Room, DataStore), repository
+├── domain/           models + use cases
+├── playback/         PlaybackService, PlaybackConnection, QueueManager
+├── realtime/         Socket.IO room client
+├── ui/               theme, navigation, components, feature screens
+└── util/             audio-quality, lyrics parser, formatters
 ```
 
-## Phase status
+## Build
 
-- [x] Phase 1 — Scaffolding (this commit)
-- [ ] Phase 2 — Design System
-- [ ] Phase 3 — Networking & Data
-- [ ] Phase 4 — Playback (Media3)
-- [ ] Phase 5 — Navigation Shell + Components
-- [ ] Phase 6 — Auth (Supabase Kotlin)
-- [ ] Phase 7 — Home / Search / Album / Artist
-- [ ] Phase 8 — Player UI + Lyrics
-- [ ] Phase 9 — Playlists / History / Library
-- [ ] Phase 10 — Listen Together (Socket.IO)
-- [ ] Phase 11 — Deep Links, Adaptive, Accessibility, Baseline Profile
-- [ ] Phase 12 — Release Prep
+**All builds run in GitHub Actions.** This repo does not contain a Gradle
+wrapper and is not intended to be built locally. Every push to `main`
+triggers `.github/workflows/android.yml`, which produces a debug APK under
+the run's **Artifacts** on the Actions tab.
 
-## Web-only features intentionally not ported
+### Required secrets (Settings → Secrets and variables → Actions)
+- `API_BASE_URL` — Waveyy Next.js API base (e.g. `https://<host>/api/`)
+- `SOCKET_URL`   — Socket.IO server URL
+- `SUPABASE_URL`
+- `SUPABASE_ANON_KEY`
 
-Service worker / PWA manifest, Discord RPC (`scripts/discord-rpc.cjs`,
-`/api/discord/activity`), and the commented-out `mobile-menu.jsx`.
+### Downloading the APK
+1. Open the **Actions** tab.
+2. Click the latest successful run of **Android CI**.
+3. Scroll to **Artifacts** → download `waveyy-debug-apk`.
+4. Unzip, install on device.
+
+## Backend
+
+The backend (Next.js + Socket.IO) lives in the Waveyy web repo and is used
+unchanged. See that repo's README for deployment.
+
+## License
+
+MIT
