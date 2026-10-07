@@ -15,6 +15,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.waveyy.app.ui.theme.ThemePreviews
+import com.waveyy.app.ui.theme.WaveyyShapes
 import com.waveyy.app.ui.theme.WaveyyTheme
 
 /**
