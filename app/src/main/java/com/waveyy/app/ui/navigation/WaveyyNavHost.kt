@@ -7,10 +7,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
+import androidx.navigation.navDeepLink
 import com.waveyy.app.BuildConfig
 import com.waveyy.app.ui.album.AlbumScreen
 import com.waveyy.app.ui.artist.ArtistScreen
@@ -64,10 +67,16 @@ fun WaveyyNavHost(
                     onArtist = { id -> navController.navigate(Routes.withId(Routes.ARTIST, id)) }
                 )
             }
-            composable(Routes.ALBUM) {
+            composable(
+                route = Routes.ALBUM,
+                deepLinks = listOf(navDeepLink { uriPattern = "waveyy://album/{id}" })
+            ) {
                 AlbumScreen()
             }
-            composable(Routes.ARTIST) {
+            composable(
+                route = Routes.ARTIST,
+                deepLinks = listOf(navDeepLink { uriPattern = "waveyy://artist/{id}" })
+            ) {
                 ArtistScreen(
                     onAlbum = { id -> navController.navigate(Routes.withId(Routes.ALBUM, id)) }
                 )
@@ -77,9 +86,22 @@ fun WaveyyNavHost(
                     onOpen = { id -> navController.navigate(Routes.withId(Routes.PLAYLIST_DETAIL, id)) }
                 )
             }
-            composable(Routes.PLAYLIST_DETAIL) { PlaylistDetailScreen() }
+            composable(
+                route = Routes.PLAYLIST_DETAIL,
+                deepLinks = listOf(navDeepLink { uriPattern = "waveyy://playlist/{id}" })
+            ) { PlaylistDetailScreen() }
             composable(Routes.PROFILE) { PlaceholderScreen("Profile") }
-            composable(Routes.TOGETHER) { TogetherScreen() }
+            composable(
+                route = Routes.TOGETHER,
+                arguments = listOf(
+                    navArgument("roomId") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    }
+                ),
+                deepLinks = listOf(navDeepLink { uriPattern = "waveyy://room/{roomId}" })
+            ) { TogetherScreen() }
             composable(Routes.CONNECTIONS) { PlaceholderScreen("Connections") }
             composable(Routes.LOGIN) {
                 LoginScreen(
@@ -107,7 +129,10 @@ fun WaveyyNavHost(
             }
         }
         navigation(startDestination = Routes.PLAYER, route = Graph.PLAYER) {
-            composable(Routes.PLAYER) {
+            composable(
+                route = Routes.PLAYER,
+                deepLinks = listOf(navDeepLink { uriPattern = "waveyy://song/{id}" })
+            ) {
                 FullPlayerScreen(viewModel = playerVm)
             }
         }
