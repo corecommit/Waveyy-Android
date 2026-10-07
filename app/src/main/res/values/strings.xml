@@ -6,4 +6,6 @@
     <string name="gallery_colors">Colors</string>
     <string name="gallery_typography">Typography</string>
     <string name="gallery_shapes">Shapes</string>
+    <string name="home_error">Couldn\'t load home. Check your connection and retry.</string>
+    <string name="action_retry">Retry</string>
 </resources>
