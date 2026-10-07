@@ -34,6 +34,7 @@ jobs:
           SOCKET_URL=${{ secrets.SOCKET_URL }}
           SUPABASE_URL=${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
+          SAAVN_API_URL=${{ secrets.SAAVN_API_URL }}
           EOF
 
       - name: Lint

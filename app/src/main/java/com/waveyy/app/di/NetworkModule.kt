@@ -15,6 +15,7 @@ import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.kotlinx.serialization.asConverterFactory
 import java.util.concurrent.TimeUnit
+import javax.inject.Named
 import javax.inject.Singleton
 
 /** Networking graph: lenient JSON, debug-only logging, three API surfaces. */
@@ -78,4 +79,24 @@ object NetworkModule {
     @Singleton
     fun provideSpotifyRecApi(retrofit: Retrofit): SpotifyRecApi =
         retrofit.create(SpotifyRecApi::class.java)
+
+    /**
+     * Direct-deployment Retrofit, or null when `SAAVN_API_URL` is blank.
+     * Covers the two calls with no proxy equivalent (song fetch, album
+     * search), mirroring `NEXT_PUBLIC_API_URL` usage in `lib/fetch.js`.
+     */
+    @Provides
+    @Singleton
+    @Named("saavnDirect")
+    fun provideDirectApi(json: Json, client: OkHttpClient): com.waveyy.app.data.remote.SaavnDirectApi? {
+        val base = BuildConfig.SAAVN_API_URL.trim()
+        if (base.isBlank()) return null
+        val contentType = "application/json".toMediaType()
+        return Retrofit.Builder()
+            .baseUrl(if (base.endsWith("/")) base else "$base/")
+            .client(client)
+            .addConverterFactory(json.asConverterFactory(contentType))
+            .build()
+            .create(com.waveyy.app.data.remote.SaavnDirectApi::class.java)
+    }
 }

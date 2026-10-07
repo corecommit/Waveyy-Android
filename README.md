@@ -47,6 +47,8 @@ the run's **Artifacts** on the Actions tab.
 - `SOCKET_URL`   — Socket.IO server URL
 - `SUPABASE_URL`
 - `SUPABASE_ANON_KEY`
+- `SAAVN_API_URL` (optional) — direct JioSaavn deployment for song fetch +
+  album search; blank disables those two calls
 
 ### Downloading the APK
 1. Open the **Actions** tab.

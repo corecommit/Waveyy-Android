@@ -35,6 +35,7 @@ android {
         buildConfigField("String", "SOCKET_URL", "\"${localProperty("SOCKET_URL", "https://example.com")}\"")
         buildConfigField("String", "SUPABASE_URL", "\"${localProperty("SUPABASE_URL", "https://example.supabase.co")}\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"${localProperty("SUPABASE_ANON_KEY", "dummy-key-for-local-builds-only")}\"")
+        buildConfigField("String", "SAAVN_API_URL", "\"${localProperty("SAAVN_API_URL", "")}\"")
     }
 
     buildTypes {

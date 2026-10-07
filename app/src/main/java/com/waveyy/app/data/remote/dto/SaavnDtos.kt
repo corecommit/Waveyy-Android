@@ -13,7 +13,8 @@ data class SaavnImage(
 @Serializable
 data class SaavnArtistRef(
     val id: String = "",
-    val name: String = ""
+    val name: String = "",
+    val image: List<SaavnImage> = emptyList()
 )
 
 /** The `artists` object on songs/albums. */
@@ -25,7 +26,9 @@ data class SaavnArtists(
 /** Minimal album reference embedded in songs. */
 @Serializable
 data class SaavnAlbumRef(
-    val name: String? = null
+    val name: String? = null,
+    val id: String? = null,
+    val language: String? = null
 )
 
 /** One entry of the `downloadUrl` array. */
@@ -58,7 +61,11 @@ data class SongDto(
     @Serializable(with = FlexibleLongSerializer::class)
     val playCountSnake: Long = 0L,
     val downloadUrl: List<SaavnDownloadUrl> = emptyList(),
-    val language: String? = null
+    val language: String? = null,
+    val genres: List<String> = emptyList(),
+    val genre: String? = null,
+    val year: String? = null,
+    val releaseDate: String? = null
 )
 
 /** `{success, data: {results|...}}` search envelope. */
@@ -87,6 +94,19 @@ data class SongResponse(
 data class AlbumResponse(
     val success: Boolean = false,
     val data: AlbumDto? = null
+)
+
+/** Album search envelope (`search/albums?query=`, direct deployment). */
+@Serializable
+data class AlbumSearchResponse(
+    val success: Boolean = false,
+    val data: AlbumSearchData? = null
+)
+
+/** Payload of [AlbumSearchResponse]. */
+@Serializable
+data class AlbumSearchData(
+    val results: List<AlbumDto> = emptyList()
 )
 
 /** Album payload. */

@@ -1,7 +1,9 @@
 package com.waveyy.app.data.repository
 
 import com.waveyy.app.data.remote.JiosaavnApi
+import com.waveyy.app.data.remote.SaavnDirectApi
 import com.waveyy.app.data.remote.SpotifyRecApi
+import com.waveyy.app.data.remote.dto.SongDto
 import com.waveyy.app.data.remote.mapper.AlbumMapper
 import com.waveyy.app.data.remote.mapper.ArtistMapper
 import com.waveyy.app.data.remote.mapper.RecommendedSongsParser
@@ -14,16 +16,22 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import javax.inject.Inject
+import javax.inject.Named
 import javax.inject.Singleton
 
 /**
  * Catalog access: search, charts, songs, albums, artists, recommendations.
  * Every stream is cold and runs on IO.
+ *
+ * The proxy surface ([JiosaavnApi]) is primary. [direct] covers the two
+ * calls with no proxy equivalent (direct song fetch, album search) and is
+ * null when `SAAVN_API_URL` is unconfigured — those flows then stay empty.
  */
 @Singleton
 class SongRepository @Inject constructor(
     private val api: JiosaavnApi,
-    private val spotifyApi: SpotifyRecApi
+    private val spotifyApi: SpotifyRecApi,
+    @Named("saavnDirect") private val direct: SaavnDirectApi?
 ) {
 
     /** Searches songs, mirroring `getSongsByQuery`. */
@@ -54,6 +62,23 @@ class SongRepository @Inject constructor(
     /** Artist detail, mirroring `getArtistById`. */
     fun artistById(id: String): Flow<Artist?> = flow {
         emit(api.artistDetails(artistId = id).data?.let(ArtistMapper::toDomain))
+    }.flowOn(Dispatchers.IO)
+
+    /** Raw song DTOs for callers needing pre-normalization shapes. */
+    fun searchSongDtos(query: String): Flow<List<SongDto>> = flow {
+        val body = api.searchSongs(query = query)
+        emit((body.data?.results.orEmpty() + body.data?.songs.orEmpty()).distinctBy { it.id })
+    }.flowOn(Dispatchers.IO)
+
+    /** Album search via the direct deployment (empty when unconfigured). */
+    fun searchAlbums(query: String): Flow<List<Album>> = flow {
+        val body = direct?.searchAlbums(query)
+        emit(body?.data?.results.orEmpty().mapNotNull(AlbumMapper::toDomain))
+    }.flowOn(Dispatchers.IO)
+
+    /** Direct song fetch (empty when unconfigured). */
+    fun songById(id: String): Flow<Song?> = flow {
+        emit(direct?.songById(id)?.data?.let(SongMapper::toDomain))
     }.flowOn(Dispatchers.IO)
 
     /** Spotify-mapped recommendations, mirroring `getSpotifyRecommendations`. */

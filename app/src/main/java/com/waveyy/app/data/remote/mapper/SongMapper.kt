@@ -71,7 +71,8 @@ object SongMapper {
             imageUrl = imageOf(dto.image),
             durationSec = dto.duration,
             playCount = playCountOf(dto),
-            streams = streamsOf(dto.downloadUrl)
+            streams = streamsOf(dto.downloadUrl),
+            year = dto.year ?: dto.releaseDate?.take(4).orEmpty()
         )
     }
 
