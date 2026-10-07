@@ -23,5 +23,6 @@ data class Song(
     val imageUrl: String,
     val durationSec: Long,
     val playCount: Long,
-    val streams: List<AudioStream>
+    val streams: List<AudioStream>,
+    val year: String = ""
 )

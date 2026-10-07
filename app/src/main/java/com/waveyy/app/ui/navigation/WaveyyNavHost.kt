@@ -7,12 +7,15 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
 import androidx.navigation.compose.rememberNavController
 import com.waveyy.app.BuildConfig
+import com.waveyy.app.ui.album.AlbumScreen
+import com.waveyy.app.ui.artist.ArtistScreen
 import com.waveyy.app.ui.auth.LoginScreen
 import com.waveyy.app.ui.auth.SignupScreen
 import com.waveyy.app.ui.debug.ComponentGalleryScreen
 import com.waveyy.app.ui.debug.ThemeGalleryScreen
 import com.waveyy.app.ui.home.HomeScreen
 import com.waveyy.app.ui.placeholder.PlaceholderScreen
+import com.waveyy.app.ui.search.SearchScreen
 
 /**
  * Root navigation host with two nested graphs:
@@ -28,10 +31,26 @@ fun WaveyyNavHost() {
     val navController: NavHostController = rememberNavController()
     NavHost(navController = navController, startDestination = Graph.ROOT) {
         navigation(startDestination = Routes.HOME, route = Graph.ROOT) {
-            composable(Routes.HOME) { HomeScreen() }
-            composable(Routes.SEARCH) { PlaceholderScreen("Search") }
-            composable(Routes.ALBUM) { PlaceholderScreen("Album") }
-            composable(Routes.ARTIST) { PlaceholderScreen("Artist") }
+            composable(Routes.HOME) {
+                HomeScreen(
+                    onAlbum = { id -> navController.navigate(Routes.withId(Routes.ALBUM, id)) },
+                    onArtist = { id -> navController.navigate(Routes.withId(Routes.ARTIST, id)) }
+                )
+            }
+            composable(Routes.SEARCH) {
+                SearchScreen(
+                    onAlbum = { id -> navController.navigate(Routes.withId(Routes.ALBUM, id)) },
+                    onArtist = { id -> navController.navigate(Routes.withId(Routes.ARTIST, id)) }
+                )
+            }
+            composable(Routes.ALBUM) {
+                AlbumScreen()
+            }
+            composable(Routes.ARTIST) {
+                ArtistScreen(
+                    onAlbum = { id -> navController.navigate(Routes.withId(Routes.ALBUM, id)) }
+                )
+            }
             composable(Routes.PLAYLISTS) { PlaceholderScreen("Playlists") }
             composable(Routes.PLAYLIST_DETAIL) { PlaceholderScreen("Playlist detail") }
             composable(Routes.PROFILE) { PlaceholderScreen("Profile") }
