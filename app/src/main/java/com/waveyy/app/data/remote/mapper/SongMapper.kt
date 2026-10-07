@@ -10,6 +10,7 @@ import com.waveyy.app.domain.model.Artist
 import com.waveyy.app.domain.model.AudioStream
 import com.waveyy.app.domain.model.Song
 import com.waveyy.app.util.AudioQualitySelector
+import com.waveyy.app.util.HtmlDecoder
 
 /**
  * Normalizes the inconsistent JioSaavn shapes into domain models.
@@ -18,17 +19,21 @@ import com.waveyy.app.util.AudioQualitySelector
  */
 object SongMapper {
 
-    /** Display title: `name`, `title`, then legacy `song`. */
+    /** Display title: `name`, `title`, then legacy `song` (HTML-decoded). */
     fun titleOf(dto: SongDto): String {
         val title = dto.name ?: dto.title ?: dto.song
-        return title?.takeIf { it.isNotBlank() } ?: "Unknown"
+        return HtmlDecoder.decode(title?.takeIf { it.isNotBlank() } ?: "Unknown")
     }
 
-    /** Display artist: flat string, else joined `artists.primary` names. */
+    /**
+     * Display artist: flat string, else joined `artists.primary` names
+     * (HTML-decoded).
+     */
     fun artistOf(dto: SongDto): String {
-        dto.artist?.takeIf { it.isNotBlank() }?.let { return it.trim() }
+        dto.artist?.takeIf { it.isNotBlank() }?.let { return HtmlDecoder.decode(it.trim()) }
         val names = dto.artists?.primary.orEmpty().mapNotNull { it.name.takeIf(String::isNotBlank) }
-        return names.joinToString(", ").takeIf { it.isNotBlank() } ?: "unknown"
+        val joined = names.joinToString(", ").takeIf { it.isNotBlank() } ?: "unknown"
+        return HtmlDecoder.decode(joined)
     }
 
     /** Best image: largest rendition first (`[2]`, `[1]`, `[0]`). */
@@ -37,9 +42,9 @@ object SongMapper {
         return urls.lastOrNull() ?: ""
     }
 
-    /** Display album name. */
+    /** Display album name (HTML-decoded). */
     fun albumOf(dto: SongDto): String {
-        return dto.album?.name?.takeIf { it.isNotBlank() } ?: "unknown"
+        return HtmlDecoder.decode(dto.album?.name?.takeIf { it.isNotBlank() } ?: "unknown")
     }
 
     /** Effective play count (`playCount`, falling back to `play_count`). */
@@ -92,8 +97,8 @@ object AlbumMapper {
             ?: "unknown"
         return Album(
             id = dto.id,
-            name = dto.name ?: dto.title ?: "Unknown Album",
-            artist = artist,
+            name = HtmlDecoder.decode(dto.name ?: dto.title ?: "Unknown Album"),
+            artist = HtmlDecoder.decode(artist),
             imageUrl = SongMapper.imageOf(dto.image),
             songs = SongMapper.toDomainList(dto.songs)
         )
@@ -108,7 +113,7 @@ object ArtistMapper {
         if (dto.id.isBlank()) return null
         return Artist(
             id = dto.id,
-            name = dto.name ?: "Unknown Artist",
+            name = HtmlDecoder.decode(dto.name ?: "Unknown Artist"),
             imageUrl = SongMapper.imageOf(dto.image),
             followerCount = dto.followerCount,
             topSongs = SongMapper.toDomainList(dto.topSongs),
