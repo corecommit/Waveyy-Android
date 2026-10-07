@@ -26,6 +26,7 @@ import com.waveyy.app.ui.player.BottomBarPlayer
 import com.waveyy.app.ui.player.FullPlayerScreen
 import com.waveyy.app.ui.player.PlayerViewModel
 import com.waveyy.app.ui.search.SearchScreen
+import com.waveyy.app.ui.together.TogetherScreen
 
 /**
  * Root navigation host with two nested graphs:
@@ -78,7 +79,7 @@ fun WaveyyNavHost(
             }
             composable(Routes.PLAYLIST_DETAIL) { PlaylistDetailScreen() }
             composable(Routes.PROFILE) { PlaceholderScreen("Profile") }
-            composable(Routes.TOGETHER) { PlaceholderScreen("Together") }
+            composable(Routes.TOGETHER) { TogetherScreen() }
             composable(Routes.CONNECTIONS) { PlaceholderScreen("Connections") }
             composable(Routes.LOGIN) {
                 LoginScreen(
