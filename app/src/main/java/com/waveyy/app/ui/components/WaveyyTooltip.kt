@@ -12,10 +12,15 @@ import androidx.compose.ui.Modifier
 /**
  * Long-press tooltip wrapper. Ports `components/ui/tooltip.jsx`.
  *
+ * The plain position provider is kept under an explicit deprecation
+ * suppression until the replacement API is verified against the pinned
+ * Material3 version.
+ *
  * @param text tooltip text.
  * @param modifier layout modifier.
  * @param content anchored content.
  */
+@Suppress("DEPRECATION")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WaveyyTooltip(

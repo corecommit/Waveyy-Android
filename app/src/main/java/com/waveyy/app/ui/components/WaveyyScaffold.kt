@@ -1,5 +1,6 @@
 package com.waveyy.app.ui.components
 
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.NavigationBar
@@ -8,10 +9,9 @@ import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.window.core.layout.WindowWidthSizeClass
+import androidx.compose.ui.unit.dp
 
 /**
  * One destination in the adaptive shell.
@@ -45,10 +45,10 @@ fun WaveyyScaffold(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit
 ) {
-    val widthClass = currentWindowAdaptiveInfo().windowSizeClass.windowWidthSizeClass
-    val expanded = widthClass == WindowWidthSizeClass.EXPANDED
-    Scaffold(
-        modifier = modifier,
+    // Expanded width follows the M3 window-size breakpoint (>= 840dp).
+    BoxWithConstraints(modifier = modifier) {
+        val expanded = maxWidth >= 840.dp
+        Scaffold(
         bottomBar = {
             if (!expanded) {
                 NavigationBar {
@@ -86,6 +86,7 @@ fun WaveyyScaffold(
             ) {
                 content()
             }
+        }
         }
     }
 }
