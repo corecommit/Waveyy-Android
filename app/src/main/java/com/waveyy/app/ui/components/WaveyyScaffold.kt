@@ -1,6 +1,7 @@
 package com.waveyy.app.ui.components
 
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationRail
@@ -57,7 +58,7 @@ fun WaveyyScaffold(
                 }
             }
         }
-    ) { _ ->
+    ) { padding ->
         if (expanded) {
             androidx.compose.foundation.layout.Row {
                 NavigationRail {
@@ -71,10 +72,20 @@ fun WaveyyScaffold(
                         )
                     }
                 }
-                content()
+                androidx.compose.foundation.layout.Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(padding)
+                ) {
+                    content()
+                }
             }
         } else {
-            content()
+            androidx.compose.foundation.layout.Box(
+                modifier = Modifier.padding(padding)
+            ) {
+                content()
+            }
         }
     }
 }
