@@ -1,6 +1,11 @@
 package com.waveyy.app.ui.navigation
 
+import androidx.compose.foundation.layout.Column
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -15,6 +20,9 @@ import com.waveyy.app.ui.debug.ComponentGalleryScreen
 import com.waveyy.app.ui.debug.ThemeGalleryScreen
 import com.waveyy.app.ui.home.HomeScreen
 import com.waveyy.app.ui.placeholder.PlaceholderScreen
+import com.waveyy.app.ui.player.BottomBarPlayer
+import com.waveyy.app.ui.player.FullPlayerScreen
+import com.waveyy.app.ui.player.PlayerViewModel
 import com.waveyy.app.ui.search.SearchScreen
 
 /**
@@ -27,9 +35,19 @@ import com.waveyy.app.ui.search.SearchScreen
  * replaced phase by phase (Phases 6-10).
  */
 @Composable
-fun WaveyyNavHost() {
+fun WaveyyNavHost(
+    playerVm: PlayerViewModel = hiltViewModel()
+) {
     val navController: NavHostController = rememberNavController()
-    NavHost(navController = navController, startDestination = Graph.ROOT) {
+    val playback by playerVm.connection.state.collectAsState()
+    val queue by playerVm.queue.collectAsState()
+    val currentSong = queue.firstOrNull { it.id == playback.mediaId }
+    Column {
+        NavHost(
+            navController = navController,
+            startDestination = Graph.ROOT,
+            modifier = Modifier.weight(1f)
+        ) {
         navigation(startDestination = Routes.HOME, route = Graph.ROOT) {
             composable(Routes.HOME) {
                 HomeScreen(
@@ -82,7 +100,20 @@ fun WaveyyNavHost() {
             }
         }
         navigation(startDestination = Routes.PLAYER, route = Graph.PLAYER) {
-            composable(Routes.PLAYER) { PlaceholderScreen("Player") }
+            composable(Routes.PLAYER) {
+                FullPlayerScreen(viewModel = playerVm)
+            }
+        }
+        }
+        if (queue.isNotEmpty()) {
+            BottomBarPlayer(
+                connection = playerVm.connection,
+                currentSong = currentSong,
+                onExpand = {
+                    val id = playback.mediaId ?: "current"
+                    navController.navigate(Routes.withId(Routes.PLAYER, id))
+                }
+            )
         }
     }
 }
