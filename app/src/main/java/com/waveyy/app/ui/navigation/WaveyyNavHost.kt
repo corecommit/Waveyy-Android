@@ -4,6 +4,8 @@ import androidx.compose.runtime.Composable
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.waveyy.app.BuildConfig
+import com.waveyy.app.ui.debug.ThemeGalleryScreen
 import com.waveyy.app.ui.home.HomeScreen
 
 /**
@@ -16,6 +18,11 @@ fun WaveyyNavHost() {
     NavHost(navController = navController, startDestination = Routes.HOME) {
         composable(Routes.HOME) {
             HomeScreen()
+        }
+        if (BuildConfig.DEBUG) {
+            composable(Routes.THEME_GALLERY) {
+                ThemeGalleryScreen()
+            }
         }
     }
 }
