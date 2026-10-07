@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.json.Json
@@ -25,6 +26,7 @@ class UserPrefs @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
     private val usernameMapKey = stringPreferencesKey(USERNAME_MAP_KEY)
+    private val audioQualityKey = stringPreferencesKey(AUDIO_QUALITY_KEY)
 
     /** Returns the stored username-to-email map (empty when absent). */
     suspend fun usernameMap(): Map<String, String> {
@@ -47,5 +49,21 @@ class UserPrefs @Inject constructor(
     companion object {
         /** Storage key, identical to the web client's localStorage key. */
         const val USERNAME_MAP_KEY = "local-username-map"
+
+        /** Audio quality preference key. */
+        const val AUDIO_QUALITY_KEY = "audio-quality"
+
+        /** Default audio quality label. */
+        const val DEFAULT_AUDIO_QUALITY = "Best"
+    }
+
+    /** Audio quality preference as a flow. */
+    fun audioQualityFlow(): Flow<String> {
+        return context.userPrefs.data.map { it[audioQualityKey] ?: DEFAULT_AUDIO_QUALITY }
+    }
+
+    /** Persists the audio quality choice. */
+    suspend fun setAudioQuality(option: String) {
+        context.userPrefs.edit { prefs -> prefs[audioQualityKey] = option }
     }
 }

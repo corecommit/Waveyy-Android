@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -19,6 +20,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.waveyy.app.domain.model.Album
+import com.waveyy.app.domain.model.Song
 import com.waveyy.app.ui.components.AdaptiveImage
 import com.waveyy.app.ui.components.SongCard
 import com.waveyy.app.ui.components.WaveyyBadge
@@ -32,20 +34,20 @@ import com.waveyy.app.ui.theme.WaveyyShapes
 @Composable
 fun AlbumScreen(
     viewModel: AlbumViewModel = hiltViewModel(),
-    onPlay: (String) -> Unit = {}
+    onPlaySong: (List<Song>, Int) -> Unit = { _, _ -> }
 ) {
     val state by viewModel.state.collectAsState()
     when (val current = state) {
         AlbumUiState.Loading, is AlbumUiState.Error -> {
             WaveyyProgress(progress = null, modifier = Modifier.padding(32.dp))
         }
-        is AlbumUiState.Success -> AlbumContent(album = current.album, onPlay = onPlay)
+        is AlbumUiState.Success -> AlbumContent(album = current.album, onPlaySong = onPlaySong)
     }
 }
 
 /** Loaded album body. */
 @Composable
-private fun AlbumContent(album: Album, onPlay: (String) -> Unit) {
+private fun AlbumContent(album: Album, onPlaySong: (List<Song>, Int) -> Unit) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -76,13 +78,13 @@ private fun AlbumContent(album: Album, onPlay: (String) -> Unit) {
                 )
             }
         }
-        items(album.songs, key = { it.id }) { song ->
+        itemsIndexed(album.songs, key = { _, song -> song.id }) { index, song ->
             SongCard(
                 title = song.name,
                 artist = song.artist,
                 imageUrl = song.imageUrl,
                 songId = song.id,
-                onPlay = onPlay,
+                onPlay = { onPlaySong(album.songs, index) },
                 modifier = Modifier.fillMaxWidth()
             )
         }

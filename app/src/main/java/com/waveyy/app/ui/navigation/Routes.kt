@@ -3,7 +3,8 @@ package com.waveyy.app.ui.navigation
 /** Root graph destinations. Full route table lands in Phase 5. */
 object Routes {
     const val HOME = "home"
-    const val SEARCH = "search/{id}"
+    const val SEARCH = "search?query={query}"
+    const val SETTINGS = "settings"
     const val ALBUM = "album/{id}"
     const val ARTIST = "artist/{id}"
     const val PLAYLISTS = "playlists"
@@ -21,5 +22,10 @@ object Routes {
     /** Route with the `{id}` argument filled in. */
     fun withId(route: String, id: String): String {
         return route.replace("{id}", id)
+    }
+
+    /** Search route with the query filled in (URL-encoded). */
+    fun withQuery(query: String): String {
+        return SEARCH.replace("{query}", android.net.Uri.encode(query))
     }
 }

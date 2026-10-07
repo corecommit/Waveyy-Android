@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -38,7 +39,7 @@ import com.waveyy.app.util.PlayCountFormatter
 @Composable
 fun ArtistScreen(
     viewModel: ArtistViewModel = hiltViewModel(),
-    onPlay: (String) -> Unit = {},
+    onPlaySong: (List<Song>, Int) -> Unit = { _, _ -> },
     onAlbum: (String) -> Unit = {}
 ) {
     val state by viewModel.state.collectAsState()
@@ -46,13 +47,13 @@ fun ArtistScreen(
         ArtistUiState.Loading, is ArtistUiState.Error -> {
             WaveyyProgress(progress = null, modifier = Modifier.padding(32.dp))
         }
-        is ArtistUiState.Success -> ArtistContent(page = current.page, onPlay = onPlay, onAlbum = onAlbum)
+        is ArtistUiState.Success -> ArtistContent(page = current.page, onPlaySong = onPlaySong, onAlbum = onAlbum)
     }
 }
 
 /** Loaded artist body. */
 @Composable
-private fun ArtistContent(page: ArtistPage, onPlay: (String) -> Unit, onAlbum: (String) -> Unit) {
+private fun ArtistContent(page: ArtistPage, onPlaySong: (List<Song>, Int) -> Unit, onAlbum: (String) -> Unit) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -92,7 +93,7 @@ private fun ArtistContent(page: ArtistPage, onPlay: (String) -> Unit, onAlbum: (
                         text = HtmlDecoder.decode(release.name),
                         style = MaterialTheme.typography.titleLarge
                     )
-                    HeroPlayButton(songId = release.id, onPlay = onPlay)
+                    HeroPlayButton(songId = release.id, onPlay = { onPlaySong(listOf(release), 0) })
                 }
             }
         }
@@ -103,7 +104,7 @@ private fun ArtistContent(page: ArtistPage, onPlay: (String) -> Unit, onAlbum: (
                     style = MaterialTheme.typography.titleLarge,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                 )
-                PodiumRow(songs = page.podium, onPlay = onPlay)
+                PodiumRow(songs = page.podium, onPlaySong = onPlaySong)
             }
         }
         if (page.tracks.isNotEmpty()) {
@@ -114,13 +115,13 @@ private fun ArtistContent(page: ArtistPage, onPlay: (String) -> Unit, onAlbum: (
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                 )
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    items(page.tracks, key = { it.id }) { song ->
+                    itemsIndexed(page.tracks, key = { _, song -> song.id }) { index, song ->
                         SongCard(
                             title = song.name,
                             artist = song.artist,
                             imageUrl = song.imageUrl,
                             songId = song.id,
-                            onPlay = onPlay
+                            onPlay = { onPlaySong(page.tracks, index) }
                         )
                     }
                 }
@@ -151,7 +152,7 @@ private fun ArtistContent(page: ArtistPage, onPlay: (String) -> Unit, onAlbum: (
 
 /** Top-3 podium row (silver, gold, bronze order). */
 @Composable
-private fun PodiumRow(songs: List<Song>, onPlay: (String) -> Unit) {
+private fun PodiumRow(songs: List<Song>, onPlaySong: (List<Song>, Int) -> Unit) {
     val ordered = listOf(2 to songs[1], 1 to songs[0], 3 to songs[2])
     Row(
         modifier = Modifier
@@ -179,7 +180,7 @@ private fun PodiumRow(songs: List<Song>, onPlay: (String) -> Unit) {
                     artist = PlayCountFormatter.format(song.playCount) + " streams",
                     imageUrl = "",
                     songId = song.id,
-                    onPlay = onPlay
+                    onPlay = { onPlaySong(songs, songs.indexOf(song)) }
                 )
             }
         }

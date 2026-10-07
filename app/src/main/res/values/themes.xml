@@ -2,4 +2,11 @@
 <!-- Minimal host theme for Phase 1. Phase 2 replaces this with WaveyyTheme tokens. -->
 <resources>
     <style name="Theme.Waveyy" parent="android:Theme.Material.NoActionBar" />
+
+    <!-- Cold-start splash (B2): branded background + icon, then Theme.Waveyy. -->
+    <style name="Theme.Waveyy.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/ic_launcher_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.Waveyy</item>
+    </style>
 </resources>
