@@ -67,10 +67,10 @@ jobs:
             app/build/reports/detekt/
           retention-days: 14
 
-  # Optional signed release bundle. Runs only on manual dispatch when a
-  # keystore is provided via secrets. Never required for CI to pass.
+  # Optional signed release bundle. The gate lives in shell (not in a
+  # job-level `if`), so an unconfigured keystore can never invalidate the
+  # workflow: the job simply skips the bundle step.
   release:
-    if: github.event_name == 'workflow_dispatch' && secrets.RELEASE_KEYSTORE_BASE64 != ''
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -103,13 +103,21 @@ jobs:
           RELEASE_KEY_PASSWORD=${{ secrets.RELEASE_KEY_PASSWORD }}
           EOF
 
-      - name: Decode keystore
-        run: echo "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" | base64 -d > release.keystore
+      - name: Decode keystore or skip release
+        run: |
+          if [ -z "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" ]; then
+            echo "SKIP_RELEASE=true" >> "$GITHUB_ENV"
+            echo "No keystore secret; bundle step will skip."
+          else
+            echo "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" | base64 -d > release.keystore
+          fi
 
       - name: Bundle release
+        if: env.SKIP_RELEASE != 'true'
         run: gradle :app:bundleRelease --no-daemon --console=plain
 
       - name: Upload AAB
+        if: env.SKIP_RELEASE != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: waveyy-release-aab
