@@ -1,8 +1,11 @@
 # Gradle
 .gradle/
 build/
-!gradle-wrapper.jar
-!gradle-wrapper.properties
+.kotlin/
+# No Gradle wrapper in this repo (CI provisions Gradle). Never commit these.
+/gradlew
+/gradlew.bat
+/gradle/wrapper/
 
 # Android Studio / IntelliJ
 .idea/
