@@ -23,8 +23,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -73,7 +73,7 @@ fun FullPlayerScreen(
     val currentSong = queue.firstOrNull { it.id == state.mediaId }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        TabRow(selectedTabIndex = tab) {
+        PrimaryTabRow(selectedTabIndex = tab) {
             PlayerTab.entries.forEachIndexed { index, entry ->
                 Tab(
                     selected = tab == index,
