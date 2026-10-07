@@ -66,3 +66,52 @@ jobs:
             app/build/reports/lint-results-debug.html
             app/build/reports/detekt/
           retention-days: 14
+
+  # Optional signed release bundle. Runs only on manual dispatch when a
+  # keystore is provided via secrets. Never required for CI to pass.
+  release:
+    if: github.event_name == 'workflow_dispatch' && secrets.RELEASE_KEYSTORE_BASE64 != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: ''
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+
+      - name: Write local.properties
+        run: |
+          cat > local.properties <<EOF
+          sdk.dir=$ANDROID_SDK_ROOT
+          API_BASE_URL=${{ secrets.API_BASE_URL }}
+          SOCKET_URL=${{ secrets.SOCKET_URL }}
+          SUPABASE_URL=${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
+          SAAVN_API_URL=${{ secrets.SAAVN_API_URL }}
+          RELEASE_KEYSTORE_PATH=$GITHUB_WORKSPACE/release.keystore
+          RELEASE_KEYSTORE_PASSWORD=${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          RELEASE_KEY_ALIAS=${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD=${{ secrets.RELEASE_KEY_PASSWORD }}
+          EOF
+
+      - name: Decode keystore
+        run: echo "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" | base64 -d > release.keystore
+
+      - name: Bundle release
+        run: gradle :app:bundleRelease --no-daemon --console=plain
+
+      - name: Upload AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: waveyy-release-aab
+          path: app/build/outputs/bundle/release/*.aab
+          retention-days: 30

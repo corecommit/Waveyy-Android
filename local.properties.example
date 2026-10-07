@@ -8,3 +8,8 @@ SUPABASE_ANON_KEY=paste-supabase-anon-key-here
 # Optional: direct JioSaavn deployment for song fetch + album search
 # (mirrors NEXT_PUBLIC_API_URL). Blank disables those two calls.
 SAAVN_API_URL=
+# Release signing template (Phase 12). Keystore file itself is never committed.
+#RELEASE_KEYSTORE_PATH=/path/to/waveyy-release.jks
+#RELEASE_KEYSTORE_PASSWORD=
+#RELEASE_KEY_ALIAS=waveyy
+#RELEASE_KEY_PASSWORD=
