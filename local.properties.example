@@ -1,0 +1,7 @@
+# Copy to local.properties (never committed) and fill in real values.
+# Only local.properties is read by app/build.gradle.kts -> BuildConfig.
+#sdk.dir=/path/to/android-sdk
+API_BASE_URL=https://example.com/api/
+SOCKET_URL=https://example.com
+SUPABASE_URL=https://example.supabase.co
+SUPABASE_ANON_KEY=paste-supabase-anon-key-here

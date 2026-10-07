@@ -1,0 +1,24 @@
+# Minimal Detekt config for Phase 1. Rule sets use defaults; expanded in later phases.
+build:
+  maxIssues: 0
+  excludeCorrectable: false
+config:
+  validation: true
+processors:
+  active: true
+comments:
+  active: true
+complexity:
+  active: true
+coroutines:
+  active: true
+empty-blocks:
+  active: true
+exceptions:
+  active: true
+naming:
+  active: true
+potential-bugs:
+  active: true
+style:
+  active: true

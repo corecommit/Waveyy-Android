@@ -1,0 +1,21 @@
+# Gradle
+.gradle/
+build/
+!gradle-wrapper.jar
+!gradle-wrapper.properties
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+.DS_Store
+
+# Local SDK + secrets (never commit). See local.properties.example.
+local.properties
+
+# Signing keystores (Phase 12 provides a signing template; keys never committed).
+*.jks
+*.keystore
+
+# Profiling / captures
+captures/
+*.hprof
