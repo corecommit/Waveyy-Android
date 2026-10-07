@@ -30,13 +30,17 @@ import javax.inject.Singleton
  * @param positionMs current position in milliseconds.
  * @param durationMs track duration in milliseconds, or 0 when unknown.
  * @param isBuffering whether the player is buffering.
+ * @param repeatMode Media3 repeat mode (OFF/ONE/ALL).
+ * @param shuffleEnabled whether shuffle is on.
  */
 data class PlaybackState(
     val mediaId: String? = null,
     val isPlaying: Boolean = false,
     val positionMs: Long = 0L,
     val durationMs: Long = 0L,
-    val isBuffering: Boolean = false
+    val isBuffering: Boolean = false,
+    val repeatMode: Int = Player.REPEAT_MODE_OFF,
+    val shuffleEnabled: Boolean = false
 )
 
 /**
@@ -46,7 +50,8 @@ data class PlaybackState(
  */
 @Singleton
 class PlaybackConnection @Inject constructor(
-    @ApplicationContext private val context: Context
+    @ApplicationContext private val context: Context,
+    private val queueManager: QueueManager
 ) {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -114,13 +119,72 @@ class PlaybackConnection @Inject constructor(
         controllerFuture?.await()?.seekTo(positionMs)
     }
 
+    /** Plays Waveyy [songs] from [startIndex], mapping through [QueueManager]. */
+    suspend fun playSongs(songs: List<com.waveyy.app.domain.model.Song>, startIndex: Int = 0) {
+        val items = queueManager.toMediaItems(songs)
+        if (items.isEmpty()) return
+        playItems(items, startIndex.coerceIn(items.indices))
+    }
+
+    /** Advances to the next queue item. */
+    suspend fun next() {
+        connect()
+        controllerFuture?.await()?.seekToNext()
+    }
+
+    /** Returns to the previous queue item. */
+    suspend fun previous() {
+        connect()
+        controllerFuture?.await()?.seekToPrevious()
+    }
+
+    /** Cycles repeat mode OFF -> ALL -> ONE. */
+    suspend fun cycleRepeatMode() {
+        connect()
+        val controller = controllerFuture?.await() ?: return
+        controller.repeatMode = when (controller.repeatMode) {
+            Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ALL
+            Player.REPEAT_MODE_ALL -> Player.REPEAT_MODE_ONE
+            else -> Player.REPEAT_MODE_OFF
+        }
+        publish(controller)
+    }
+
+    /** Toggles shuffle. */
+    suspend fun toggleShuffle() {
+        connect()
+        val controller = controllerFuture?.await() ?: return
+        controller.shuffleModeEnabled = !controller.shuffleModeEnabled
+        publish(controller)
+    }
+
+    /** Moves a queue item. */
+    suspend fun moveItem(from: Int, to: Int) {
+        connect()
+        controllerFuture?.await()?.moveMediaItem(from, to)
+    }
+
+    /** Removes a queue item. */
+    suspend fun removeItem(index: Int) {
+        connect()
+        controllerFuture?.await()?.removeMediaItem(index)
+    }
+
+    /** Clears the queue. */
+    suspend fun clearQueue() {
+        connect()
+        controllerFuture?.await()?.clearMediaItems()
+    }
+
     private fun publish(player: Player) {
         mutableState.value = PlaybackState(
             mediaId = player.currentMediaItem?.mediaId,
             isPlaying = player.isPlaying,
             positionMs = player.currentPosition,
             durationMs = player.duration.coerceAtLeast(0L),
-            isBuffering = player.playbackState == Player.STATE_BUFFERING
+            isBuffering = player.playbackState == Player.STATE_BUFFERING,
+            repeatMode = player.repeatMode,
+            shuffleEnabled = player.shuffleModeEnabled
         )
     }
 
