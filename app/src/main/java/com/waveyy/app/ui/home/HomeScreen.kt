@@ -1,6 +1,7 @@
 package com.waveyy.app.ui.home
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -16,6 +17,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.waveyy.app.MainActivity
@@ -111,7 +113,7 @@ private fun HomeContent(
 ) {
     LazyColumn(
         modifier = modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
             GreetingHeader(username = userName)
@@ -135,7 +137,10 @@ private fun HomeContent(
         if (sections.popularArtists.isNotEmpty()) {
             item {
                 RailTitle("Popular Artists")
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(horizontal = 16.dp)
+                ) {
                     items(sections.popularArtists, key = { it.id }) { artist ->
                         ArtistCard(
                             name = artist.name,
@@ -150,7 +155,10 @@ private fun HomeContent(
         if (sections.popularAlbums.isNotEmpty()) {
             item {
                 RailTitle("Popular Albums")
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(horizontal = 16.dp)
+                ) {
                     items(sections.popularAlbums, key = { it.id }) { album ->
                         AlbumCard(
                             title = album.name,
@@ -171,8 +179,9 @@ private fun HomeContent(
 private fun RailTitle(text: String) {
     Text(
         text = text,
-        style = MaterialTheme.typography.titleLarge,
-        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+        style = MaterialTheme.typography.headlineSmall,
+        fontWeight = FontWeight.Bold,
+        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 12.dp)
     )
 }
 
@@ -186,7 +195,10 @@ private fun SongRail(
         WaveyyProgress(progress = null, modifier = Modifier.padding(16.dp))
         return
     }
-    LazyRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+    LazyRow(
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        contentPadding = PaddingValues(horizontal = 16.dp)
+    ) {
         itemsIndexed(songs, key = { _, song -> song.id }) { index, song ->
             SongCard(
                 title = song.name,

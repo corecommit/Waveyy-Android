@@ -1,11 +1,13 @@
 package com.waveyy.app.ui.components
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -40,13 +42,19 @@ fun SongCard(
     modifier: Modifier = Modifier,
     description: String? = null
 ) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable { onPlay(songId) }
-            .padding(8.dp),
-        verticalAlignment = Alignment.CenterVertically
+    Card(
+        onClick = { onPlay(songId) },
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
         AdaptiveImage(
             imageUrl = imageUrl,
             contentDescription = title,
@@ -72,6 +80,7 @@ fun SongCard(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
+            }
         }
     }
 }
