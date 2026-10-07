@@ -176,6 +176,13 @@ class PlaybackConnection @Inject constructor(
         controllerFuture?.await()?.clearMediaItems()
     }
 
+    /** Appends one Waveyy song to the controller queue. */
+    suspend fun enqueueSong(song: com.waveyy.app.domain.model.Song) {
+        connect()
+        val item = queueManager.toMediaItem(song) ?: return
+        controllerFuture?.await()?.addMediaItem(item)
+    }
+
     private fun publish(player: Player) {
         mutableState.value = PlaybackState(
             mediaId = player.currentMediaItem?.mediaId,

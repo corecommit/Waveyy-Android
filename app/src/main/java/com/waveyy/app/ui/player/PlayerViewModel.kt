@@ -11,8 +11,8 @@ import com.waveyy.app.data.local.dao.HistoryDao
 import com.waveyy.app.data.local.HistoryEntity
 import com.waveyy.app.data.local.PlayLogEntity
 import com.waveyy.app.data.local.dao.PlayLogDao
-import com.waveyy.app.data.remote.auth.SupabaseClientProvider
 import com.waveyy.app.data.repository.AuthRepository
+import com.waveyy.app.data.repository.ListeningHistoryRepository
 import com.waveyy.app.data.repository.LyricsRepository
 import com.waveyy.app.domain.model.CachedLyrics
 import com.waveyy.app.domain.model.Song
@@ -20,14 +20,12 @@ import com.waveyy.app.playback.PlaybackConnection
 import com.waveyy.app.util.LyricsParser
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
-import io.github.jan.supabase.postgrest.from
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.Serializable
 import java.net.URL
 import javax.inject.Inject
 
@@ -55,7 +53,7 @@ class PlayerViewModel @Inject constructor(
     private val lyricsRepository: LyricsRepository,
     private val historyDao: HistoryDao,
     private val playLogDao: PlayLogDao,
-    private val clientProvider: SupabaseClientProvider,
+    private val historyRepository: ListeningHistoryRepository,
     private val authRepository: AuthRepository
 ) : ViewModel() {
 
@@ -108,16 +106,8 @@ class PlayerViewModel @Inject constructor(
             playLogDao.trimTo(PLAY_LOG_CAP)
             val userId = authRepository.currentUser()?.id
             if (userId != null) {
-                // Best-effort cloud log; missing table (PGRST205) is surfaced in Phase 9.
-                runCatching {
-                    clientProvider.client.from("listening_events").insert(
-                        ListeningEventRow(
-                            user_id = userId,
-                            song_id = songId,
-                            played_at = java.time.Instant.ofEpochMilli(now).toString()
-                        )
-                    )
-                }
+                // Best-effort cloud log; failures (incl. missing table) stay silent here.
+                historyRepository.logListeningEvent(userId, songId)
             }
         }
     }
@@ -181,6 +171,13 @@ class PlayerViewModel @Inject constructor(
         viewModelScope.launch { connection.clearQueue() }
     }
 
+    /** Appends a song to the queue (add-to-queue action). */
+    fun appendSong(song: Song) {
+        if (song.id.isBlank()) return
+        mutableQueue.value = mutableQueue.value + song
+        viewModelScope.launch { connection.enqueueSong(song) }
+    }
+
     /** Shares a song link via the system sheet. */
     fun shareSong(song: Song) {
         val send = Intent(Intent.ACTION_SEND).apply {
@@ -222,11 +219,3 @@ class PlayerViewModel @Inject constructor(
         private const val PLAY_LOG_CAP = 300
     }
 }
-
-/** Supabase `listening_events` row (see `supabase/listening_events.sql`). */
-@Serializable
-data class ListeningEventRow(
-    val user_id: String,
-    val song_id: String,
-    val played_at: String
-)
