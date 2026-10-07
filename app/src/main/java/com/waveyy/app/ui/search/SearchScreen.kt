@@ -33,6 +33,7 @@ import com.waveyy.app.ui.components.AdaptiveImage
 import com.waveyy.app.ui.components.AlbumCard
 import com.waveyy.app.ui.components.ArtistCard
 import com.waveyy.app.ui.components.SongCard
+import com.waveyy.app.ui.components.WaveyyErrorPanel
 import com.waveyy.app.ui.components.WaveyyProgress
 
 /**
@@ -48,8 +49,11 @@ fun SearchScreen(
 ) {
     val state by viewModel.state.collectAsState()
     when (val current = state) {
-        SearchUiState.Loading, is SearchUiState.Error -> {
+        SearchUiState.Loading -> {
             WaveyyProgress(progress = null, modifier = Modifier.padding(32.dp))
+        }
+        is SearchUiState.Error -> {
+            WaveyyErrorPanel(onRetry = viewModel::refresh)
         }
         is SearchUiState.Success -> {
             if (current.songs.isEmpty() && current.albums.isEmpty() && current.artists.isEmpty()) {

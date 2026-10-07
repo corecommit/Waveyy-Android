@@ -60,8 +60,13 @@ class SearchViewModel @Inject constructor(
         if (query.isBlank()) {
             mutableState.value = SearchUiState.Success(emptyList(), emptyList(), emptyList(), null)
         } else {
-            search()
+            refresh()
         }
+    }
+
+    /** (Re)runs the search. */
+    fun refresh() {
+        search()
     }
 
     private fun search() {
