@@ -25,11 +25,13 @@ import com.waveyy.app.ui.theme.WaveyyTheme
  *
  * @param onClick home navigation handler.
  * @param modifier layout modifier.
+ * @param compact compact 18sp variant sized for the 80.dp top-bar slot.
  */
 @Composable
 fun WaveyyLogo(
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    compact: Boolean = false
 ) {
     Row(
         modifier = modifier.clickable(onClick = onClick),
@@ -46,7 +48,7 @@ fun WaveyyLogo(
             },
             fontFamily = BricolageGrotesque,
             fontWeight = FontWeight.ExtraBold,
-            fontSize = 24.sp,
+            fontSize = if (compact) 18.sp else 24.sp,
             modifier = Modifier.padding(start = 4.dp, top = 2.dp)
         )
     }

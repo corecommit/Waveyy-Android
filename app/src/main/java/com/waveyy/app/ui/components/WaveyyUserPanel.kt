@@ -1,5 +1,7 @@
 package com.waveyy.app.ui.components
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.DropdownMenu
@@ -13,6 +15,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
@@ -67,10 +70,13 @@ fun WaveyyUserPanel(
 ) {
     var expanded by remember { mutableStateOf(false) }
     val session: AuthUser? by viewModel.session.collectAsState()
-    IconButton(onClick = { expanded = true }, modifier = modifier) {
-        Icon(imageVector = Icons.Filled.Person, contentDescription = "Account")
-    }
-    DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+    // Tight anchor box so the menu opens directly below the avatar on the
+    // right side instead of drifting across the screen.
+    Box(modifier = modifier.wrapContentSize(Alignment.TopEnd)) {
+        IconButton(onClick = { expanded = true }) {
+            Icon(imageVector = Icons.Filled.Person, contentDescription = "Account")
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
         if (session != null) {
             DropdownMenuItem(
                 text = { Text(session?.displayName ?: "Profile") },
@@ -115,6 +121,7 @@ fun WaveyyUserPanel(
                     onSettings()
                 }
             )
+        }
         }
     }
 }
