@@ -25,6 +25,11 @@ timber = "5.0.1"
 leakcanary = "2.14"
 junit = "4.13.2"
 turbine = "1.0.0"
+benchmarkMacro = "1.5.0"
+uiautomator = "2.4.0"
+espresso = "3.7.0"
+testRunner = "1.7.0"
+testExtJunit = "1.3.0"
 compileSdk = "36"
 minSdk = "26"
 targetSdk = "36"
@@ -75,6 +80,11 @@ timber = { group = "com.jakewharton.timber", name = "timber", version.ref = "tim
 leakcanary = { group = "com.squareup.leakcanary", name = "leakcanary-android", version.ref = "leakcanary" }
 # Test dependencies.
 junit = { group = "junit", name = "junit", version.ref = "junit" }
+benchmark-macro-junit4 = { group = "androidx.benchmark", name = "benchmark-macro-junit4", version.ref = "benchmarkMacro" }
+test-uiautomator = { group = "androidx.test.uiautomator", name = "uiautomator", version.ref = "uiautomator" }
+test-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espresso" }
+test-runner = { group = "androidx.test", name = "runner", version.ref = "testRunner" }
+test-ext-junit = { group = "androidx.test.ext", name = "junit", version.ref = "testExtJunit" }
 turbine = { group = "app.cash.turbine", name = "turbine", version.ref = "turbine" }
 coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutines" }
 okhttp-mockwebserver = { group = "com.squareup.okhttp3", name = "mockwebserver", version.ref = "okhttp" }
@@ -82,6 +92,7 @@ room-testing = { group = "androidx.room", name = "room-testing", version.ref = "
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
+android-test = { id = "com.android.test", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
