@@ -14,3 +14,4 @@ dependencyResolutionManagement {
 }
 rootProject.name = "Waveyy-Android"
 include(":app")
+include(":baselineprofile")
