@@ -54,6 +54,11 @@ class ArtistViewModel @Inject constructor(
     val state: StateFlow<ArtistUiState> = mutableState.asStateFlow()
 
     init {
+        refresh()
+    }
+
+    /** (Re)loads the artist page. */
+    fun refresh() {
         viewModelScope.launch {
             runCatching { repository.artistById(artistId).first() }
                 .onSuccess { artist ->

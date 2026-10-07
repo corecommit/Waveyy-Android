@@ -24,6 +24,7 @@ import com.waveyy.app.domain.model.Song
 import com.waveyy.app.ui.components.AdaptiveImage
 import com.waveyy.app.ui.components.SongCard
 import com.waveyy.app.ui.components.WaveyyBadge
+import com.waveyy.app.ui.components.WaveyyErrorPanel
 import com.waveyy.app.ui.components.WaveyyProgress
 import com.waveyy.app.ui.theme.WaveyyShapes
 
@@ -38,8 +39,11 @@ fun AlbumScreen(
 ) {
     val state by viewModel.state.collectAsState()
     when (val current = state) {
-        AlbumUiState.Loading, is AlbumUiState.Error -> {
+        AlbumUiState.Loading -> {
             WaveyyProgress(progress = null, modifier = Modifier.padding(32.dp))
+        }
+        is AlbumUiState.Error -> {
+            WaveyyErrorPanel(onRetry = viewModel::refresh)
         }
         is AlbumUiState.Success -> AlbumContent(album = current.album, onPlaySong = onPlaySong)
     }

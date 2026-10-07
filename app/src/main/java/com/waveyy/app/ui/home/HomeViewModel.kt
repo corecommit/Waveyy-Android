@@ -31,7 +31,8 @@ data class HomeSections(
     val popularAlbums: List<Album> = emptyList(),
     val recent: List<Song> = emptyList(),
     val recommended: List<Song> = emptyList(),
-    val recommendedGenres: List<String> = emptyList()
+    val recommendedGenres: List<String> = emptyList(),
+    val newReleases: List<Song> = emptyList()
 )
 
 /** Home screen state. */
@@ -108,8 +109,22 @@ class HomeViewModel @Inject constructor(
             popularAlbums = popularAlbumsOf(trending),
             recent = recent,
             recommended = recommended.songs,
-            recommendedGenres = recommended.genres
+            recommendedGenres = recommended.genres,
+            newReleases = loadNewReleases()
         )
+    }
+
+    /** Fresh-release rail, locale-aware like the trending chain. */
+    private suspend fun loadNewReleases(): List<Song> {
+        val localeLang = java.util.Locale.getDefault().getDisplayLanguage(java.util.Locale.ENGLISH)
+        val query = if (localeLang.equals("hindi", ignoreCase = true)) {
+            "new hindi songs"
+        } else {
+            "$localeLang new releases"
+        }
+        val dtos = runCatching { repository.searchSongDtos(query).first() }.getOrDefault(emptyList())
+        val (selected, _) = TrendingCurator.curate(dtos, NEW_RELEASE_LIMIT)
+        return SongMapper.toDomainList(selected)
     }
 
     private suspend fun loadTrending(): List<Song> {
@@ -254,6 +269,7 @@ class HomeViewModel @Inject constructor(
 
     companion object {
         private const val TRENDING_LIMIT = 20
+        private const val NEW_RELEASE_LIMIT = 10
         private const val POPULAR_LIMIT = 12
         private const val HISTORY_LIMIT = 12
         private const val RECENT_SEED_LIMIT = 10

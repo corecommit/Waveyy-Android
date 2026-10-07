@@ -134,6 +134,12 @@ private fun HomeContent(
             RailTitle("Trending")
             SongRail(songs = sections.trending, onPlaySong = onPlaySong)
         }
+        if (sections.newReleases.isNotEmpty()) {
+            item {
+                RailTitle("New Releases")
+                SongRail(songs = sections.newReleases, onPlaySong = onPlaySong)
+            }
+        }
         if (sections.popularArtists.isNotEmpty()) {
             item {
                 RailTitle("Popular Artists")

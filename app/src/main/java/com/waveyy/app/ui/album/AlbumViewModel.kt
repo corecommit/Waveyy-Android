@@ -39,6 +39,11 @@ class AlbumViewModel @Inject constructor(
     val state: StateFlow<AlbumUiState> = mutableState.asStateFlow()
 
     init {
+        refresh()
+    }
+
+    /** (Re)loads the album. */
+    fun refresh() {
         viewModelScope.launch {
             runCatching { repository.albumById(albumId).first() }
                 .onSuccess { album ->

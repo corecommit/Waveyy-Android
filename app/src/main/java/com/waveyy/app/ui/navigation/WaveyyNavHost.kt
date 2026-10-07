@@ -1,5 +1,10 @@
 package com.waveyy.app.ui.navigation
 
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -91,7 +96,17 @@ fun WaveyyNavHost(
         NavHost(
             navController = navController,
             startDestination = Graph.ROOT,
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.weight(1f),
+            enterTransition = {
+                fadeIn(animationSpec = tween(TRANSITION_MILLIS)) +
+                    slideInHorizontally(animationSpec = tween(TRANSITION_MILLIS)) { it / 3 }
+            },
+            exitTransition = { fadeOut(animationSpec = tween(TRANSITION_MILLIS)) },
+            popEnterTransition = { fadeIn(animationSpec = tween(TRANSITION_MILLIS)) },
+            popExitTransition = {
+                fadeOut(animationSpec = tween(TRANSITION_MILLIS)) +
+                    slideOutHorizontally(animationSpec = tween(TRANSITION_MILLIS)) { it / 3 }
+            }
         ) {
             navigation(startDestination = Routes.HOME, route = Graph.ROOT) {
                 composable(Routes.HOME) {
@@ -214,3 +229,6 @@ object DebugRoutes {
     /** Component gallery route. */
     const val COMPONENT_GALLERY = "debug/component-gallery"
 }
+
+/** Shared screen-transition duration (M3 default specs). */
+private const val TRANSITION_MILLIS = 300
