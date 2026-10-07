@@ -2,6 +2,7 @@ package com.waveyy.app.ui.artist
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -20,6 +21,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.waveyy.app.domain.model.Song
@@ -56,7 +58,7 @@ fun ArtistScreen(
 private fun ArtistContent(page: ArtistPage, onPlaySong: (List<Song>, Int) -> Unit, onAlbum: (String) -> Unit) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
             Row(
@@ -101,8 +103,9 @@ private fun ArtistContent(page: ArtistPage, onPlaySong: (List<Song>, Int) -> Uni
             item {
                 Text(
                     text = "Popular",
-                    style = MaterialTheme.typography.titleLarge,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 12.dp)
                 )
                 PodiumRow(songs = page.podium, onPlaySong = onPlaySong)
             }
@@ -111,10 +114,14 @@ private fun ArtistContent(page: ArtistPage, onPlaySong: (List<Song>, Int) -> Uni
             item {
                 Text(
                     text = "Tracks",
-                    style = MaterialTheme.typography.titleLarge,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 12.dp)
                 )
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        contentPadding = PaddingValues(horizontal = 16.dp)
+                    ) {
                     itemsIndexed(page.tracks, key = { _, song -> song.id }) { index, song ->
                         SongCard(
                             title = song.name,
@@ -131,10 +138,14 @@ private fun ArtistContent(page: ArtistPage, onPlaySong: (List<Song>, Int) -> Uni
             item {
                 Text(
                     text = "Albums",
-                    style = MaterialTheme.typography.titleLarge,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 12.dp)
                 )
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        contentPadding = PaddingValues(horizontal = 16.dp)
+                    ) {
                     items(page.albums, key = { it.id }) { album ->
                         AlbumCard(
                             title = album.name,

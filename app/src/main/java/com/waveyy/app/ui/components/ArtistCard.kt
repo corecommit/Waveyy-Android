@@ -1,11 +1,13 @@
 package com.waveyy.app.ui.components
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -35,13 +37,17 @@ fun ArtistCard(
     onOpen: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Column(
-        modifier = modifier
-            .width(112.dp)
-            .clickable { onOpen(artistId) }
-            .padding(4.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+    Card(
+        onClick = { onOpen(artistId) },
+        modifier = modifier.width(112.dp),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
         AdaptiveImage(
             imageUrl = imageUrl,
             contentDescription = name,
@@ -56,6 +62,7 @@ fun ArtistCard(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(top = 6.dp)
         )
+        }
     }
 }
 
