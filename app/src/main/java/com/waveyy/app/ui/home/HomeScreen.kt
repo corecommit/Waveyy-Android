@@ -1,13 +1,13 @@
 package com.waveyy.app.ui.home
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -15,35 +15,33 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.waveyy.app.R
+import com.waveyy.app.MainActivity
 import com.waveyy.app.domain.model.Song
 import com.waveyy.app.ui.components.AlbumCard
 import com.waveyy.app.ui.components.ArtistCard
 import com.waveyy.app.ui.components.SongCard
-import com.waveyy.app.ui.components.WaveyyButton
 import com.waveyy.app.ui.components.WaveyyProgress
 import com.waveyy.app.ui.components.WaveyySkeleton
 import timber.log.Timber
 
 /**
- * Home rails: Made-for-You, Trending, Artists, Albums. Song taps hand to
- * playback in Phase 8 (currently no-ops).
+ * Home rails: greeting, Made-for-You, Trending, Artists, Albums. Taps play
+ * through the shared player queue.
  */
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel(),
-    onPlay: (String) -> Unit = {},
+    onPlaySong: (List<Song>, Int) -> Unit = { _, _ -> },
     onAlbum: (String) -> Unit = {},
     onArtist: (String) -> Unit = {}
 ) {
     val state by viewModel.state.collectAsState()
+    val userName by viewModel.userName.collectAsState()
     LaunchedEffect(Unit) {
-        Timber.d("HomeScreen composed")
+        Timber.tag(MainActivity.WAVEYY_TIMING).d("HomeScreen first composition")
     }
     Scaffold { padding ->
         when (val current = state) {
@@ -54,7 +52,8 @@ fun HomeScreen(
             )
             is HomeUiState.Success -> HomeContent(
                 sections = current.sections,
-                onPlay = onPlay,
+                userName = userName,
+                onPlaySong = onPlaySong,
                 onAlbum = onAlbum,
                 onArtist = onArtist,
                 modifier = Modifier.padding(padding)
@@ -85,19 +84,19 @@ private fun HomeLoading(modifier: Modifier = Modifier) {
 /** Visible error with retry — an empty-data state must never be blank. */
 @Composable
 private fun HomeError(onRetry: () -> Unit, modifier: Modifier = Modifier) {
-    Column(
+    androidx.compose.foundation.layout.Column(
         modifier = modifier
             .fillMaxSize()
             .padding(24.dp),
         verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
+        horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally
     ) {
         Text(
-            text = stringResource(R.string.home_error),
+            text = androidx.compose.ui.res.stringResource(com.waveyy.app.R.string.home_error),
             style = MaterialTheme.typography.titleMedium
         )
-        WaveyyButton(
-            text = stringResource(R.string.action_retry),
+        com.waveyy.app.ui.components.WaveyyButton(
+            text = androidx.compose.ui.res.stringResource(com.waveyy.app.R.string.action_retry),
             onClick = onRetry,
             modifier = Modifier.padding(top = 12.dp)
         )
@@ -108,7 +107,8 @@ private fun HomeError(onRetry: () -> Unit, modifier: Modifier = Modifier) {
 @Composable
 private fun HomeContent(
     sections: HomeSections,
-    onPlay: (String) -> Unit,
+    userName: String?,
+    onPlaySong: (List<Song>, Int) -> Unit,
     onAlbum: (String) -> Unit,
     onArtist: (String) -> Unit,
     modifier: Modifier = Modifier
@@ -117,21 +117,24 @@ private fun HomeContent(
         modifier = modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
+        item {
+            GreetingHeader(username = userName)
+        }
         if (sections.recommended.isNotEmpty()) {
             item {
                 RailTitle("Made for You")
-                SongRail(songs = sections.recommended, onPlay = onPlay)
+                SongRail(songs = sections.recommended, onPlaySong = onPlaySong)
             }
         }
         if (sections.recent.isNotEmpty()) {
             item {
                 RailTitle("Recently Played")
-                SongRail(songs = sections.recent, onPlay = onPlay)
+                SongRail(songs = sections.recent, onPlaySong = onPlaySong)
             }
         }
         item {
             RailTitle("Trending")
-            SongRail(songs = sections.trending, onPlay = onPlay)
+            SongRail(songs = sections.trending, onPlaySong = onPlaySong)
         }
         if (sections.popularArtists.isNotEmpty()) {
             item {
@@ -177,22 +180,25 @@ private fun RailTitle(text: String) {
     )
 }
 
-/** Horizontal song rail. */
+/** Horizontal song rail; taps play from the tapped index. */
 @Composable
-private fun SongRail(songs: List<Song>, onPlay: (String) -> Unit) {
+private fun SongRail(
+    songs: List<Song>,
+    onPlaySong: (List<Song>, Int) -> Unit
+) {
     if (songs.isEmpty()) {
         WaveyyProgress(progress = null, modifier = Modifier.padding(16.dp))
         return
     }
     LazyRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        items(songs, key = { it.id }) { song ->
+        itemsIndexed(songs, key = { _, song -> song.id }) { index, song ->
             SongCard(
                 title = song.name,
                 artist = song.artist,
                 imageUrl = song.imageUrl,
                 songId = song.id,
                 description = null,
-                onPlay = onPlay
+                onPlay = { onPlaySong(songs, index) }
             )
         }
     }

@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.waveyy.app.data.local.dao.HistoryDao
 import com.waveyy.app.data.remote.mapper.SongMapper
+import com.waveyy.app.data.repository.AuthRepository
 import com.waveyy.app.data.repository.SongRepository
 import com.waveyy.app.domain.model.Album
 import com.waveyy.app.domain.model.Artist
@@ -14,9 +15,12 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -56,12 +60,18 @@ sealed interface HomeUiState {
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val repository: SongRepository,
-    private val historyDao: HistoryDao
+    private val historyDao: HistoryDao,
+    authRepository: AuthRepository
 ) : ViewModel() {
 
     private val mutableState = MutableStateFlow<HomeUiState>(HomeUiState.Loading)
     /** Screen state. */
     val state: StateFlow<HomeUiState> = mutableState.asStateFlow()
+
+    /** Signed-in display name, or null for guests. */
+    val userName: StateFlow<String?> = authRepository.sessionFlow
+        .map { it?.displayName }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000L), null)
 
     init {
         refresh()
@@ -103,23 +113,44 @@ class HomeViewModel @Inject constructor(
     }
 
     private suspend fun loadTrending(): List<Song> {
-        val charts = runCatching { repository.topCharts().first() }.getOrDefault(emptyList())
-        // Curate through the shared DTO pipeline (lossless round-trip below).
-        val (selected, trackKeys) = TrendingCurator.curate(charts.map(::toDto), TRENDING_LIMIT)
-        var trending = SongMapper.toDomainList(selected)
-        var keys = trackKeys
-        if (trending.size < TRENDING_LIMIT) {
-            for ((query, max) in TRENDING_FALLBACKS) {
-                if (trending.size >= TRENDING_LIMIT) break
-                val more = runCatching { repository.searchSongs(query).first() }.getOrDefault(emptyList())
-                val (picked, next) = TrendingCurator.curate(
-                    more.map(::toDto),
-                    minOf(max, TRENDING_LIMIT - trending.size),
-                    keys
-                )
-                trending += SongMapper.toDomainList(picked)
-                keys = next
-            }
+        // Locale-first chain (F6): the `/api/jiosaavn` proxy hardcodes
+        // `language=hindi` for topCharts (route.js `buildTargets`), so the
+        // device locale is honored through `searchSongs` queries instead:
+        // locale hits -> proxy charts -> english -> bundled fallbacks.
+        val localeLang = java.util.Locale.getDefault().getDisplayLanguage(java.util.Locale.ENGLISH)
+        val localeIsHindi = localeLang.equals("hindi", ignoreCase = true)
+        var trackKeys = emptySet<String>()
+        val trending = mutableListOf<Song>()
+        suspend fun pull(songs: List<Song>, limit: Int) {
+            if (trending.size >= TRENDING_LIMIT || limit <= 0) return
+            val (picked, next) = TrendingCurator.curate(songs.map(::toDto), limit, trackKeys)
+            trending += SongMapper.toDomainList(picked)
+            trackKeys = next
+        }
+        if (!localeIsHindi) {
+            pull(
+                runCatching { repository.searchSongs("$localeLang top hits").first() }
+                    .getOrDefault(emptyList()),
+                TRENDING_LIMIT
+            )
+        }
+        pull(
+            runCatching { repository.topCharts().first() }.getOrDefault(emptyList()),
+            TRENDING_LIMIT - trending.size
+        )
+        for ((query, max) in TRENDING_FALLBACKS) {
+            if (trending.size >= TRENDING_LIMIT) break
+            pull(
+                runCatching { repository.searchSongs(query).first() }.getOrDefault(emptyList()),
+                minOf(max, TRENDING_LIMIT - trending.size)
+            )
+        }
+        if (!localeIsHindi && trending.size < TRENDING_LIMIT) {
+            pull(
+                runCatching { repository.searchSongs("English top hits").first() }
+                    .getOrDefault(emptyList()),
+                TRENDING_LIMIT - trending.size
+            )
         }
         if (trending.isEmpty()) throw IllegalStateException("No clean charts data")
         return trending

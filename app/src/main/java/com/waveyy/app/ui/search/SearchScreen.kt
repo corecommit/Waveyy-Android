@@ -1,20 +1,23 @@
 package com.waveyy.app.ui.search
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.waveyy.app.R
+import com.waveyy.app.domain.model.Song
 import com.waveyy.app.ui.components.AlbumCard
 import com.waveyy.app.ui.components.ArtistCard
 import com.waveyy.app.ui.components.SongCard
@@ -27,7 +30,7 @@ import com.waveyy.app.ui.components.WaveyyProgress
 @Composable
 fun SearchScreen(
     viewModel: SearchViewModel = hiltViewModel(),
-    onPlay: (String) -> Unit = {},
+    onPlaySong: (List<Song>, Int) -> Unit = { _, _ -> },
     onAlbum: (String) -> Unit = {},
     onArtist: (String) -> Unit = {}
 ) {
@@ -36,64 +39,86 @@ fun SearchScreen(
         SearchUiState.Loading, is SearchUiState.Error -> {
             WaveyyProgress(progress = null, modifier = Modifier.padding(32.dp))
         }
-        is SearchUiState.Success -> LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            current.topArtist?.let { top ->
-                item {
-                    SectionTitle("Top Result")
-                    ArtistCard(
-                        name = top.artist.name,
-                        imageUrl = top.artist.imageUrl,
-                        artistId = top.artist.id,
-                        onOpen = onArtist,
-                        modifier = Modifier.padding(horizontal = 12.dp)
+        is SearchUiState.Success -> {
+            if (current.songs.isEmpty() && current.albums.isEmpty() && current.artists.isEmpty()) {
+                Text(
+                    text = stringResource(R.string.search_hint),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(32.dp)
+                )
+            } else {
+                SearchResults(current, onPlaySong, onAlbum, onArtist)
+            }
+        }
+    }
+}
+
+/** Loaded results rails. */
+@Composable
+private fun SearchResults(
+    current: SearchUiState.Success,
+    onPlaySong: (List<Song>, Int) -> Unit,
+    onAlbum: (String) -> Unit,
+    onArtist: (String) -> Unit
+) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        current.topArtist?.let { top ->
+            item {
+                SectionTitle("Top Result")
+                ArtistCard(
+                    name = top.artist.name,
+                    imageUrl = top.artist.imageUrl,
+                    artistId = top.artist.id,
+                    onOpen = onArtist,
+                    modifier = Modifier.padding(horizontal = 12.dp)
+                )
+            }
+        }
+        item {
+            SectionTitle("Songs")
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                itemsIndexed(current.songs, key = { _, song -> song.id }) { index, song ->
+                    SongCard(
+                        title = song.name,
+                        artist = song.artist,
+                        imageUrl = song.imageUrl,
+                        songId = song.id,
+                        onPlay = { onPlaySong(current.songs, index) }
                     )
                 }
             }
+        }
+        if (current.albums.isNotEmpty()) {
             item {
-                SectionTitle("Songs")
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    items(current.songs, key = { it.id }) { song ->
-                        SongCard(
-                            title = song.name,
-                            artist = song.artist,
-                            imageUrl = song.imageUrl,
-                            songId = song.id,
-                            onPlay = onPlay
+                SectionTitle("Albums")
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(current.albums, key = { it.id }) { album ->
+                        AlbumCard(
+                            title = album.name,
+                            artist = album.artist,
+                            imageUrl = album.imageUrl,
+                            albumId = album.id,
+                            onOpen = onAlbum
                         )
                     }
                 }
             }
-            if (current.albums.isNotEmpty()) {
-                item {
-                    SectionTitle("Albums")
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        items(current.albums, key = { it.id }) { album ->
-                            AlbumCard(
-                                title = album.name,
-                                artist = album.artist,
-                                imageUrl = album.imageUrl,
-                                albumId = album.id,
-                                onOpen = onAlbum
-                            )
-                        }
-                    }
-                }
-            }
-            if (current.artists.isNotEmpty()) {
-                item {
-                    SectionTitle("Artists")
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        items(current.artists, key = { it.id }) { artist ->
-                            ArtistCard(
-                                name = artist.name,
-                                imageUrl = artist.imageUrl,
-                                artistId = artist.id,
-                                onOpen = onArtist
-                            )
-                        }
+        }
+        if (current.artists.isNotEmpty()) {
+            item {
+                SectionTitle("Artists")
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(current.artists, key = { it.id }) { artist ->
+                        ArtistCard(
+                            name = artist.name,
+                            imageUrl = artist.imageUrl,
+                            artistId = artist.id,
+                            onOpen = onArtist
+                        )
                     }
                 }
             }

@@ -16,4 +16,5 @@
     <string name="playlist_backend_missing">Playlists are not configured yet. Run supabase/playlists.sql in Supabase.</string>
     <string name="action_create">Create</string>
     <string name="action_cancel">Cancel</string>
+    <string name="search_hint">Search songs, artists and albums above.</string>
 </resources>

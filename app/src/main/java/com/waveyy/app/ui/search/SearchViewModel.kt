@@ -50,14 +50,18 @@ class SearchViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
-    private val query: String = savedStateHandle.get<String>("id").orEmpty()
+    private val query: String = savedStateHandle.get<String>("query").orEmpty()
 
     private val mutableState = MutableStateFlow<SearchUiState>(SearchUiState.Loading)
     /** Screen state. */
     val state: StateFlow<SearchUiState> = mutableState.asStateFlow()
 
     init {
-        search()
+        if (query.isBlank()) {
+            mutableState.value = SearchUiState.Success(emptyList(), emptyList(), emptyList(), null)
+        } else {
+            search()
+        }
     }
 
     private fun search() {
