@@ -60,7 +60,8 @@ fun HomeScreen(
     onAlbum: (String) -> Unit = {},
     onArtist: (String) -> Unit = {},
     onSearch: () -> Unit = {},
-    onSettings: () -> Unit = {}
+    onSettings: () -> Unit = {},
+    onDiscover: () -> Unit = {}
 ) {
     val state by viewModel.state.collectAsState()
     val userName by viewModel.userName.collectAsState()
@@ -134,9 +135,7 @@ private fun HomeContent(
     ) {
         item(span = { GridItemSpan(2) }) {
             HomeHeader(
-                onExplore = {
-                    hero?.let { onPlaySong(QueueSource.HomeFeed(sections.trending), 0) }
-                },
+                onExplore = onDiscover,
                 onSearch = onSearch,
                 onSettings = onSettings
             )
@@ -304,7 +303,7 @@ private fun HeroCard(
 
 /** 2-column grid song card: square art, 2-line title, muted subtitle. */
 @Composable
-private fun GridSongCard(
+fun GridSongCard(
     song: Song,
     onPlay: () -> Unit,
     modifier: Modifier = Modifier
