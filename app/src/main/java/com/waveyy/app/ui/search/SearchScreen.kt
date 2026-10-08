@@ -15,7 +15,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowOutward
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
@@ -220,7 +220,7 @@ private fun SuggestionRows(suggestions: List<String>, onPick: (String) -> Unit) 
                     overflow = TextOverflow.Ellipsis
                 )
                 Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowOutward,
+                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                     contentDescription = null
                 )
             }
