@@ -23,7 +23,8 @@ import com.waveyy.app.data.repository.SongRepository
 import com.waveyy.app.domain.model.CachedLyrics
 import com.waveyy.app.domain.model.Song
 import com.waveyy.app.playback.PlaybackConnection
-import com.waveyy.app.util.LyricsParserimport dagger.hilt.android.lifecycle.HiltViewModel
+import com.waveyy.app.util.LyricsParser
+import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
