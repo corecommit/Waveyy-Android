@@ -136,6 +136,17 @@ class PlaybackConnection @Inject constructor(
         playItems(items, startIndex.coerceIn(items.indices))
     }
 
+    /** Resolves a tap source into an index-aligned queue (pure). */
+    fun resolveSource(source: QueueSource, startIndex: Int = 0): ResolvedQueue? {
+        return queueManager.setQueueFromSource(source, startIndex)
+    }
+
+    /** Plays a tap source (see [QueueSource] variants). */
+    suspend fun playSource(source: QueueSource, startIndex: Int = 0) {
+        val resolved = resolveSource(source, startIndex) ?: return
+        playItems(resolved.items, resolved.index)
+    }
+
     /** Advances to the next queue item. */
     suspend fun next() {
         connect()

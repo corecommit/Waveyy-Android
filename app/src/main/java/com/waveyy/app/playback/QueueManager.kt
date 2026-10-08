@@ -18,7 +18,6 @@ import javax.inject.Inject
  * controls show the right track info.
  */
 class QueueManager @Inject constructor() {
-
     /** Translates songs into playable media items, skipping stream-less ones. */
     fun toMediaItems(songs: List<Song>): List<MediaItem> {
         return songs.mapNotNull(::toMediaItem)
@@ -48,4 +47,51 @@ class QueueManager @Inject constructor() {
             .setUsage(C.USAGE_MEDIA)
             .build()
     }
+
+    /**
+     * Resolves a [QueueSource] tap into an index-aligned queue: stream-less
+     * songs are dropped and the tapped position is re-resolved by id so the
+     * domain queue and controller queue can never desync. Returns null when
+     * nothing is playable.
+     */
+    fun setQueueFromSource(source: QueueSource, startIndex: Int): ResolvedQueue? {
+        val effective = source.songs.filter { song -> song.streams.any { it.url.isNotBlank() } }
+        if (effective.isEmpty()) return null
+        val tappedId = source.songs.getOrNull(startIndex)?.id
+        val index = effective.indexOfFirst { it.id == tappedId }.takeIf { it >= 0 } ?: 0
+        val items = toMediaItems(effective)
+        if (items.isEmpty()) return null
+        return ResolvedQueue(effective, items, index)
+    }
 }
+
+/** Where a queue tap came from (drives Up-Next semantics). */
+sealed interface QueueSource {
+    /** Playable songs in tap context. */
+    val songs: List<Song>
+
+    /** Search results rail/list. */
+    data class SearchResults(override val songs: List<Song>) : QueueSource
+
+    /** Album track list. */
+    data class Album(override val songs: List<Song>) : QueueSource
+
+    /** Artist top tracks / podium. */
+    data class Artist(override val songs: List<Song>) : QueueSource
+
+    /** Playlist detail list. */
+    data class Playlist(override val songs: List<Song>) : QueueSource
+
+    /** Recommendations / curated rails. */
+    data class Recommendations(override val songs: List<Song>) : QueueSource
+
+    /** Home feed rails. */
+    data class HomeFeed(override val songs: List<Song>) : QueueSource
+}
+
+/** Index-aligned domain + controller queue pair. */
+data class ResolvedQueue(
+    val songs: List<Song>,
+    val items: List<MediaItem>,
+    val index: Int
+)

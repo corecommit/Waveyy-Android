@@ -31,7 +31,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.navigation.navDeepLink
 import com.waveyy.app.BuildConfig
-import com.waveyy.app.domain.model.Song
+import com.waveyy.app.playback.QueueSource
 import com.waveyy.app.ui.album.AlbumScreen
 import com.waveyy.app.ui.artist.ArtistScreen
 import com.waveyy.app.ui.auth.LoginScreen
@@ -72,8 +72,8 @@ fun WaveyyNavHost(
     var searchQuery by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
 
-    fun playSongs(songs: List<Song>, index: Int) {
-        scope.launch { playerVm.playSongs(songs, index) }
+    fun playSource(source: QueueSource, index: Int) {
+        scope.launch { playerVm.playSource(source, index) }
     }
 
     fun goHome() {
@@ -116,24 +116,24 @@ fun WaveyyNavHost(
             navigation(startDestination = Routes.HOME, route = Graph.ROOT) {
                 composable(Routes.HOME) {
                     HomeScreen(
-                        onPlaySong = ::playSongs,
+                        onPlaySong = ::playSource,
                         onAlbum = { id -> navController.navigate(Routes.withId(Routes.ALBUM, id)) },
                         onArtist = { id -> navController.navigate(Routes.withId(Routes.ARTIST, id)) }
                     )
                 }
                 composable(Routes.SEARCH) {
                     SearchScreen(
-                        onPlaySong = ::playSongs,
+                        onPlaySong = ::playSource,
                         onAlbum = { id -> navController.navigate(Routes.withId(Routes.ALBUM, id)) },
                         onArtist = { id -> navController.navigate(Routes.withId(Routes.ARTIST, id)) }
                     )
                 }
                 composable(Routes.ALBUM) {
-                    AlbumScreen(onPlaySong = ::playSongs)
+                    AlbumScreen(onPlaySong = ::playSource)
                 }
                 composable(Routes.ARTIST) {
                     ArtistScreen(
-                        onPlaySong = ::playSongs,
+                        onPlaySong = ::playSource,
                         onAlbum = { id -> navController.navigate(Routes.withId(Routes.ALBUM, id)) }
                     )
                 }

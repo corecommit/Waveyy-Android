@@ -136,7 +136,7 @@ fun PlaylistDetailScreen(
                             songId = song.id,
                             onPlay = {
                                 val index = playlist.songs.indexOfFirst { it.id == song.id }
-                                player.playSongs(playlist.songs, index.coerceAtLeast(0))
+                                player.playSource(com.waveyy.app.playback.QueueSource.Playlist(playlist.songs), index.coerceAtLeast(0))
                             },
                             modifier = Modifier.weight(1f)
                         )
