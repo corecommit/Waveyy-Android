@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -18,6 +19,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -31,8 +33,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.waveyy.app.R
 import com.waveyy.app.ui.components.WaveyyButton
+import com.waveyy.app.ui.components.SkeletonRows
 import com.waveyy.app.ui.components.WaveyyInput
-import com.waveyy.app.ui.components.WaveyyProgress
 
 /**
  * Library: playlist grid with create/delete, plus the backend-missing card
@@ -48,11 +50,13 @@ fun PlaylistsScreen(
     var name by remember { mutableStateOf("") }
 
     if (state.loading) {
-        WaveyyProgress(progress = null, modifier = Modifier.padding(32.dp))
+        SkeletonRows(count = 6, modifier = Modifier.padding(16.dp))
         return
     }
     LazyColumn(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .statusBarsPadding(),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         item {
@@ -63,7 +67,11 @@ fun PlaylistsScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text(text = stringResource(R.string.library_title), style = MaterialTheme.typography.headlineSmall)
+                Text(
+                    text = stringResource(R.string.library_title),
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold
+                )
                 IconButton(onClick = { creating = true }) {
                     Icon(imageVector = Icons.Filled.Add, contentDescription = stringResource(R.string.playlist_create))
                 }

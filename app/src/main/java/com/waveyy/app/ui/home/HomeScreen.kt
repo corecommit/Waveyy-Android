@@ -1,5 +1,6 @@
 package com.waveyy.app.ui.home
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -114,7 +115,8 @@ private fun HomeError(onRetry: () -> Unit, modifier: Modifier = Modifier) {
     }
 }
 
-/** Loaded home: header, greeting, hero, grids, artists rail. */
+/** Loaded home: fixed header, greeting, hero, grids, artists rail. */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun HomeContent(
     sections: HomeSections,
@@ -135,15 +137,15 @@ private fun HomeContent(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        item(span = { GridItemSpan(2) }) {
-            HomeHeader(
-                onExplore = onDiscover,
-                onSearch = onSearch,
-                onSettings = onSettings
-            )
-        }
-        item(span = { GridItemSpan(2) }) {
-            GreetingHeader(username = userName)
+        stickyHeader {
+            Column(modifier = Modifier.background(MaterialTheme.colorScheme.background)) {
+                HomeHeader(
+                    onExplore = onDiscover,
+                    onSearch = onSearch,
+                    onSettings = onSettings
+                )
+                GreetingHeader(username = userName)
+            }
         }
         if (hero != null) {
             item(span = { GridItemSpan(2) }) {

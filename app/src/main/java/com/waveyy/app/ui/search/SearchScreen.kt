@@ -2,6 +2,8 @@ package com.waveyy.app.ui.search
 
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -81,6 +83,7 @@ enum class SearchFilter(val label: String) {
  * Loading shows skeleton rows (never a spinner, never stale results);
  * blank+focused shows history; blank+unfocused shows trending suggestions.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun SearchScreen(
     viewModel: SearchViewModel = hiltViewModel(),
@@ -114,8 +117,13 @@ fun SearchScreen(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        item {
-            OutlinedTextField(
+        stickyHeader {
+            Column(
+                modifier = Modifier
+                    .background(MaterialTheme.colorScheme.background)
+                    .statusBarsPadding()
+            ) {
+                OutlinedTextField(
                 value = text,
                 onValueChange = { text = it },
                 modifier = Modifier
@@ -143,7 +151,7 @@ fun SearchScreen(
                 shape = RoundedCornerShape(percent = 50),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 keyboardActions = KeyboardActions(onSearch = { submit(text) })
-            )
+            }
         }
         if (text.isBlank() && focused && history.isNotEmpty()) {
             item {
@@ -155,7 +163,7 @@ fun SearchScreen(
                 )
             }
         } else {
-            item {
+            stickyHeader {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(SearchFilter.entries.toList()) { entry ->
                         FilterChip(

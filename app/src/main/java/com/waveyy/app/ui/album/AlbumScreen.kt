@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -25,8 +26,8 @@ import com.waveyy.app.playback.QueueSource
 import com.waveyy.app.ui.components.AdaptiveImage
 import com.waveyy.app.ui.components.SongRow
 import com.waveyy.app.ui.components.WaveyyBadge
+import com.waveyy.app.ui.components.SkeletonRows
 import com.waveyy.app.ui.components.WaveyyErrorPanel
-import com.waveyy.app.ui.components.WaveyyProgress
 import com.waveyy.app.ui.theme.WaveyyShapes
 
 /**
@@ -41,7 +42,7 @@ fun AlbumScreen(
     val state by viewModel.state.collectAsState()
     when (val current = state) {
         AlbumUiState.Loading -> {
-            WaveyyProgress(progress = null, modifier = Modifier.padding(32.dp))
+            SkeletonRows(count = 8, modifier = Modifier.padding(16.dp))
         }
         is AlbumUiState.Error -> {
             WaveyyErrorPanel(onRetry = viewModel::refresh)
@@ -54,7 +55,9 @@ fun AlbumScreen(
 @Composable
 private fun AlbumContent(album: Album, onPlaySong: (QueueSource, Int) -> Unit) {
     LazyColumn(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .statusBarsPadding(),
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         item {

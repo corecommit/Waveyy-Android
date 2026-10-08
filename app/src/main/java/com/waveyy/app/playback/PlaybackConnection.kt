@@ -64,6 +64,16 @@ class PlaybackConnection @Inject constructor(
     private var controller: MediaController? = null
     private var tickerStarted = false
 
+    init {
+        // Reconnect at startup so a running PlaybackService (e.g. after a
+        // swipe-away with music playing) repopulates state: connect() reads
+        // currentMediaItem/isPlaying into the StateFlow. No player is created
+        // here — everything goes through the MediaController.
+        scope.launch {
+            runCatching { connect() }
+        }
+    }
+
     private val listener = object : Player.Listener {
         override fun onEvents(player: Player, events: Player.Events) {
             publish(player)

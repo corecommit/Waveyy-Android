@@ -48,15 +48,13 @@ import com.waveyy.app.ui.player.FullPlayerScreen
 import com.waveyy.app.ui.player.MiniPlayer
 import com.waveyy.app.ui.player.PlayerViewModel
 import com.waveyy.app.ui.components.FloatingNavPill
-import com.waveyy.app.ui.components.WaveyyTopBar
 import com.waveyy.app.ui.search.SearchScreen
 import com.waveyy.app.ui.settings.SettingsScreen
 import com.waveyy.app.ui.together.TogetherScreen
 import kotlinx.coroutines.launch
 
 /**
- * Root navigation host with two nested graphs plus the app chrome:
- * [WaveyyTopBar] (logo, search, account) above, [MiniPlayer] and the
+ * Root navigation host with two nested graphs: [MiniPlayer] and the
  * floating pill below on every root-graph screen. The full player
  * route hides the chrome, mirroring the web's `(player)` layout.
  */
@@ -71,40 +69,13 @@ fun WaveyyNavHost(
     val backStack by navController.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route
     val isPlayer = currentRoute?.startsWith("player") == true
-    // Home and search render their own headers (B1/B2); the global top bar
-    // serves the remaining routes only.
-    val showTopBar = !isPlayer &&
-        currentRoute != Routes.HOME &&
-        !(currentRoute?.startsWith("search") == true)
-    var searchQuery by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
 
     fun playSource(source: QueueSource, index: Int) {
         scope.launch { playerVm.playSource(source, index) }
     }
 
-    fun goHome() {
-        navController.navigate(Routes.HOME) {
-            popUpTo(Graph.ROOT) { inclusive = false }
-            launchSingleTop = true
-        }
-    }
-
     Column(modifier = Modifier.fillMaxSize()) {
-        if (showTopBar) {
-            WaveyyTopBar(
-                query = searchQuery,
-                onQuery = { searchQuery = it },
-                onSubmitSearch = { query ->
-                    if (query.isNotBlank()) navController.navigate(Routes.withQuery(query))
-                },
-                onHome = { goHome() },
-                onProfile = { navController.navigate(Routes.PROFILE) },
-                onLibrary = { navController.navigate(Routes.PLAYLISTS) },
-                onSettings = { navController.navigate(Routes.SETTINGS) },
-                onSignIn = { navController.navigate(Routes.LOGIN) }
-            )
-        }
         NavHost(
             navController = navController,
             startDestination = Graph.ROOT,
