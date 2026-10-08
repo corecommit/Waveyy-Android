@@ -100,6 +100,21 @@ class PlayerViewModel @Inject constructor(
     private var sleepJob: Job? = null
     private var sleepEndOfSong = false
 
+    init {
+        // Reconnects the UI to an already-playing session (swipe-away
+        // reopen): the activity-scoped queue is gone but the singleton
+        // controller still holds the items, so rebuild from its metadata.
+        viewModelScope.launch {
+            connection.refreshState()
+            connection.state.collect { state ->
+                if (state.mediaId != null && mutableQueue.value.isEmpty()) {
+                    val restored = connection.currentQueueSongs()
+                    if (restored.isNotEmpty()) mutableQueue.value = restored
+                }
+            }
+        }
+    }
+
     /** Lyrics provider id (preferred-provider mode). */
     val lyricsProvider: StateFlow<String> = userPrefs.lyricsProviderFlow()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000L), UserPrefs.DEFAULT_LYRICS_PROVIDER)
@@ -234,7 +249,7 @@ class PlayerViewModel @Inject constructor(
                 )
             )
         }
-        return songRepository.songById(song.id).first()
+        return songRepository.refreshSong(song)
     }
 
     /** Plays a single song (queue of one). */
