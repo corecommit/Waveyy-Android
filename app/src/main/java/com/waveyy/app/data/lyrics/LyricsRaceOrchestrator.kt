@@ -15,7 +15,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class LyricsRaceOrchestrator @Inject constructor(
-    private val providers: List<LyricsProvider>,
+    private val providers: List<@JvmSuppressWildcards LyricsProvider>,
     @IoDispatcher private val io: CoroutineDispatcher
 ) {
     /** A provider answer with its score and latency. */
