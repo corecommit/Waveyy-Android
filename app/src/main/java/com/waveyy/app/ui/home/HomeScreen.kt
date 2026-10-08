@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -249,7 +250,7 @@ private fun GridSectionTitle(text: String) {
 private fun HeroCard(
     song: Song,
     songs: List<Song>,
-    onPlaySong: (List<Song>, Int) -> Unit,
+    onPlaySong: (QueueSource, Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Box(
