@@ -80,6 +80,18 @@ class UserPrefs @Inject constructor(
 
         /** Mini-player hidden-after-swipe-down key. */
         const val MINI_PLAYER_HIDDEN_KEY = "mini-player-hidden"
+
+        /** Lyrics race-mode key (`auto` or `preferred`). */
+        const val LYRICS_MODE_KEY = "lyrics-race-mode"
+
+        /** Lyrics race-mode `auto` value (race all providers). */
+        const val LYRICS_MODE_AUTO = "auto"
+
+        /** Lyrics race-mode `preferred` value (single provider). */
+        const val LYRICS_MODE_PREFERRED = "preferred"
+
+        /** Lyrics race-winner debug caption toggle key. */
+        const val LYRICS_DEBUG_KEY = "lyrics-debug"
     }
 
     /** Lyrics provider id (`lrclib` or `none`). */
@@ -161,6 +173,26 @@ class UserPrefs @Inject constructor(
         context.userPrefs.edit { prefs -> prefs[miniPlayerHiddenKey] = hidden }
     }
 
+    /** Lyrics race mode (`auto` default, or `preferred`). */
+    fun lyricsModeFlow(): Flow<String> {
+        return context.userPrefs.data.map { it[lyricsModeKey] ?: LYRICS_MODE_AUTO }
+    }
+
+    /** Persists the lyrics race mode. */
+    suspend fun setLyricsMode(mode: String) {
+        context.userPrefs.edit { prefs -> prefs[lyricsModeKey] = mode }
+    }
+
+    /** Whether to show the race-winner caption (debug builds only). */
+    fun lyricsDebugFlow(): Flow<Boolean> {
+        return context.userPrefs.data.map { it[lyricsDebugKey] ?: false }
+    }
+
+    /** Persists the race-winner debug toggle. */
+    suspend fun setLyricsDebug(enabled: Boolean) {
+        context.userPrefs.edit { prefs -> prefs[lyricsDebugKey] = enabled }
+    }
+
     private val lyricsProviderKey = stringPreferencesKey(LYRICS_PROVIDER_KEY)
     private val hinglishKey = booleanPreferencesKey(HINGLISH_KEY)
     private val ytVisitorKey = stringPreferencesKey(VISITOR_DATA_KEY)
@@ -168,6 +200,8 @@ class UserPrefs @Inject constructor(
     private val preferFastKey = booleanPreferencesKey(PREFER_FAST_KEY)
     private val guestLikedIdsKey = stringPreferencesKey(GUEST_LIKED_IDS_KEY)
     private val miniPlayerHiddenKey = booleanPreferencesKey(MINI_PLAYER_HIDDEN_KEY)
+    private val lyricsModeKey = stringPreferencesKey(LYRICS_MODE_KEY)
+    private val lyricsDebugKey = booleanPreferencesKey(LYRICS_DEBUG_KEY)
 
     /** Audio quality preference as a flow. */
     fun audioQualityFlow(): Flow<String> {

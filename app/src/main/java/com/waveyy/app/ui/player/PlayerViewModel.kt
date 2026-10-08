@@ -12,6 +12,9 @@ import com.waveyy.app.data.local.HistoryEntity
 import com.waveyy.app.data.local.PlayLogEntity
 import com.waveyy.app.data.local.dao.PlayLogDao
 import com.waveyy.app.data.local.datastore.UserPrefs
+import com.waveyy.app.data.lyrics.LyricsRaceOrchestrator
+import com.waveyy.app.data.lyrics.LyricsRaceRepository
+import com.waveyy.app.data.lyrics.LyricsResult
 import com.waveyy.app.data.repository.AuthRepository
 import com.waveyy.app.data.repository.ListeningHistoryRepository
 import com.waveyy.app.data.repository.LyricsRepository
@@ -50,8 +53,14 @@ sealed interface LyricsUiState {
     /** Loading. */
     data object Loading : LyricsUiState
 
-    /** Parsed lines (raw lyrics, transliteration applied at render). */
+    /** Parsed synced lines (raw lyrics, transliteration applied at render). */
     data class Ready(val lines: List<com.waveyy.app.domain.model.LyricLine>) : LyricsUiState
+
+    /** Untimed lyrics text (centered static display). */
+    data class Plain(val text: String) : LyricsUiState
+
+    /** Track has no vocals. */
+    data object Instrumental : LyricsUiState
 }
 
 /**
@@ -70,7 +79,8 @@ class PlayerViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val songRepository: SongRepository,
     private val userPrefs: UserPrefs,
-    private val ytmusic: YtMusicRepository
+    private val ytmusic: YtMusicRepository,
+    private val lyricsRace: LyricsRaceRepository
 ) : ViewModel() {
 
     private val mutableQueue = MutableStateFlow<List<Song>>(emptyList())
@@ -90,9 +100,21 @@ class PlayerViewModel @Inject constructor(
     private var sleepJob: Job? = null
     private var sleepEndOfSong = false
 
-    /** Lyrics provider id (`lrclib` or `none`). */
+    /** Lyrics provider id (preferred-provider mode). */
     val lyricsProvider: StateFlow<String> = userPrefs.lyricsProviderFlow()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000L), UserPrefs.DEFAULT_LYRICS_PROVIDER)
+
+    /** Lyrics race mode (`auto` races all providers). */
+    val lyricsMode: StateFlow<String> = userPrefs.lyricsModeFlow()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000L), UserPrefs.LYRICS_MODE_AUTO)
+
+    /** Race-winner caption toggle (debug builds only). */
+    val lyricsDebug: StateFlow<Boolean> = userPrefs.lyricsDebugFlow()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000L), false)
+
+    private val mutableWinner = MutableStateFlow<LyricsRaceOrchestrator.Scored?>(null)
+    /** Latest race winner (provider + score, for the debug caption). */
+    val raceWinner: StateFlow<LyricsRaceOrchestrator.Scored?> = mutableWinner.asStateFlow()
 
     /** Mini-player hidden flag (set by swipe-down, cleared on new song start). */
     val miniPlayerHidden: StateFlow<Boolean> = userPrefs.miniPlayerHiddenFlow()
@@ -224,14 +246,38 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
-    /** Loads lyrics for [song] with cache-then-fetch (skipped when provider is `none`). */
-    fun loadLyrics(song: Song) {
-        if (lyricsProvider.value != UserPrefs.DEFAULT_LYRICS_PROVIDER) {
-            mutableLyrics.value = LyricsUiState.Empty
-            return
-        }
+    /**
+     * Loads lyrics for [song]: provider race first (auto or preferred mode),
+     * legacy proxy fallback, empty when disabled. [bypassCache] re-races
+     * (Retry button).
+     */
+    fun loadLyrics(song: Song, bypassCache: Boolean = false) {
         mutableLyrics.value = LyricsUiState.Loading
+        mutableWinner.value = null
         viewModelScope.launch {
+            val auto = userPrefs.lyricsModeFlow().first() != UserPrefs.LYRICS_MODE_PREFERRED
+            val preferred = userPrefs.lyricsProviderFlow().first()
+            if (!auto && preferred == "none") {
+                mutableLyrics.value = LyricsUiState.Empty
+                return@launch
+            }
+            val raced = lyricsRace.getLyrics(
+                songId = song.id,
+                artist = song.artist,
+                title = song.name,
+                duration = song.durationSec,
+                bypassCache = bypassCache,
+                onlyProvider = if (auto) null else preferred
+            )
+            if (raced != null) {
+                mutableWinner.value = raced
+                mutableLyrics.value = raceStateOf(raced.result)
+                return@launch
+            }
+            if (!auto && preferred != UserPrefs.DEFAULT_LYRICS_PROVIDER) {
+                mutableLyrics.value = LyricsUiState.Empty
+                return@launch
+            }
             val key = lyricsKey(song)
             lyricsRepository.getLyrics(
                 cacheKey = key,
@@ -241,6 +287,20 @@ class PlayerViewModel @Inject constructor(
                 duration = song.durationSec.takeIf { it > 0 }?.toString()
             ).collect { cached ->
                 mutableLyrics.value = lyricsStateOf(cached)
+            }
+        }
+    }
+
+    private fun raceStateOf(result: LyricsResult): LyricsUiState {
+        return when (result) {
+            is LyricsResult.Instrumental -> LyricsUiState.Instrumental
+            is LyricsResult.Plain -> {
+                val text = LyricsParser.sanitizeText(result.text)
+                if (text.isBlank()) LyricsUiState.Empty else LyricsUiState.Plain(text)
+            }
+            is LyricsResult.Synced -> {
+                val lines = LyricsParser.parseLrc(LyricsParser.sanitizeText(result.lrc))
+                if (lines.isEmpty()) LyricsUiState.Empty else LyricsUiState.Ready(lines)
             }
         }
     }

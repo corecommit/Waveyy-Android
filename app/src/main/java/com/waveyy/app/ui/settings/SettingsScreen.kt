@@ -21,6 +21,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.waveyy.app.BuildConfig
 import com.waveyy.app.data.local.datastore.UserPrefs
+import com.waveyy.app.data.lyrics.LyricsRaceRepository
 import com.waveyy.app.data.repository.AuthRepository
 import com.waveyy.app.ui.components.WaveyyButton
 import com.waveyy.app.ui.components.WaveyyDropdownMenu
@@ -34,11 +35,17 @@ import javax.inject.Inject
 /** Audio quality options (best = highest-ranked stream). */
 val AUDIO_QUALITY_OPTIONS = listOf("Best", "High (320kbps)", "Medium (160kbps)", "Low (96kbps)")
 
+/** Lyrics provider options (preferred mode), plus disabled. */
+val LYRICS_PROVIDER_OPTIONS = listOf(
+    "lrclib", "netease", "qqmusic", "lyricsovh", "tekstowo", "musixmatch", "genius", "none"
+)
+
 /** Settings backing state: audio quality preference, version, sign-out. */
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val userPrefs: UserPrefs,
-    private val auth: AuthRepository
+    private val auth: AuthRepository,
+    private val lyricsRace: LyricsRaceRepository
 ) : ViewModel() {
     /** Persisted audio quality label. */
     val audioQuality = userPrefs.audioQualityFlow()
@@ -74,6 +81,38 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { userPrefs.setPreferFast(enabled) }
     }
 
+    /** Lyrics race mode (`auto` or `preferred`). */
+    val lyricsMode = userPrefs.lyricsModeFlow()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000L), UserPrefs.LYRICS_MODE_AUTO)
+
+    /** Persists the lyrics race mode. */
+    fun setLyricsMode(mode: String) {
+        viewModelScope.launch { userPrefs.setLyricsMode(mode) }
+    }
+
+    /** Preferred lyrics provider (preferred mode). */
+    val preferredLyricsProvider = userPrefs.lyricsProviderFlow()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000L), UserPrefs.DEFAULT_LYRICS_PROVIDER)
+
+    /** Persists the preferred lyrics provider. */
+    fun setPreferredLyricsProvider(provider: String) {
+        viewModelScope.launch { userPrefs.setLyricsProvider(provider) }
+    }
+
+    /** Race-winner debug caption toggle. */
+    val lyricsDebug = userPrefs.lyricsDebugFlow()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000L), false)
+
+    /** Toggles the race-winner debug caption. */
+    fun setLyricsDebug(enabled: Boolean) {
+        viewModelScope.launch { userPrefs.setLyricsDebug(enabled) }
+    }
+
+    /** Clears the lyrics race cache. */
+    fun clearLyricsCache() {
+        viewModelScope.launch { lyricsRace.clearCache() }
+    }
+
     /** Signs out. */
     fun signOut() {
         viewModelScope.launch { auth.signOut() }
@@ -93,6 +132,9 @@ fun SettingsScreen(
     val ytmusicEnabled by viewModel.ytmusicEnabled.collectAsState()
     val preferFast by viewModel.preferFast.collectAsState()
     val session by viewModel.session.collectAsState()
+    val lyricsMode by viewModel.lyricsMode.collectAsState()
+    val preferredProvider by viewModel.preferredLyricsProvider.collectAsState()
+    val lyricsDebug by viewModel.lyricsDebug.collectAsState()
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -121,6 +163,56 @@ fun SettingsScreen(
             checked = preferFast,
             onChecked = viewModel::setPreferFast
         )
+        Text(text = "Lyrics", style = MaterialTheme.typography.titleMedium)
+        WaveyyDropdownMenu(
+            entries = listOf(
+                WaveyyMenuEntry("Auto (race all)") {
+                    viewModel.setLyricsMode(UserPrefs.LYRICS_MODE_AUTO)
+                },
+                WaveyyMenuEntry("Preferred provider") {
+                    viewModel.setLyricsMode(UserPrefs.LYRICS_MODE_PREFERRED)
+                }
+            ),
+            anchor = { open ->
+                WaveyyButton(
+                    text = if (lyricsMode == UserPrefs.LYRICS_MODE_PREFERRED) {
+                        "Preferred provider"
+                    } else {
+                        "Auto (race all)"
+                    },
+                    onClick = open,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        )
+        if (lyricsMode == UserPrefs.LYRICS_MODE_PREFERRED) {
+            WaveyyDropdownMenu(
+                entries = LYRICS_PROVIDER_OPTIONS.map { option ->
+                    WaveyyMenuEntry(
+                        if (option == "none") "None (disabled)" else option
+                    ) { viewModel.setPreferredLyricsProvider(option) }
+                },
+                anchor = { open ->
+                    WaveyyButton(
+                        text = preferredProvider,
+                        onClick = open,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            )
+        }
+        WaveyyButton(
+            text = "Clear lyrics cache",
+            onClick = viewModel::clearLyricsCache,
+            modifier = Modifier.fillMaxWidth()
+        )
+        if (BuildConfig.DEBUG) {
+            SourceSwitch(
+                label = "Show lyrics race winner",
+                checked = lyricsDebug,
+                onChecked = viewModel::setLyricsDebug
+            )
+        }
         Text(text = "Theme", style = MaterialTheme.typography.titleMedium)
         Text(
             text = "Dark (Waveyy is dark-only)",

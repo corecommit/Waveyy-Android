@@ -161,3 +161,27 @@ fun SkeletonRows(count: Int = 6, modifier: Modifier = Modifier) {
         }
     }
 }
+
+/**
+ * Lyrics-shaped shimmer: centered bars of varying widths mimicking lyric
+ * lines. Used while the provider race runs.
+ *
+ * @param count line count.
+ */
+@Composable
+fun SkeletonLyrics(count: Int = 8, modifier: Modifier = Modifier) {
+    val widths = listOf(220.dp, 180.dp, 240.dp, 160.dp, 200.dp, 240.dp, 180.dp, 210.dp)
+    Column(
+        modifier = modifier.padding(horizontal = 32.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+        horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally
+    ) {
+        repeat(count) { index ->
+            SkeletonBox(
+                width = widths[index % widths.size],
+                height = 16.dp,
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
+            )
+        }
+    }
+}

@@ -136,7 +136,7 @@ fun SpeedDialog(
     )
 }
 
-/** Lyrics provider picker (lrclib fetch vs disabled). */
+/** Lyrics provider picker (preferred-provider mode + disabled). */
 @Composable
 fun LyricsProviderDialog(
     viewModel: PlayerViewModel,
@@ -148,7 +148,10 @@ fun LyricsProviderDialog(
         title = { Text("Lyrics provider") },
         text = {
             Column {
-                listOf("lrclib", "none").forEach { option ->
+                listOf(
+                    "lrclib", "netease", "qqmusic", "lyricsovh",
+                    "tekstowo", "musixmatch", "genius", "none"
+                ).forEach { option ->
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
