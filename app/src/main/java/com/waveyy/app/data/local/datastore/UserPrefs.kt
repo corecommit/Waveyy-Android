@@ -61,6 +61,9 @@ class UserPrefs @Inject constructor(
 
         /** Default lyrics provider. */
         const val DEFAULT_LYRICS_PROVIDER = "lrclib"
+
+        /** Hinglish romanization toggle key. */
+        const val HINGLISH_KEY = "hinglish-enabled"
     }
 
     /** Lyrics provider id (`lrclib` or `none`). */
@@ -73,7 +76,18 @@ class UserPrefs @Inject constructor(
         context.userPrefs.edit { prefs -> prefs[lyricsProviderKey] = provider }
     }
 
+    /** Hinglish romanization toggle. */
+    fun hinglishFlow(): Flow<Boolean> {
+        return context.userPrefs.data.map { it[hinglishKey] ?: false }
+    }
+
+    /** Persists the Hinglish toggle. */
+    suspend fun setHinglish(enabled: Boolean) {
+        context.userPrefs.edit { prefs -> prefs[hinglishKey] = enabled }
+    }
+
     private val lyricsProviderKey = stringPreferencesKey(LYRICS_PROVIDER_KEY)
+    private val hinglishKey = stringPreferencesKey(HINGLISH_KEY)
 
     /** Audio quality preference as a flow. */
     fun audioQualityFlow(): Flow<String> {
