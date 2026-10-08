@@ -25,5 +25,7 @@ data class Song(
     val playCount: Long,
     val streams: List<AudioStream>,
     val year: String = "",
-    val source: MusicSource = MusicSource.JIOSAAVN
+    val source: MusicSource = MusicSource.JIOSAAVN,
+    /** First `artists.primary` id from the API ("" when unknown). */
+    val primaryArtistId: String = ""
 )
