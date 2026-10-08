@@ -1,13 +1,11 @@
 package com.waveyy.app.ui.components
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -20,8 +18,8 @@ import com.waveyy.app.ui.theme.ThemePreviews
 import com.waveyy.app.ui.theme.WaveyyTheme
 
 /**
- * Artist tile: circular image over the artist name. Ports
- * `components/cards/artist.jsx`.
+ * Artist tile: 120.dp circular image with the name centered below. Flat —
+ * no fill, no shadow. Ports `components/cards/artist.jsx`.
  *
  * @param name artist name.
  * @param imageUrl image URL.
@@ -37,22 +35,18 @@ fun ArtistCard(
     onOpen: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Card(
-        onClick = { onOpen(artistId) },
-        modifier = modifier.width(112.dp),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    Column(
+        modifier = modifier
+            .width(120.dp)
+            .clickable { onOpen(artistId) }
+            .padding(4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Column(
-            modifier = Modifier.padding(12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
         AdaptiveImage(
             imageUrl = imageUrl,
             contentDescription = name,
             modifier = Modifier
-                .size(96.dp)
+                .size(120.dp)
                 .clip(CircleShape)
         )
         Text(
@@ -62,7 +56,6 @@ fun ArtistCard(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(top = 6.dp)
         )
-        }
     }
 }
 

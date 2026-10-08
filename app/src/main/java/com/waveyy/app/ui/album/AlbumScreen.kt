@@ -22,7 +22,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.waveyy.app.domain.model.Album
 import com.waveyy.app.domain.model.Song
 import com.waveyy.app.ui.components.AdaptiveImage
-import com.waveyy.app.ui.components.SongCard
+import com.waveyy.app.ui.components.SongRow
 import com.waveyy.app.ui.components.WaveyyBadge
 import com.waveyy.app.ui.components.WaveyyErrorPanel
 import com.waveyy.app.ui.components.WaveyyProgress
@@ -83,13 +83,12 @@ private fun AlbumContent(album: Album, onPlaySong: (List<Song>, Int) -> Unit) {
             }
         }
         itemsIndexed(album.songs, key = { _, song -> song.id }) { index, song ->
-            SongCard(
+            SongRow(
                 title = song.name,
                 artist = song.artist,
                 imageUrl = song.imageUrl,
                 songId = song.id,
-                onPlay = { onPlaySong(album.songs, index) },
-                modifier = Modifier.fillMaxWidth()
+                onPlay = { onPlaySong(album.songs, index) }
             )
         }
     }
