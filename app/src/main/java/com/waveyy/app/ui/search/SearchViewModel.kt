@@ -65,7 +65,11 @@ class SearchViewModel @Inject constructor(
     val state: StateFlow<SearchUiState> = mutableState.asStateFlow()
 
     private val mutableSuggestions = MutableStateFlow<List<String>>(emptyList())
-    /** Trending names shown as tappable suggestions when the query is blank. */
+    /**
+     * Generated suggestions for the current results (query + top artist /
+     * album, plus response-backed variants). Empty when the query is blank —
+     * a blank query shows history or nothing, never fallbacks.
+     */
     val suggestions: StateFlow<List<String>> = mutableSuggestions.asStateFlow()
 
     /** Search history, newest first. */
@@ -77,11 +81,6 @@ class SearchViewModel @Inject constructor(
             mutableState.value = SearchUiState.Success(emptyList(), emptyList(), emptyList(), null)
         } else {
             refresh()
-        }
-        viewModelScope.launch {
-            mutableSuggestions.value = runCatching {
-                repository.topCharts().first().take(8).map { it.name }
-            }.getOrDefault(emptyList())
         }
     }
 
@@ -134,7 +133,40 @@ class SearchViewModel @Inject constructor(
             .map { artist -> TopArtist(artist, SearchRanking.artistScore(artist.name, rawQuery)) }
             .maxByOrNull { it.score }
             ?.takeIf { it.score >= TOP_ARTIST_THRESHOLD }
+        mutableSuggestions.value = buildSuggestions(rawQuery, songs, albums)
         return SearchUiState.Success(songs, albums, artists, top)
+    }
+
+    /**
+     * Builds tappable suggestions from actual results: query + top artist /
+     * album (when not already contained), plus generic variants only when a
+     * returned title contains them. Deduplicated case-insensitively, capped.
+     */
+    fun buildSuggestions(query: String, songs: List<Song>, albums: List<Album>): List<String> {
+        val q = query.trim()
+        if (q.isEmpty()) return emptyList()
+        val result = mutableListOf<String>()
+        val seen = mutableSetOf<String>()
+        fun add(candidate: String) {
+            val trimmed = candidate.trim()
+            if (trimmed.isNotEmpty() && seen.add(trimmed.lowercase()) && result.size < MAX_SUGGESTIONS) {
+                result += trimmed
+            }
+        }
+        val topArtist = songs.firstOrNull()?.artist?.split(",")?.firstOrNull()?.trim().orEmpty()
+        if (topArtist.isNotEmpty() && !q.contains(topArtist, ignoreCase = true)) {
+            add("$q $topArtist")
+        }
+        val topAlbum = albums.firstOrNull()?.name?.trim().orEmpty()
+        if (topAlbum.isNotEmpty() && !q.contains(topAlbum, ignoreCase = true)) {
+            add("$q $topAlbum")
+        }
+        for (suffix in GENERIC_SUFFIXES) {
+            if (songs.any { it.name.contains(suffix, ignoreCase = true) }) {
+                add("$q $suffix")
+            }
+        }
+        return result
     }
 
     private fun firstArtistName(dto: SongDto): String {
@@ -160,5 +192,7 @@ class SearchViewModel @Inject constructor(
 
     companion object {
         private const val TOP_ARTIST_THRESHOLD = 50.0
+        private const val MAX_SUGGESTIONS = 6
+        private val GENERIC_SUFFIXES = listOf("song", "remix", "live")
     }
 }

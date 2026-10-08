@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -141,7 +142,13 @@ fun SearchScreen(
                         FilterChip(
                             selected = filter == entry,
                             onClick = { filter = entry },
-                            label = { Text(entry.label) }
+                            label = { Text(entry.label) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         )
                     }
                 }
@@ -193,9 +200,7 @@ private fun ResultsBody(
         is SearchUiState.Error -> WaveyyErrorPanel(onRetry = {})
         is SearchUiState.Success -> {
             if (state.songs.isEmpty() && state.albums.isEmpty() && state.artists.isEmpty()) {
-                if (text.isBlank() && suggestions.isNotEmpty()) {
-                    SuggestionRows(suggestions = suggestions, onPick = onPickSuggestion)
-                } else if (text.isNotBlank()) {
+                if (text.isNotBlank()) {
                     EmptyResults(query = text)
                 }
             } else {
@@ -236,7 +241,7 @@ private fun ResultsBody(
                             }
                         }
                     }
-                    if (text.isBlank() && suggestions.isNotEmpty()) {
+                    if (suggestions.isNotEmpty()) {
                         SectionTitle("Suggestions")
                         SuggestionRows(suggestions = suggestions, onPick = onPickSuggestion)
                     }
