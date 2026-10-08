@@ -151,6 +151,7 @@ fun SearchScreen(
                 shape = RoundedCornerShape(percent = 50),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 keyboardActions = KeyboardActions(onSearch = { submit(text) })
+                )
             }
         }
         if (text.isBlank() && focused && history.isNotEmpty()) {
