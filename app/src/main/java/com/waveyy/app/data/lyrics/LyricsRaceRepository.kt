@@ -1,7 +1,7 @@
 package com.waveyy.app.data.lyrics
 
 import com.waveyy.app.data.local.WaveyyDatabase
-import com.waveyy.app.data.local.LyricsCacheDao
+import com.waveyy.app.data.local.dao.LyricsCacheDao
 import com.waveyy.app.data.local.LyricsCacheEntity
 import timber.log.Timber
 import javax.inject.Inject
