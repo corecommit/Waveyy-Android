@@ -272,6 +272,35 @@ class PlaybackConnection @Inject constructor(
         mutableState.value = mutableState.value.copy(error = null)
     }
 
+    /** Re-reads controller state (call on UI start to resync after reopen). */
+    fun refreshState() {
+        controller?.let(::publish)
+    }
+
+    /**
+     * Snapshots the controller queue as domain songs (metadata only, no
+     * streams). Used to rebuild the UI queue when the activity-scoped queue
+     * was lost (swipe-away) while the service kept playing.
+     */
+    fun currentQueueSongs(): List<com.waveyy.app.domain.model.Song> {
+        val controller = controller ?: return emptyList()
+        return (0 until controller.mediaItemCount).mapNotNull { index ->
+            val item = runCatching { controller.getMediaItemAt(index) }.getOrNull()
+                ?: return@mapNotNull null
+            val meta = item.mediaMetadata
+            com.waveyy.app.domain.model.Song(
+                id = item.mediaId,
+                name = (meta.title ?: "").toString(),
+                artist = (meta.artist ?: "").toString(),
+                album = (meta.albumTitle ?: "").toString(),
+                imageUrl = meta.artworkUri?.toString().orEmpty(),
+                durationSec = 0L,
+                playCount = 0L,
+                streams = emptyList()
+            ).takeIf { it.id.isNotBlank() }
+        }
+    }
+
     private fun startTicker(player: Player) {
         tickerStarted = true
         scope.launch {

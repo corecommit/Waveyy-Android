@@ -189,8 +189,31 @@ class SongRepository @Inject constructor(
 
     /** Direct song fetch (empty when unconfigured). */
     fun songById(id: String): Flow<Song?> = flow {
-        emit(direct?.songById(id)?.data?.let(SongMapper::toDomain))
+        emit(refreshSongById(id))
     }.flowOn(Dispatchers.IO)
+
+    /** Direct song fetch by id (null when unconfigured or failing). */
+    private suspend fun refreshSongById(id: String): Song? {
+        return runCatching { direct?.songById(id)?.data }.getOrNull()?.let(SongMapper::toDomain)
+    }
+
+    /**
+     * Re-fetches a full [song] (streams included) right before playback.
+     * Direct deployment first; falls back to the working proxy search by
+     * name, accepting only an exact id match. Null when unresolvable.
+     */
+    suspend fun refreshSong(song: Song): Song? {
+        refreshSongById(song.id)?.let { return it }
+        val hint = song.name.takeIf { it.isNotBlank() && it != "Unknown" } ?: return null
+        return runCatching {
+            val body = api.searchSongs(query = hint, limit = 10)
+            if (!body.error.isNullOrBlank()) return null
+            (body.data?.results.orEmpty() + body.data?.songs.orEmpty())
+                .firstOrNull { it.id == song.id }
+                ?.let(SongMapper::toDomain)
+                ?.takeIf { fresh -> fresh.streams.any { it.url.isNotBlank() } }
+        }.getOrNull()
+    }
 
     /** Spotify-mapped recommendations, mirroring `getSpotifyRecommendations`. */
     fun spotifyRecommendations(name: String, artist: String, limit: Int = 12): Flow<List<Song>> = flow {
