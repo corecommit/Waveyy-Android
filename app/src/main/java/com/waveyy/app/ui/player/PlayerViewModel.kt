@@ -116,6 +116,15 @@ class PlayerViewModel @Inject constructor(
     /** Latest race winner (provider + score, for the debug caption). */
     val raceWinner: StateFlow<LyricsRaceOrchestrator.Scored?> = mutableWinner.asStateFlow()
 
+    private val mutablePlayerError = MutableStateFlow<String?>(null)
+    /** Playback failure message for the Snackbar (null when clear). */
+    val playerError: StateFlow<String?> = mutablePlayerError.asStateFlow()
+
+    /** Clears a surfaced playback error (after the Snackbar is shown). */
+    fun clearPlayerError() {
+        mutablePlayerError.value = null
+    }
+
     /** Mini-player hidden flag (set by swipe-down, cleared on new song start). */
     val miniPlayerHidden: StateFlow<Boolean> = userPrefs.miniPlayerHiddenFlow()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000L), false)
@@ -149,7 +158,10 @@ class PlayerViewModel @Inject constructor(
     fun playSongs(songs: List<Song>, startIndex: Int = 0) {
         viewModelScope.launch {
             val resolved = resolveStreams(songs)
-            if (resolved.isEmpty()) return@launch
+            if (resolved.isEmpty()) {
+                mutablePlayerError.value = UNPLAYABLE_MESSAGE
+                return@launch
+            }
             val tappedId = songs.getOrNull(startIndex)?.id
             val index = resolved.indexOfFirst { it.id == tappedId }.takeIf { it >= 0 } ?: 0
             mutableQueue.value = resolved
@@ -163,12 +175,19 @@ class PlayerViewModel @Inject constructor(
     fun playSource(source: com.waveyy.app.playback.QueueSource, startIndex: Int = 0) {
         viewModelScope.launch {
             val withStreams = resolveStreams(source.songs)
-            if (withStreams.isEmpty()) return@launch
+            if (withStreams.isEmpty()) {
+                mutablePlayerError.value = UNPLAYABLE_MESSAGE
+                return@launch
+            }
             val tappedId = source.songs.getOrNull(startIndex)?.id
             val resolved = connection.resolveSource(
                 com.waveyy.app.playback.QueueSource.Custom(withStreams),
                 withStreams.indexOfFirst { it.id == tappedId }.takeIf { it >= 0 } ?: 0
-            ) ?: return@launch
+            )
+            if (resolved == null) {
+                mutablePlayerError.value = UNPLAYABLE_MESSAGE
+                return@launch
+            }
             mutableQueue.value = resolved.songs
             userPrefs.setMiniPlayerHidden(false)
             connection.playItems(resolved.items, resolved.index)
@@ -177,12 +196,14 @@ class PlayerViewModel @Inject constructor(
     }
 
     /**
-     * Resolves missing YouTube stream URLs in parallel (JioSaavn songs
-     * already carry streams). Unresolvable songs are dropped.
+     * Resolves missing stream URLs in parallel before playback: YouTube
+     * songs resolve lazily, and stream-less JioSaavn songs (history,
+     * playlists, artist tops) are re-fetched by id so a tap never
+     * silently no-ops on stale metadata. Unresolvable songs are dropped.
      */
     private suspend fun resolveStreams(songs: List<Song>): List<Song> {
         val needsResolution = songs.any { song ->
-            song.source == MusicSource.YTMUSIC && song.streams.none { it.url.isNotBlank() }
+            song.streams.none { it.url.isNotBlank() }
         }
         if (!needsResolution) {
             return songs.filter { it.streams.any { s -> s.url.isNotBlank() } }
@@ -191,17 +212,8 @@ class PlayerViewModel @Inject constructor(
             songs.map { song ->
                 async {
                     runCatching {
-                        if (song.source == MusicSource.YTMUSIC && song.streams.none { it.url.isNotBlank() }) {
-                            val url = ytmusic.streamUrl(song.id.removePrefix("yt:"))
-                            if (url.isNullOrBlank()) {
-                                null
-                            } else {
-                                song.copy(
-                                    streams = listOf(
-                                        AudioStream(url = url, quality = "", bitrateKbps = 0, lossless = false)
-                                    )
-                                )
-                            }
+                        if (song.streams.none { it.url.isNotBlank() }) {
+                            refreshStreams(song) ?: song
                         } else {
                             song
                         }
@@ -209,6 +221,20 @@ class PlayerViewModel @Inject constructor(
                 }
             }.awaitAll().filterNotNull().filter { it.streams.any { s -> s.url.isNotBlank() } }
         }
+    }
+
+    /** Re-fetches playable streams for one stream-less [song]. */
+    private suspend fun refreshStreams(song: Song): Song? {
+        if (song.source == MusicSource.YTMUSIC) {
+            val url = ytmusic.streamUrl(song.id.removePrefix("yt:"))
+            if (url.isNullOrBlank()) return null
+            return song.copy(
+                streams = listOf(
+                    AudioStream(url = url, quality = "", bitrateKbps = 0, lossless = false)
+                )
+            )
+        }
+        return songRepository.songById(song.id).first()
     }
 
     /** Plays a single song (queue of one). */
@@ -440,5 +466,8 @@ class PlayerViewModel @Inject constructor(
     companion object {
         private const val HISTORY_CAP = 50
         private const val PLAY_LOG_CAP = 300
+
+        /** Snackbar text when nothing tapped is playable. */
+        const val UNPLAYABLE_MESSAGE = "Unable to play this song. Try again."
     }
 }

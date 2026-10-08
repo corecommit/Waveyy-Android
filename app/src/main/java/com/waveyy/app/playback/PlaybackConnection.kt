@@ -3,6 +3,7 @@ package com.waveyy.app.playback
 import android.content.ComponentName
 import android.content.Context
 import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
@@ -19,6 +20,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.guava.await
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -32,6 +34,8 @@ import javax.inject.Singleton
  * @param isBuffering whether the player is buffering.
  * @param repeatMode Media3 repeat mode (OFF/ONE/ALL).
  * @param shuffleEnabled whether shuffle is on.
+ * @param error last player error message, or null. Surfaced once via
+ * Snackbar; preserved across publishes until cleared.
  */
 data class PlaybackState(
     val mediaId: String? = null,
@@ -40,7 +44,8 @@ data class PlaybackState(
     val durationMs: Long = 0L,
     val isBuffering: Boolean = false,
     val repeatMode: Int = Player.REPEAT_MODE_OFF,
-    val shuffleEnabled: Boolean = false
+    val shuffleEnabled: Boolean = false,
+    val error: String? = null
 )
 
 /**
@@ -82,6 +87,15 @@ class PlaybackConnection @Inject constructor(
 
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
             controller?.let(::publish)
+        }
+
+        override fun onPlayerError(error: PlaybackException) {
+            Timber.e(error, "Playback failed id=${controller?.currentMediaItem?.mediaId}")
+            controller?.let(::publish)
+            mutableState.value = mutableState.value.copy(
+                error = error.message?.takeIf { it.isNotBlank() }
+                    ?: "Unable to play this song. Try again."
+            )
         }
     }
 
@@ -240,6 +254,7 @@ class PlaybackConnection @Inject constructor(
     }
 
     private fun publish(player: Player) {
+        val previousError = mutableState.value.error
         mutableState.value = PlaybackState(
             mediaId = player.currentMediaItem?.mediaId,
             isPlaying = player.isPlaying,
@@ -247,8 +262,14 @@ class PlaybackConnection @Inject constructor(
             durationMs = player.duration.coerceAtLeast(0L),
             isBuffering = player.playbackState == Player.STATE_BUFFERING,
             repeatMode = player.repeatMode,
-            shuffleEnabled = player.shuffleModeEnabled
+            shuffleEnabled = player.shuffleModeEnabled,
+            error = previousError
         )
+    }
+
+    /** Clears a surfaced player error (after the Snackbar is shown). */
+    fun clearError() {
+        mutableState.value = mutableState.value.copy(error = null)
     }
 
     private fun startTicker(player: Player) {
