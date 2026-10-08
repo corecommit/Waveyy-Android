@@ -75,8 +75,9 @@ class PlayerViewModel @Inject constructor(
     val lyrics: StateFlow<LyricsUiState> = mutableLyrics.asStateFlow()
 
     private val mutableHinglish = MutableStateFlow(false)
-    /** Romanized-lyrics toggle. */
-    val hinglishEnabled: StateFlow<Boolean> = mutableHinglish.asStateFlow()
+    /** Romanized-lyrics toggle (persisted). */
+    val hinglishEnabled: StateFlow<Boolean> = userPrefs.hinglishFlow()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000L), false)
 
     private var lastLoggedId: String? = null
     private var sleepJob: Job? = null
@@ -228,9 +229,16 @@ class PlayerViewModel @Inject constructor(
         viewModelScope.launch { connection.setPlaybackSpeed(speed) }
     }
 
-    /** Toggles romanized lyrics. */
+    /** Toggles romanized lyrics (persisted across restarts). */
     fun toggleHinglish() {
-        mutableHinglish.value = !mutableHinglish.value
+        viewModelScope.launch {
+            userPrefs.setHinglish(!(hinglishEnabled.value))
+        }
+    }
+
+    /** Sets the romanized-lyrics toggle explicitly. */
+    fun setHinglish(enabled: Boolean) {
+        viewModelScope.launch { userPrefs.setHinglish(enabled) }
     }
 
     /** Moves a queue item, mirroring the controller queue. */

@@ -20,8 +20,10 @@ object AccentExtractor {
     private val mutex = Mutex()
 
     /**
-     * Returns the vibrant RGB for [imageUrl], or null when extraction
-     * fails. Results (including failures) cache under [cacheKey].
+     * Returns an accent RGB for [imageUrl], or null when extraction fails.
+     * Fallback chain (first non-null wins): vibrant, light vibrant, dark
+     * vibrant, dominant. Callers fall back to the theme primary. Results
+     * (including failures) cache under [cacheKey].
      */
     suspend fun vibrantRgb(imageUrl: String, cacheKey: String): Int? {
         mutex.withLock {
@@ -37,7 +39,10 @@ object AccentExtractor {
                         ?: return@runCatching null
                 }
                 val palette = Palette.from(bitmap).generate()
-                (palette.vibrantSwatch ?: palette.dominantSwatch)?.rgb
+                palette.vibrantSwatch?.rgb
+                    ?: palette.lightVibrantSwatch?.rgb
+                    ?: palette.darkVibrantSwatch?.rgb
+                    ?: palette.dominantSwatch?.rgb
             }.getOrNull()
         }
         mutex.withLock { cache[cacheKey] = rgb }
