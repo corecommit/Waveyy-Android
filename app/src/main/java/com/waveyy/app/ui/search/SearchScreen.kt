@@ -1,5 +1,7 @@
 package com.waveyy.app.ui.search
 
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -12,15 +14,17 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.onFocusChanged
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
@@ -29,6 +33,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -40,17 +45,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.waveyy.app.R
 import com.waveyy.app.domain.model.Song
+import com.waveyy.app.playback.QueueSource
 import com.waveyy.app.ui.components.AdaptiveImage
 import com.waveyy.app.ui.components.AlbumCard
-import com.waveyy.app.ui.components.ArtistCard
-import com.waveyy.app.ui.components.WaveyyProgress
+import com.waveyy.app.ui.components.SkeletonRows
+import com.waveyy.app.ui.components.WaveyyErrorPanel
 import com.waveyy.app.ui.player.sharedPlayerViewModel
 import kotlinx.coroutines.launch
 
@@ -64,25 +70,33 @@ enum class SearchFilter(val label: String) {
 
 /**
  * Search: pill field with clear button, filter chips, vertical song rows
- * with overflow actions, artist rows with circular avatars, album rail,
- * and trending suggestions when blank. Ranking reuses [SearchViewModel].
+ * with overflow actions, artist rows with circular avatars, album rail.
+ * Loading shows skeleton rows (never a spinner, never stale results);
+ * blank+focused shows history; blank+unfocused shows trending suggestions.
  */
 @Composable
 fun SearchScreen(
     viewModel: SearchViewModel = hiltViewModel(),
-    onPlaySong: (List<Song>, Int) -> Unit = { _, _ -> },
+    onPlaySong: (QueueSource, Int) -> Unit = { _, _ -> },
     onAlbum: (String) -> Unit = {},
-    onArtist: (String) -> Unit = {},
-    onSubmitQuery: (String) -> Unit = {}
+    onArtist: (String) -> Unit = {}
 ) {
     val state by viewModel.state.collectAsState()
     val suggestions by viewModel.suggestions.collectAsState()
+    val history by viewModel.searchHistory.collectAsState()
     val activeQuery by viewModel.query.collectAsState()
     var text by remember(activeQuery) { mutableStateOf(activeQuery) }
     var filter by remember { mutableStateOf(SearchFilter.ALL) }
+    var focused by remember { mutableStateOf(false) }
+    val focusManager = LocalFocusManager.current
     val showSongs = filter == SearchFilter.ALL || filter == SearchFilter.SONGS
     val showAlbums = filter == SearchFilter.ALL || filter == SearchFilter.ALBUMS
     val showArtists = filter == SearchFilter.ALL || filter == SearchFilter.ARTISTS
+
+    fun submit(query: String) {
+        focusManager.clearFocus()
+        viewModel.submitQuery(query)
+    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -94,8 +108,9 @@ fun SearchScreen(
                 onValueChange = { text = it },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                placeholder = { Text(stringResource(R.string.search_hint)) },
+                    .padding(horizontal = 16.dp)
+                    .onFocusChanged { focused = it.isFocused },
+                placeholder = { Text("Search songs, artists, albums") },
                 leadingIcon = { Icon(imageVector = Icons.Filled.Search, contentDescription = null) },
                 trailingIcon = {
                     if (text.isNotEmpty()) {
@@ -107,94 +122,200 @@ fun SearchScreen(
                 singleLine = true,
                 shape = RoundedCornerShape(percent = 50),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                keyboardActions = KeyboardActions(onSearch = { viewModel.submitQuery(text) })
+                keyboardActions = KeyboardActions(onSearch = { submit(text) })
             )
         }
-        item {
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(SearchFilter.entries.toList()) { entry ->
-                    FilterChip(
-                        selected = filter == entry,
-                        onClick = { filter = entry },
-                        label = { Text(entry.label) }
-                    )
+        if (text.isBlank() && focused && history.isNotEmpty()) {
+            item {
+                HistoryList(
+                    history = history,
+                    onPick = { submit(it) },
+                    onRemove = viewModel::removeHistoryEntry,
+                    onClear = viewModel::clearHistory
+                )
+            }
+        } else {
+            item {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(SearchFilter.entries.toList()) { entry ->
+                        FilterChip(
+                            selected = filter == entry,
+                            onClick = { filter = entry },
+                            label = { Text(entry.label) }
+                        )
+                    }
+                }
+            }
+            item {
+                Crossfade(
+                    targetState = state is SearchUiState.Loading,
+                    animationSpec = tween(200),
+                    label = "searchCrossfade"
+                ) { loading ->
+                    if (loading) {
+                        SkeletonRows(count = 7)
+                    } else {
+                        ResultsBody(
+                            state = state,
+                            text = text,
+                            showSongs = showSongs,
+                            showAlbums = showAlbums,
+                            showArtists = showArtists,
+                            suggestions = suggestions,
+                            onPlaySong = onPlaySong,
+                            onAlbum = onAlbum,
+                            onArtist = onArtist,
+                            onPickSuggestion = { submit(it) }
+                        )
+                    }
                 }
             }
         }
-        when (val current = state) {
-            SearchUiState.Loading, is SearchUiState.Error -> {
-                item {
-                    if (text.isBlank() && suggestions.isNotEmpty()) {
-                        SuggestionRows(suggestions = suggestions, onPick = {
-                            text = it
-                            onSubmitQuery(it)
-                        })
-                    } else {
-                        WaveyyProgress(progress = null, modifier = Modifier.padding(32.dp))
-                    }
+    }
+}
+
+/** Loaded results, empty hint, or error panel. */
+@Composable
+private fun ResultsBody(
+    state: SearchUiState,
+    text: String,
+    showSongs: Boolean,
+    showAlbums: Boolean,
+    showArtists: Boolean,
+    suggestions: List<String>,
+    onPlaySong: (List<Song>, Int) -> Unit,
+    onAlbum: (String) -> Unit,
+    onArtist: (String) -> Unit,
+    onPickSuggestion: (String) -> Unit
+) {
+    when (state) {
+        SearchUiState.Loading -> SkeletonRows(count = 7)
+        is SearchUiState.Error -> WaveyyErrorPanel(onRetry = {})
+        is SearchUiState.Success -> {
+            if (state.songs.isEmpty() && state.albums.isEmpty() && state.artists.isEmpty()) {
+                if (text.isBlank() && suggestions.isNotEmpty()) {
+                    SuggestionRows(suggestions = suggestions, onPick = onPickSuggestion)
+                } else if (text.isNotBlank()) {
+                    EmptyResults(query = text)
                 }
-            }
-            is SearchUiState.Success -> {
-                if (current.songs.isEmpty() && current.albums.isEmpty() && current.artists.isEmpty()) {
-                    if (text.isBlank() && suggestions.isNotEmpty()) {
-                        item {
-                            SuggestionRows(suggestions = suggestions, onPick = {
-                                text = it
-                                onSubmitQuery(it)
-                            })
-                        }
-                    } else {
-                        item {
-                            Text(
-                                text = stringResource(R.string.search_hint),
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(32.dp)
-                            )
-                        }
-                    }
-                } else {
+            } else {
+                Column {
                     if (showSongs) {
-                        itemsIndexed(current.songs, key = { _, song -> song.id }) { index, song ->
+                        state.songs.forEachIndexed { index, song ->
                             SongResultRow(
                                 song = song,
-                                songs = current.songs,
+                                songs = state.songs,
                                 index = index,
                                 onPlaySong = onPlaySong
                             )
                         }
                     }
-                    if (showArtists && current.artists.isNotEmpty()) {
-                        item {
-                            SectionTitle("Artists")
-                            Column {
-                                current.artists.forEach { artist ->
-                                    ArtistResultRow(
-                                        name = artist.name,
-                                        imageUrl = artist.imageUrl,
-                                        onOpen = { onArtist(artist.id) }
-                                    )
-                                }
+                    if (showArtists && state.artists.isNotEmpty()) {
+                        SectionTitle("Artists")
+                        Column {
+                            state.artists.forEach { artist ->
+                                ArtistResultRow(
+                                    name = artist.name,
+                                    imageUrl = artist.imageUrl,
+                                    onOpen = { onArtist(artist.id) }
+                                )
                             }
                         }
                     }
-                    if (showAlbums && current.albums.isNotEmpty()) {
-                        item {
-                            SectionTitle("Albums")
-                            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                items(current.albums, key = { it.id }) { album ->
-                                    AlbumCard(
-                                        title = album.name,
-                                        artist = album.artist,
-                                        imageUrl = album.imageUrl,
-                                        albumId = album.id,
-                                        onOpen = onAlbum
-                                    )
-                                }
+                    if (showAlbums && state.albums.isNotEmpty()) {
+                        SectionTitle("Albums")
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            items(state.albums, key = { it.id }) { album ->
+                                AlbumCard(
+                                    title = album.name,
+                                    artist = album.artist,
+                                    imageUrl = album.imageUrl,
+                                    albumId = album.id,
+                                    onOpen = onAlbum
+                                )
                             }
                         }
+                    }
+                    if (text.isBlank() && suggestions.isNotEmpty()) {
+                        SectionTitle("Suggestions")
+                        SuggestionRows(suggestions = suggestions, onPick = onPickSuggestion)
                     }
                 }
+            }
+        }
+    }
+}
+
+/** Centered empty state for queries with no results. */
+@Composable
+private fun EmptyResults(query: String) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Icon(
+            imageVector = Icons.Filled.Search,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = "No results for '$query'",
+            style = MaterialTheme.typography.titleMedium
+        )
+    }
+}
+
+/** Recent-search history list with per-row remove and clear-all. */
+@Composable
+private fun HistoryList(
+    history: List<String>,
+    onPick: (String) -> Unit,
+    onRemove: (String) -> Unit,
+    onClear: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            text = "Recent searches",
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        TextButton(onClick = onClear) {
+            Text("Clear all")
+        }
+    }
+    history.forEach { entry ->
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onPick(entry) }
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Filled.History,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = entry,
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 12.dp),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            IconButton(onClick = { onRemove(entry) }) {
+                Icon(imageVector = Icons.Filled.Close, contentDescription = "Remove")
             }
         }
     }
@@ -234,7 +355,7 @@ private fun SongResultRow(
     song: Song,
     songs: List<Song>,
     index: Int,
-    onPlaySong: (List<Song>, Int) -> Unit
+    onPlaySong: (QueueSource, Int) -> Unit
 ) {
     val player = sharedPlayerViewModel()
     val context = LocalContext.current
@@ -243,7 +364,7 @@ private fun SongResultRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onPlaySong(songs, index) }
+            .clickable { onPlaySong(QueueSource.SearchResults(songs), index) }
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -281,22 +402,22 @@ private fun SongResultRow(
         IconButton(onClick = { expanded = true }) {
             Icon(imageVector = Icons.Filled.MoreVert, contentDescription = "More")
         }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            DropdownMenuItem(
+        androidx.compose.material3.DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            androidx.compose.material3.DropdownMenuItem(
                 text = { Text("Play now") },
                 onClick = {
                     expanded = false
-                    onPlaySong(songs, index)
+                    onPlaySong(QueueSource.SearchResults(songs), index)
                 }
             )
-            DropdownMenuItem(
+            androidx.compose.material3.DropdownMenuItem(
                 text = { Text("Add to queue") },
                 onClick = {
                     expanded = false
                     player.appendSong(song)
                 }
             )
-            DropdownMenuItem(
+            androidx.compose.material3.DropdownMenuItem(
                 text = { Text("Share") },
                 onClick = {
                     expanded = false

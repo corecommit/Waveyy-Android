@@ -90,6 +90,16 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
+    /** Plays a tap source with Up-Next semantics per origin (see [QueueSource]). */
+    fun playSource(source: com.waveyy.app.playback.QueueSource, startIndex: Int = 0) {
+        val resolved = connection.resolveSource(source, startIndex) ?: return
+        mutableQueue.value = resolved.songs
+        viewModelScope.launch {
+            connection.playItems(resolved.items, resolved.index)
+            onTrackChanged(resolved.songs.getOrNull(resolved.index)?.id)
+        }
+    }
+
     /** Plays a single song (queue of one). */
     fun playSong(song: Song) {
         playSongs(listOf(song), 0)

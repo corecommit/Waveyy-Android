@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.waveyy.app.domain.model.Album
 import com.waveyy.app.domain.model.Song
+import com.waveyy.app.playback.QueueSource
 import com.waveyy.app.ui.components.AdaptiveImage
 import com.waveyy.app.ui.components.SongRow
 import com.waveyy.app.ui.components.WaveyyBadge
@@ -35,7 +36,7 @@ import com.waveyy.app.ui.theme.WaveyyShapes
 @Composable
 fun AlbumScreen(
     viewModel: AlbumViewModel = hiltViewModel(),
-    onPlaySong: (List<Song>, Int) -> Unit = { _, _ -> }
+    onPlaySong: (QueueSource, Int) -> Unit = { _, _ -> }
 ) {
     val state by viewModel.state.collectAsState()
     when (val current = state) {
@@ -51,7 +52,7 @@ fun AlbumScreen(
 
 /** Loaded album body. */
 @Composable
-private fun AlbumContent(album: Album, onPlaySong: (List<Song>, Int) -> Unit) {
+private fun AlbumContent(album: Album, onPlaySong: (QueueSource, Int) -> Unit) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -88,7 +89,7 @@ private fun AlbumContent(album: Album, onPlaySong: (List<Song>, Int) -> Unit) {
                 artist = song.artist,
                 imageUrl = song.imageUrl,
                 songId = song.id,
-                onPlay = { onPlaySong(album.songs, index) }
+                onPlay = { onPlaySong(QueueSource.Album(album.songs), index) }
             )
         }
     }

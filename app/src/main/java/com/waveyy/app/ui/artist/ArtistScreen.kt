@@ -26,6 +26,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.waveyy.app.domain.model.Song
+import com.waveyy.app.playback.QueueSource
 import com.waveyy.app.ui.components.AdaptiveImage
 import com.waveyy.app.ui.components.AlbumCard
 import com.waveyy.app.ui.components.HeroPlayButton
@@ -43,7 +44,7 @@ import com.waveyy.app.util.PlayCountFormatter
 @Composable
 fun ArtistScreen(
     viewModel: ArtistViewModel = hiltViewModel(),
-    onPlaySong: (List<Song>, Int) -> Unit = { _, _ -> },
+    onPlaySong: (QueueSource, Int) -> Unit = { _, _ -> },
     onAlbum: (String) -> Unit = {}
 ) {
     val state by viewModel.state.collectAsState()
@@ -60,7 +61,7 @@ fun ArtistScreen(
 
 /** Loaded artist body. */
 @Composable
-private fun ArtistContent(page: ArtistPage, onPlaySong: (List<Song>, Int) -> Unit, onAlbum: (String) -> Unit) {
+private fun ArtistContent(page: ArtistPage, onPlaySong: (QueueSource, Int) -> Unit, onAlbum: (String) -> Unit) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -100,7 +101,7 @@ private fun ArtistContent(page: ArtistPage, onPlaySong: (List<Song>, Int) -> Uni
                         text = HtmlDecoder.decode(release.name),
                         style = MaterialTheme.typography.titleLarge
                     )
-                    HeroPlayButton(songId = release.id, onPlay = { onPlaySong(listOf(release), 0) })
+                    HeroPlayButton(songId = release.id, onPlay = { onPlaySong(QueueSource.Artist(listOf(release)), 0) })
                 }
             }
         }
@@ -133,7 +134,7 @@ private fun ArtistContent(page: ArtistPage, onPlaySong: (List<Song>, Int) -> Uni
                             artist = song.artist,
                             imageUrl = song.imageUrl,
                             songId = song.id,
-                            onPlay = { onPlaySong(page.tracks, index) }
+                            onPlay = { onPlaySong(QueueSource.Artist(page.tracks), index) }
                         )
                     }
                 }
@@ -168,7 +169,7 @@ private fun ArtistContent(page: ArtistPage, onPlaySong: (List<Song>, Int) -> Uni
 
 /** Top-3 podium row (silver, gold, bronze order). */
 @Composable
-private fun PodiumRow(songs: List<Song>, onPlaySong: (List<Song>, Int) -> Unit) {
+private fun PodiumRow(songs: List<Song>, onPlaySong: (QueueSource, Int) -> Unit) {
     val ordered = listOf(2 to songs[1], 1 to songs[0], 3 to songs[2])
     Row(
         modifier = Modifier

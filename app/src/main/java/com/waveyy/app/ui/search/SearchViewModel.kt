@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.waveyy.app.data.remote.dto.SongDto
 import com.waveyy.app.data.remote.mapper.SongMapper
+import com.waveyy.app.data.local.datastore.SearchHistoryStore
 import com.waveyy.app.data.repository.SongRepository
 import com.waveyy.app.domain.model.Album
 import com.waveyy.app.domain.model.Artist
@@ -12,9 +13,11 @@ import com.waveyy.app.domain.model.Song
 import com.waveyy.app.domain.usecase.SearchRanking
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -47,6 +50,7 @@ sealed interface SearchUiState {
 @HiltViewModel
 class SearchViewModel @Inject constructor(
     private val repository: SongRepository,
+    private val history: SearchHistoryStore,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -63,6 +67,10 @@ class SearchViewModel @Inject constructor(
     private val mutableSuggestions = MutableStateFlow<List<String>>(emptyList())
     /** Trending names shown as tappable suggestions when the query is blank. */
     val suggestions: StateFlow<List<String>> = mutableSuggestions.asStateFlow()
+
+    /** Search history, newest first. */
+    val searchHistory: StateFlow<List<String>> = history.history
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000L), emptyList())
 
     init {
         if (initialQuery.isBlank()) {
@@ -83,6 +91,16 @@ class SearchViewModel @Inject constructor(
         refresh()
     }
 
+    /** Removes one history entry. */
+    fun removeHistoryEntry(entry: String) {
+        viewModelScope.launch { history.remove(entry) }
+    }
+
+    /** Clears all history. */
+    fun clearHistory() {
+        viewModelScope.launch { history.clear() }
+    }
+
     /** (Re)runs the search. */
     fun refresh() {
         search()
@@ -92,7 +110,12 @@ class SearchViewModel @Inject constructor(
         mutableState.value = SearchUiState.Loading
         viewModelScope.launch {
             runCatching { load(mutableQuery.value) }
-                .onSuccess { mutableState.value = it }
+                .onSuccess {
+                    mutableState.value = it
+                    if (it.songs.isNotEmpty() && mutableQuery.value.isNotBlank()) {
+                        history.add(mutableQuery.value)
+                    }
+                }
                 .onFailure { mutableState.value = SearchUiState.Error(it.message ?: "Search failed") }
         }
     }

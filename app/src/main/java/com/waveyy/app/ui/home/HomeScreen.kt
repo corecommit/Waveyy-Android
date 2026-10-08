@@ -40,6 +40,7 @@ import com.waveyy.app.MainActivity
 import com.waveyy.app.R
 import com.waveyy.app.domain.model.Album
 import com.waveyy.app.domain.model.Song
+import com.waveyy.app.playback.QueueSource
 import com.waveyy.app.ui.components.AdaptiveImage
 import com.waveyy.app.ui.components.ArtistCard
 import com.waveyy.app.ui.components.SkeletonHomeScreen
@@ -54,7 +55,7 @@ import timber.log.Timber
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel(),
-    onPlaySong: (List<Song>, Int) -> Unit = { _, _ -> },
+    onPlaySong: (QueueSource, Int) -> Unit = { _, _ -> },
     onAlbum: (String) -> Unit = {},
     onArtist: (String) -> Unit = {},
     onSearch: () -> Unit = {},
@@ -115,7 +116,7 @@ private fun HomeError(onRetry: () -> Unit, modifier: Modifier = Modifier) {
 private fun HomeContent(
     sections: HomeSections,
     userName: String?,
-    onPlaySong: (List<Song>, Int) -> Unit,
+    onPlaySong: (QueueSource, Int) -> Unit,
     onAlbum: (String) -> Unit,
     onArtist: (String) -> Unit,
     onSearch: () -> Unit,
@@ -133,7 +134,7 @@ private fun HomeContent(
         item(span = { GridItemSpan(2) }) {
             HomeHeader(
                 onExplore = {
-                    hero?.let { onPlaySong(sections.trending, 0) }
+                    hero?.let { onPlaySong(QueueSource.HomeFeed(sections.trending), 0) }
                 },
                 onSearch = onSearch,
                 onSettings = onSettings
@@ -159,7 +160,7 @@ private fun HomeContent(
                 val index = sections.recent.indexOf(song)
                 GridSongCard(
                     song = song,
-                    onPlay = { onPlaySong(sections.recent, index) }
+                    onPlay = { onPlaySong(QueueSource.HomeFeed(sections.recent), index) }
                 )
             }
         }
@@ -171,7 +172,7 @@ private fun HomeContent(
                 val index = sections.recommended.indexOf(song)
                 GridSongCard(
                     song = song,
-                    onPlay = { onPlaySong(sections.recommended, index) }
+                    onPlay = { onPlaySong(QueueSource.HomeFeed(sections.recommended), index) }
                 )
             }
         }
@@ -210,7 +211,7 @@ private fun HomeContent(
                 val index = sections.trending.indexOf(song)
                 GridSongCard(
                     song = song,
-                    onPlay = { onPlaySong(sections.trending, index) }
+                    onPlay = { onPlaySong(QueueSource.HomeFeed(sections.trending), index) }
                 )
             }
         }
@@ -222,7 +223,7 @@ private fun HomeContent(
                 val index = sections.newReleases.indexOf(song)
                 GridSongCard(
                     song = song,
-                    onPlay = { onPlaySong(sections.newReleases, index) }
+                    onPlay = { onPlaySong(QueueSource.HomeFeed(sections.newReleases), index) }
                 )
             }
         }
@@ -255,7 +256,7 @@ private fun HeroCard(
         modifier = modifier
             .fillMaxWidth()
             .aspectRatio(16f / 9f)
-            .clickable { onPlaySong(songs, songs.indexOf(song).coerceAtLeast(0)) }
+            .clickable { onPlaySong(QueueSource.HomeFeed(songs), songs.indexOf(song).coerceAtLeast(0)) }
             .clip(RoundedCornerShape(24.dp))
     ) {
         AdaptiveImage(
