@@ -152,7 +152,8 @@ private fun HomeContent(
                 HeroCard(
                     song = hero,
                     songs = sections.trending,
-                    onPlaySong = onPlaySong
+                    onPlaySong = onPlaySong,
+                    modifier = Modifier.padding(top = 16.dp)
                 )
             }
         }
