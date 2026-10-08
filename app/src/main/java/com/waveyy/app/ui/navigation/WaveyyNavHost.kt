@@ -5,8 +5,11 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -14,7 +17,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -40,7 +45,7 @@ import com.waveyy.app.ui.placeholder.PlaceholderScreen
 import com.waveyy.app.ui.player.FullPlayerScreen
 import com.waveyy.app.ui.player.MiniPlayer
 import com.waveyy.app.ui.player.PlayerViewModel
-import com.waveyy.app.ui.components.WaveyyBottomBar
+import com.waveyy.app.ui.components.FloatingNavPill
 import com.waveyy.app.ui.components.WaveyyTopBar
 import com.waveyy.app.ui.search.SearchScreen
 import com.waveyy.app.ui.settings.SettingsScreen
@@ -49,8 +54,8 @@ import kotlinx.coroutines.launch
 
 /**
  * Root navigation host with two nested graphs plus the app chrome:
- * [WaveyyTopBar] (logo, search, account) above, [MiniPlayer] and
- * [WaveyyBottomBar] below on every root-graph screen. The full player
+ * [WaveyyTopBar] (logo, search, account) above, [MiniPlayer] and the
+ * floating pill below on every root-graph screen. The full player
  * route hides the chrome, mirroring the web's `(player)` layout.
  */
 @Composable
@@ -202,15 +207,23 @@ fun WaveyyNavHost(
                     }
                 )
             }
-            WaveyyBottomBar(
-                currentRoute = currentRoute?.substringBefore("?"),
-                onDestination = { route ->
-                    navController.navigate(route) {
-                        popUpTo(Graph.ROOT) { inclusive = false }
-                        launchSingleTop = true
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(bottom = 16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                FloatingNavPill(
+                    currentRoute = currentRoute?.substringBefore("?"),
+                    onDestination = { route ->
+                        navController.navigate(route) {
+                            popUpTo(Graph.ROOT) { inclusive = false }
+                            launchSingleTop = true
+                        }
                     }
-                }
-            )
+                )
+            }
         }
     }
 }
