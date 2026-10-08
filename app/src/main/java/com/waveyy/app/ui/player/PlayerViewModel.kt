@@ -73,14 +73,20 @@ class PlayerViewModel @Inject constructor(
 
     /**
      * Replaces the queue and starts playback, then records history.
-     * Mirrors tapping a song anywhere in the web app.
+     * Mirrors tapping a song anywhere in the web app. Stream-less songs are
+     * dropped up front so this queue stays index-identical to the
+     * controller queue built by [QueueManager]; the tapped song is
+     * re-resolved by id so its index survives filtering.
      */
     fun playSongs(songs: List<Song>, startIndex: Int = 0) {
-        if (songs.isEmpty()) return
-        mutableQueue.value = songs
+        val effective = songs.filter { song -> song.streams.any { it.url.isNotBlank() } }
+        if (effective.isEmpty()) return
+        val tappedId = songs.getOrNull(startIndex)?.id
+        val index = effective.indexOfFirst { it.id == tappedId }.takeIf { it >= 0 } ?: 0
+        mutableQueue.value = effective
         viewModelScope.launch {
-            connection.playSongs(songs, startIndex)
-            onTrackChanged(songs.getOrNull(startIndex)?.id)
+            connection.playSongs(effective, index)
+            onTrackChanged(effective[index].id)
         }
     }
 
@@ -171,9 +177,9 @@ class PlayerViewModel @Inject constructor(
         viewModelScope.launch { connection.clearQueue() }
     }
 
-    /** Appends a song to the queue (add-to-queue action). */
+    /** Appends a song to the queue (add-to-queue action). Stream-less songs are skipped. */
     fun appendSong(song: Song) {
-        if (song.id.isBlank()) return
+        if (song.id.isBlank() || song.streams.none { it.url.isNotBlank() }) return
         mutableQueue.value = mutableQueue.value + song
         viewModelScope.launch { connection.enqueueSong(song) }
     }

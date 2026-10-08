@@ -68,11 +68,16 @@ class PlaybackConnection @Inject constructor(
             publish(player)
             if (player.isPlaying && !tickerStarted) startTicker(player)
         }
+
+        override fun onMediaItemTransition(player: Player, mediaItem: MediaItem?, reason: Int) {
+            publish(player)
+        }
     }
 
     /**
      * Connects to the service. Safe to call repeatedly; subsequent calls are
-     * no-ops while a connection exists.
+     * no-ops while a connection exists. A fresh connection starts with
+     * repeat OFF and shuffle OFF (auto-advance through the queue).
      */
     suspend fun connect() {
         if (controllerFuture != null) return
@@ -80,6 +85,8 @@ class PlaybackConnection @Inject constructor(
         val future = MediaController.Builder(context, token).buildAsync()
         controllerFuture = future
         val controller = future.await()
+        controller.repeatMode = Player.REPEAT_MODE_OFF
+        controller.shuffleModeEnabled = false
         controller.addListener(listener)
         publish(controller)
     }
