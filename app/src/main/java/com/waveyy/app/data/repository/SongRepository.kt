@@ -101,12 +101,17 @@ class SongRepository @Inject constructor(
     }
 
     private suspend fun jsSearchRaw(query: String, limit: Int): List<Song> {
-        val body = api.searchSongs(query = query, limit = limit)
-        body.error?.takeIf { it.isNotBlank() }?.let { throw java.io.IOException(it) }
-        val dtos = body.data?.results.orEmpty() + body.data?.songs.orEmpty()
-        val songs = SongMapper.toDomainList(dtos.distinctBy { it.id })
-        Timber.d("JsSearch q=$query dtos=${dtos.size} songs=${songs.size}")
-        return songs
+        try {
+            val body = api.searchSongs(query = query, limit = limit)
+            body.error?.takeIf { it.isNotBlank() }?.let { throw java.io.IOException(it) }
+            val dtos = body.data?.results.orEmpty() + body.data?.songs.orEmpty()
+            val songs = SongMapper.toDomainList(dtos.distinctBy { it.id })
+            Timber.d("JsSearch q=$query dtos=${dtos.size} songs=${songs.size}")
+            return songs
+        } catch (e: Exception) {
+            Timber.e(e, "JsSearch failed q=$query")
+            throw e
+        }
     }
 
     @Synchronized
@@ -164,11 +169,16 @@ class SongRepository @Inject constructor(
 
     /** Raw song DTOs for callers needing pre-normalization shapes. */
     fun searchSongDtos(query: String, limit: Int = 20): Flow<List<SongDto>> = flow {
-        val body = api.searchSongs(query = query, limit = limit)
-        body.error?.takeIf { it.isNotBlank() }?.let { throw java.io.IOException(it) }
-        val dtos = (body.data?.results.orEmpty() + body.data?.songs.orEmpty()).distinctBy { it.id }
-        Timber.d("SongDtos q=$query dtos=${dtos.size}")
-        emit(dtos)
+        try {
+            val body = api.searchSongs(query = query, limit = limit)
+            body.error?.takeIf { it.isNotBlank() }?.let { throw java.io.IOException(it) }
+            val dtos = (body.data?.results.orEmpty() + body.data?.songs.orEmpty()).distinctBy { it.id }
+            Timber.d("SongDtos q=$query dtos=${dtos.size}")
+            emit(dtos)
+        } catch (e: Exception) {
+            Timber.e(e, "SongDtos failed q=$query")
+            throw e
+        }
     }.flowOn(Dispatchers.IO)
 
     /** Album search via the direct deployment (empty when unconfigured). */

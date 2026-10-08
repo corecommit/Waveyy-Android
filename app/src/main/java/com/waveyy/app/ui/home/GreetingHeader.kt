@@ -24,7 +24,7 @@ fun GreetingHeader(
 ) {
     val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
     val greeting = greetingForHour(hour)
-    Column(modifier = modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+    Column(modifier = modifier.padding(horizontal = 20.dp).padding(top = 4.dp)) {
         Text(
             text = greeting,
             style = MaterialTheme.typography.headlineMedium
