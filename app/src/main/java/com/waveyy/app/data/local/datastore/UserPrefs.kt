@@ -55,7 +55,25 @@ class UserPrefs @Inject constructor(
 
         /** Default audio quality label. */
         const val DEFAULT_AUDIO_QUALITY = "Best"
+
+        /** Lyrics provider preference key (`lrclib` or `none`). */
+        const val LYRICS_PROVIDER_KEY = "lyrics-provider"
+
+        /** Default lyrics provider. */
+        const val DEFAULT_LYRICS_PROVIDER = "lrclib"
     }
+
+    /** Lyrics provider id (`lrclib` or `none`). */
+    fun lyricsProviderFlow(): Flow<String> {
+        return context.userPrefs.data.map { it[lyricsProviderKey] ?: DEFAULT_LYRICS_PROVIDER }
+    }
+
+    /** Persists the lyrics provider choice. */
+    suspend fun setLyricsProvider(provider: String) {
+        context.userPrefs.edit { prefs -> prefs[lyricsProviderKey] = provider }
+    }
+
+    private val lyricsProviderKey = stringPreferencesKey(LYRICS_PROVIDER_KEY)
 
     /** Audio quality preference as a flow. */
     fun audioQualityFlow(): Flow<String> {
