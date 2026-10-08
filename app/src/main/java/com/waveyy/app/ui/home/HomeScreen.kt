@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -161,6 +162,7 @@ private fun HomeContent(
                     onSearch = onSearch,
                     onSettings = onSettings
                 )
+                Spacer(Modifier.height(8.dp))
                 GreetingHeader(username = userName)
             }
         }
