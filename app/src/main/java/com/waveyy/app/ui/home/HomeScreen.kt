@@ -17,6 +17,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -43,10 +44,14 @@ import com.waveyy.app.R
 import com.waveyy.app.domain.model.Album
 import com.waveyy.app.domain.model.Song
 import com.waveyy.app.playback.QueueSource
+import com.waveyy.app.ui.MainViewModel
+import com.waveyy.app.ui.sharedMainViewModel
+import com.waveyy.app.ui.navigation.Routes
 import com.waveyy.app.ui.components.AdaptiveImage
 import com.waveyy.app.ui.components.ArtistCard
 import com.waveyy.app.ui.components.SkeletonHomeScreen
 import com.waveyy.app.ui.components.WaveyyButton
+import kotlinx.coroutines.flow.filter
 import timber.log.Timber
 
 /**
@@ -127,12 +132,24 @@ private fun HomeContent(
     onSearch: () -> Unit,
     onSettings: () -> Unit,
     onDiscover: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    mainVm: MainViewModel = sharedMainViewModel()
 ) {
     val hero = sections.trending.firstOrNull()
+    val gridState = rememberLazyGridState()
+    LaunchedEffect(Unit) {
+        mainVm.scrollToTop
+            .filter { it == Routes.HOME }
+            .collect {
+                if (gridState.firstVisibleItemIndex > 0 || gridState.firstVisibleItemScrollOffset > 0) {
+                    gridState.animateScrollToItem(0)
+                }
+            }
+    }
     LazyVerticalGrid(
         columns = GridCells.Fixed(2),
         modifier = modifier.fillMaxSize(),
+        state = gridState,
         contentPadding = PaddingValues(horizontal = 20.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)

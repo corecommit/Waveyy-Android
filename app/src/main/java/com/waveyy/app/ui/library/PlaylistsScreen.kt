@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
@@ -21,6 +22,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -32,9 +34,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.waveyy.app.R
+import com.waveyy.app.ui.MainViewModel
+import com.waveyy.app.ui.sharedMainViewModel
 import com.waveyy.app.ui.components.WaveyyButton
 import com.waveyy.app.ui.components.SkeletonRows
 import com.waveyy.app.ui.components.WaveyyInput
+import kotlinx.coroutines.flow.filter
 
 /**
  * Library: playlist grid with create/delete, plus the backend-missing card
@@ -43,11 +48,22 @@ import com.waveyy.app.ui.components.WaveyyInput
 @Composable
 fun PlaylistsScreen(
     viewModel: LibraryViewModel = hiltViewModel(),
-    onOpen: (String) -> Unit
+    onOpen: (String) -> Unit,
+    mainVm: MainViewModel = sharedMainViewModel()
 ) {
     val state by viewModel.state.collectAsState()
     var creating by remember { mutableStateOf(false) }
     var name by remember { mutableStateOf("") }
+    val listState = rememberLazyListState()
+    LaunchedEffect(Unit) {
+        mainVm.scrollToTop
+            .filter { it == "playlists" }
+            .collect {
+                if (listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 0) {
+                    listState.animateScrollToItem(0)
+                }
+            }
+    }
 
     if (state.loading) {
         SkeletonRows(count = 6, modifier = Modifier.padding(16.dp))
@@ -57,6 +73,7 @@ fun PlaylistsScreen(
         modifier = Modifier
             .fillMaxSize()
             .statusBarsPadding(),
+        state = listState,
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         item {

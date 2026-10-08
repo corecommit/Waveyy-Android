@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -50,6 +51,7 @@ import com.waveyy.app.ui.player.FullPlayerScreen
 import com.waveyy.app.ui.player.MiniPlayer
 import com.waveyy.app.ui.player.PlayerViewModel
 import com.waveyy.app.ui.components.FloatingNavPill
+import com.waveyy.app.ui.MainViewModel
 import com.waveyy.app.ui.search.SearchScreen
 import com.waveyy.app.ui.settings.SettingsScreen
 import com.waveyy.app.ui.together.TogetherScreen
@@ -62,7 +64,8 @@ import kotlinx.coroutines.launch
  */
 @Composable
 fun WaveyyNavHost(
-    playerVm: PlayerViewModel = hiltViewModel()
+    playerVm: PlayerViewModel = hiltViewModel(),
+    mainVm: MainViewModel = hiltViewModel()
 ) {
     val navController: NavHostController = rememberNavController()
     val playback by playerVm.connection.state.collectAsState()
@@ -215,9 +218,17 @@ fun WaveyyNavHost(
                 FloatingNavPill(
                     currentRoute = currentRoute?.substringBefore("?"),
                     onDestination = { route ->
-                        navController.navigate(route) {
-                            popUpTo(Graph.ROOT) { inclusive = false }
-                            launchSingleTop = true
+                        if (currentRoute?.substringBefore("?") == route) {
+                            // Already here: scroll to top, never re-navigate.
+                            mainVm.requestScrollToTop(route)
+                        } else {
+                            navController.navigate(route) {
+                                popUpTo(navController.graph.findStartDestination().id) {
+                                    saveState = true
+                                }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
                         }
                     }
                 )
