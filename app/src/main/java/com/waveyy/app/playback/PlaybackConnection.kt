@@ -61,6 +61,7 @@ class PlaybackConnection @Inject constructor(
     val state: StateFlow<PlaybackState> = mutableState.asStateFlow()
 
     private var controllerFuture: ListenableFuture<MediaController>? = null
+    private var controller: MediaController? = null
     private var tickerStarted = false
 
     private val listener = object : Player.Listener {
@@ -69,8 +70,8 @@ class PlaybackConnection @Inject constructor(
             if (player.isPlaying && !tickerStarted) startTicker(player)
         }
 
-        override fun onMediaItemTransition(player: Player, mediaItem: MediaItem?, reason: Int) {
-            publish(player)
+        override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+            controller?.let(::publish)
         }
     }
 
@@ -85,6 +86,7 @@ class PlaybackConnection @Inject constructor(
         val future = MediaController.Builder(context, token).buildAsync()
         controllerFuture = future
         val controller = future.await()
+        this.controller = controller
         controller.repeatMode = Player.REPEAT_MODE_OFF
         controller.shuffleModeEnabled = false
         controller.addListener(listener)
@@ -97,6 +99,7 @@ class PlaybackConnection @Inject constructor(
             MediaController.releaseFuture(it)
             controllerFuture = null
         }
+        controller = null
         scope.cancel()
     }
 
