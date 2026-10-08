@@ -8,6 +8,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -70,6 +71,7 @@ import com.waveyy.app.playback.QueueSource
 import com.waveyy.app.ui.components.AdaptiveImage
 import com.waveyy.app.ui.components.SkeletonRows
 import com.waveyy.app.ui.player.sharedPlayerViewModel
+import com.waveyy.app.ui.player.rememberChromeBottomReserve
 import kotlinx.coroutines.launch
 
 /** Result-section filter. */
@@ -110,6 +112,7 @@ fun SearchScreen(
     val showSongs = filter == SearchFilter.ALL || filter == SearchFilter.SONGS
     val showAlbums = filter == SearchFilter.ALL || filter == SearchFilter.ALBUMS
     val showArtists = filter == SearchFilter.ALL || filter == SearchFilter.ARTISTS
+    val chromeBottom = rememberChromeBottomReserve()
 
     fun submit(query: String) {
         focusManager.clearFocus()
@@ -118,6 +121,7 @@ fun SearchScreen(
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(bottom = chromeBottom),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         stickyHeader {

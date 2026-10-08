@@ -1,6 +1,7 @@
 package com.waveyy.app.ui.library
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -25,6 +26,7 @@ import com.waveyy.app.data.repository.PlaylistRepository
 import com.waveyy.app.domain.model.Playlist
 import com.waveyy.app.ui.components.SongRow
 import com.waveyy.app.ui.components.SkeletonRows
+import com.waveyy.app.ui.player.rememberChromeBottomReserve
 import com.waveyy.app.ui.player.sharedPlayerViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -114,8 +116,10 @@ fun PlaylistDetailScreen(
         }
         is PlaylistDetailUiState.Success -> {
             val playlist = current.playlist
+            val chromeBottom = rememberChromeBottomReserve()
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = chromeBottom),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 item {

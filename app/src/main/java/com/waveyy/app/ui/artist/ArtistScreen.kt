@@ -33,6 +33,7 @@ import com.waveyy.app.ui.components.AlbumCard
 import com.waveyy.app.ui.components.HeroPlayButton
 import com.waveyy.app.ui.components.SongCard
 import com.waveyy.app.ui.components.SkeletonRows
+import com.waveyy.app.ui.player.rememberChromeBottomReserve
 import com.waveyy.app.ui.components.WaveyyErrorPanel
 import com.waveyy.app.util.HtmlDecoder
 import com.waveyy.app.util.PlayCountFormatter
@@ -63,10 +64,12 @@ fun ArtistScreen(
 /** Loaded artist body. */
 @Composable
 private fun ArtistContent(page: ArtistPage, onPlaySong: (QueueSource, Int) -> Unit, onAlbum: (String) -> Unit) {
+    val chromeBottom = rememberChromeBottomReserve()
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
             .statusBarsPadding(),
+        contentPadding = PaddingValues(bottom = chromeBottom),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {

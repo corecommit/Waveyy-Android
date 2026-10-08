@@ -48,6 +48,7 @@ import com.waveyy.app.playback.QueueSource
 import com.waveyy.app.ui.MainViewModel
 import com.waveyy.app.ui.sharedMainViewModel
 import com.waveyy.app.ui.navigation.Routes
+import com.waveyy.app.ui.player.rememberChromeBottomReserve
 import com.waveyy.app.ui.components.AdaptiveImage
 import com.waveyy.app.ui.components.ArtistCard
 import com.waveyy.app.ui.components.SkeletonHomeScreen
@@ -138,6 +139,7 @@ private fun HomeContent(
 ) {
     val hero = sections.trending.firstOrNull()
     val gridState = rememberLazyGridState()
+    val chromeBottom = rememberChromeBottomReserve()
     LaunchedEffect(Unit) {
         mainVm.scrollToTop
             .filter { it == Routes.HOME }
@@ -151,7 +153,7 @@ private fun HomeContent(
         columns = GridCells.Fixed(2),
         modifier = modifier.fillMaxSize(),
         state = gridState,
-        contentPadding = PaddingValues(horizontal = 20.dp),
+        contentPadding = PaddingValues(horizontal = 20.dp, bottom = chromeBottom),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {

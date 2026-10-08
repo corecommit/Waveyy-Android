@@ -2,6 +2,7 @@ package com.waveyy.app.ui.album
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -27,6 +28,7 @@ import com.waveyy.app.ui.components.AdaptiveImage
 import com.waveyy.app.ui.components.SongRow
 import com.waveyy.app.ui.components.WaveyyBadge
 import com.waveyy.app.ui.components.SkeletonRows
+import com.waveyy.app.ui.player.rememberChromeBottomReserve
 import com.waveyy.app.ui.components.WaveyyErrorPanel
 import com.waveyy.app.ui.theme.WaveyyShapes
 
@@ -54,10 +56,12 @@ fun AlbumScreen(
 /** Loaded album body. */
 @Composable
 private fun AlbumContent(album: Album, onPlaySong: (QueueSource, Int) -> Unit) {
+    val chromeBottom = rememberChromeBottomReserve()
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
             .statusBarsPadding(),
+        contentPadding = PaddingValues(bottom = chromeBottom),
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         item {
