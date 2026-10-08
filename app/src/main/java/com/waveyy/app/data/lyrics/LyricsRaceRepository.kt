@@ -1,5 +1,6 @@
 package com.waveyy.app.data.lyrics
 
+import com.waveyy.app.data.local.WaveyyDatabase
 import com.waveyy.app.data.local.LyricsCacheDao
 import com.waveyy.app.data.local.LyricsCacheEntity
 import timber.log.Timber
@@ -10,13 +11,16 @@ import javax.inject.Singleton
  * Race + cache facade. Winners persist 7 days per song id; losers are
  * never stored (a retry re-races). Named `LyricsRaceRepository` (rather
  * than a second `LyricsRepository`) so the legacy proxy-cache repository
- * in `data.repository` stays unambiguous.
+ * in `data.repository` stays unambiguous. Takes the database (not the
+ * DAO) so the annotation-processed DAO type never enters Dagger's
+ * constructor validation.
  */
 @Singleton
 class LyricsRaceRepository @Inject constructor(
     private val orchestrator: LyricsRaceOrchestrator,
-    private val dao: LyricsCacheDao
+    database: WaveyyDatabase
 ) {
+    private val dao: LyricsCacheDao = database.lyricsCacheDao()
 
     /**
      * Returns the cached winner when fresh (unless [bypassCache]), else

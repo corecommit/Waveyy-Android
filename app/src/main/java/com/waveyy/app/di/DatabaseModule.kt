@@ -6,7 +6,6 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.waveyy.app.data.local.WaveyyDatabase
 import com.waveyy.app.data.local.dao.HistoryDao
-import com.waveyy.app.data.local.dao.LyricsCacheDao
 import com.waveyy.app.data.local.dao.LyricsDao
 import com.waveyy.app.data.local.dao.PlayLogDao
 import dagger.Module
@@ -45,10 +44,6 @@ object DatabaseModule {
     /** Lyrics cache access. */
     @Provides
     fun provideLyricsDao(database: WaveyyDatabase): LyricsDao = database.lyricsDao()
-
-    /** Race-winner cache access. */
-    @Provides
-    fun provideLyricsCacheDao(database: WaveyyDatabase): LyricsCacheDao = database.lyricsCacheDao()
 
     /** Listening-history access. */
     @Provides
