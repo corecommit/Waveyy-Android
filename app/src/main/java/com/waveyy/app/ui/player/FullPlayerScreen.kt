@@ -68,11 +68,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.Player
 import com.waveyy.app.domain.model.Song
 import com.waveyy.app.playback.PlaybackConnection
 import com.waveyy.app.ui.components.AdaptiveImage
 import com.waveyy.app.ui.library.LibraryViewModel
+import com.waveyy.app.ui.library.LikeSongButton
+import com.waveyy.app.ui.library.MusicViewModel
+import com.waveyy.app.ui.library.sharedMusicViewModel
 import com.waveyy.app.ui.theme.rememberAlbumAccent
 import kotlinx.coroutines.launch
 
@@ -98,6 +102,8 @@ fun FullPlayerScreen(
     val context = LocalContext.current
     val libraryVm: LibraryViewModel = hiltViewModel()
     val libraryState by libraryVm.state.collectAsState()
+    val musicVm: MusicViewModel = sharedMusicViewModel()
+    val musicLiked by musicVm.likedSongIds.collectAsStateWithLifecycle()
     var showQueue by remember { mutableStateOf(false) }
     var showLyrics by remember { mutableStateOf(false) }
     var showOverflow by remember { mutableStateOf(false) }
@@ -164,13 +170,22 @@ fun FullPlayerScreen(
 
         Spacer(Modifier.height(32.dp))
 
-        Text(
-            text = currentSong?.name ?: "Nothing playing",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = currentSong?.name ?: "Nothing playing",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
+            )
+            if (currentSong != null) {
+                LikeSongButton(song = currentSong)
+            }
+        }
         Spacer(Modifier.height(4.dp))
         Text(
             text = currentSong?.artist ?: "",
@@ -343,7 +358,7 @@ fun FullPlayerScreen(
         val infoSong = currentSong
         SongInfoSheet(
             song = infoSong,
-            isLiked = libraryVm.isSongLiked(infoSong.id),
+            isLiked = infoSong.id in musicLiked,
             onDismiss = { showInfo = false },
             onAction = { action ->
                 handleInfoAction(
@@ -351,6 +366,7 @@ fun FullPlayerScreen(
                     song = infoSong,
                     viewModel = viewModel,
                     libraryVm = libraryVm,
+                    musicVm = musicVm,
                     connection = connection,
                     scope = scope,
                     context = context,
@@ -408,6 +424,7 @@ private fun handleInfoAction(
     song: Song,
     viewModel: PlayerViewModel,
     libraryVm: LibraryViewModel,
+    musicVm: MusicViewModel,
     connection: PlaybackConnection,
     scope: kotlinx.coroutines.CoroutineScope,
     context: android.content.Context,
@@ -420,7 +437,7 @@ private fun handleInfoAction(
         Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
     }
     when (action) {
-        SongAction.LIKE -> libraryVm.toggleLikedSong(song)
+        SongAction.LIKE -> musicVm.toggleLike(song)
         SongAction.DOWNLOAD -> scope.launch { viewModel.downloadSong(song) }
         SongAction.ADD_TO_PLAYLIST -> onPlaylistPicker()
         SongAction.PLAY_NEXT -> scope.launch { connection.playNextSong(song) }

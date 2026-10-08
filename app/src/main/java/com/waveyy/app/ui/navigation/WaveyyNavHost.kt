@@ -3,6 +3,7 @@ package com.waveyy.app.ui.navigation
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
@@ -179,7 +180,11 @@ fun WaveyyNavHost(
             navigation(startDestination = Routes.PLAYER, route = Graph.PLAYER) {
                 composable(
                     route = Routes.PLAYER,
-                    deepLinks = listOf(navDeepLink { uriPattern = "waveyy://song/{id}" })
+                    deepLinks = listOf(navDeepLink { uriPattern = "waveyy://song/{id}" }),
+                    enterTransition = {
+                        slideInVertically(animationSpec = tween(TRANSITION_MILLIS)) { it } +
+                            fadeIn(animationSpec = tween(200))
+                    }
                 ) {
                     FullPlayerScreen(
                     viewModel = playerVm,
