@@ -24,7 +24,7 @@ import androidx.lifecycle.viewModelScope
 import com.waveyy.app.data.repository.PlaylistRepository
 import com.waveyy.app.domain.model.Playlist
 import com.waveyy.app.ui.components.SongRow
-import com.waveyy.app.ui.components.WaveyyProgress
+import com.waveyy.app.ui.components.SkeletonRows
 import com.waveyy.app.ui.player.sharedPlayerViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -103,7 +103,7 @@ fun PlaylistDetailScreen(
     val player = sharedPlayerViewModel()
     when (val current = state) {
         PlaylistDetailUiState.Loading -> {
-            WaveyyProgress(progress = null, modifier = Modifier.padding(32.dp))
+            SkeletonRows(count = 8, modifier = Modifier.padding(16.dp))
         }
         PlaylistDetailUiState.Missing -> {
             Text(

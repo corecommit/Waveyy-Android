@@ -18,7 +18,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.waveyy.app.domain.model.Song
 import com.waveyy.app.ui.components.WaveyyErrorPanel
-import com.waveyy.app.ui.components.WaveyyProgress
+import com.waveyy.app.ui.components.SkeletonRows
 
 /**
  * Discover: full-screen trending grid. Target of the compass button.
@@ -33,7 +33,7 @@ fun DiscoverScreen(
     val state by viewModel.state.collectAsState()
     when (val current = state) {
         DiscoverUiState.Loading -> {
-            WaveyyProgress(progress = null, modifier = Modifier.padding(32.dp))
+            SkeletonRows(count = 8, modifier = Modifier.padding(16.dp))
         }
         is DiscoverUiState.Error -> {
             WaveyyErrorPanel(onRetry = viewModel::refresh)

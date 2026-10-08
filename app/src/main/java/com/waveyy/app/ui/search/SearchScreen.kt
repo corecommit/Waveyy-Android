@@ -5,11 +5,13 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -27,10 +29,11 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.History
+import androidx.compose.material.icons.outlined.SearchOff
+import androidx.compose.material.icons.outlined.WifiOff
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
@@ -39,6 +42,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -64,9 +68,7 @@ import com.waveyy.app.R
 import com.waveyy.app.domain.model.Song
 import com.waveyy.app.playback.QueueSource
 import com.waveyy.app.ui.components.AdaptiveImage
-import com.waveyy.app.ui.components.AlbumCard
 import com.waveyy.app.ui.components.SkeletonRows
-import com.waveyy.app.ui.components.WaveyyErrorPanel
 import com.waveyy.app.ui.player.sharedPlayerViewModel
 import kotlinx.coroutines.launch
 
@@ -129,6 +131,7 @@ fun SearchScreen(
                 onValueChange = { text = it },
                 modifier = Modifier
                     .fillMaxWidth()
+                    .height(56.dp)
                     .padding(horizontal = 16.dp)
                     .focusRequester(focusRequester)
                     .onFocusChanged { focused = it.isFocused },
@@ -144,12 +147,18 @@ fun SearchScreen(
                 trailingIcon = {
                     if (text.isNotEmpty()) {
                         IconButton(onClick = { text = "" }) {
-                            Icon(imageVector = Icons.Filled.Close, contentDescription = "Clear")
+                            Icon(imageVector = Icons.Outlined.Close, contentDescription = "Clear")
                         }
                     }
                 },
                 singleLine = true,
-                shape = RoundedCornerShape(percent = 50),
+                shape = RoundedCornerShape(28.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                ),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 keyboardActions = KeyboardActions(onSearch = { submit(text) })
                 )
@@ -166,7 +175,10 @@ fun SearchScreen(
             }
         } else {
             stickyHeader {
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                ) {
                     items(SearchFilter.entries.toList()) { entry ->
                         FilterChip(
                             selected = filter == entry,
@@ -189,7 +201,7 @@ fun SearchScreen(
                     label = "searchCrossfade"
                 ) { loading ->
                     if (loading) {
-                        SkeletonRows(count = 7)
+                        SkeletonRows(count = 8)
                     } else {
                         ResultsBody(
                             state = state,
@@ -201,7 +213,8 @@ fun SearchScreen(
                             onPlaySong = onPlaySong,
                             onAlbum = onAlbum,
                             onArtist = onArtist,
-                            onPickSuggestion = { submit(it) }
+                            onPickSuggestion = { submit(it) },
+                            onRetry = viewModel::refresh
                         )
                     }
                 }
@@ -222,19 +235,23 @@ private fun ResultsBody(
     onPlaySong: (QueueSource, Int) -> Unit,
     onAlbum: (String) -> Unit,
     onArtist: (String) -> Unit,
-    onPickSuggestion: (String) -> Unit
+    onPickSuggestion: (String) -> Unit,
+    onRetry: () -> Unit
 ) {
     when (state) {
-        SearchUiState.Loading -> SkeletonRows(count = 7)
-        is SearchUiState.Error -> WaveyyErrorPanel(onRetry = {})
+        SearchUiState.Loading -> SkeletonRows(count = 8)
+        is SearchUiState.Error -> SearchError(onRetry = onRetry)
         is SearchUiState.Success -> {
             if (state.songs.isEmpty() && state.albums.isEmpty() && state.artists.isEmpty()) {
                 if (text.isNotBlank()) {
                     EmptyResults(query = text)
+                } else {
+                    EmptySearchHint()
                 }
             } else {
                 Column {
-                    if (showSongs) {
+                    if (showSongs && state.songs.isNotEmpty()) {
+                        SectionTitle("Songs")
                         state.songs.forEachIndexed { index, song ->
                             SongResultRow(
                                 song = song,
@@ -258,14 +275,13 @@ private fun ResultsBody(
                     }
                     if (showAlbums && state.albums.isNotEmpty()) {
                         SectionTitle("Albums")
-                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            items(state.albums, key = { it.id }) { album ->
-                                AlbumCard(
-                                    title = album.name,
+                        Column {
+                            state.albums.forEach { album ->
+                                AlbumResultRow(
+                                    name = album.name,
                                     artist = album.artist,
                                     imageUrl = album.imageUrl,
-                                    albumId = album.id,
-                                    onOpen = onAlbum
+                                    onOpen = { onAlbum(album.id) }
                                 )
                             }
                         }
@@ -291,14 +307,70 @@ private fun EmptyResults(query: String) {
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Icon(
-            imageVector = Icons.Filled.Search,
+            imageVector = Icons.Outlined.SearchOff,
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(48.dp)
         )
         Text(
             text = "No results for '$query'",
             style = MaterialTheme.typography.titleMedium
         )
+        Text(
+            text = "Try a different search term",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+/** Centered hint for a blank query with no history. */
+@Composable
+private fun EmptySearchHint() {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Icon(
+            imageVector = Icons.Outlined.History,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(48.dp)
+        )
+        Text(
+            text = "Search for songs, artists, or albums",
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+/** Centered error state with a working retry. */
+@Composable
+private fun SearchError(onRetry: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Icon(
+            imageVector = Icons.Outlined.WifiOff,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(48.dp)
+        )
+        Text(
+            text = "Couldn't load results",
+            style = MaterialTheme.typography.titleMedium
+        )
+        TextButton(onClick = onRetry) {
+            Text("Retry")
+        }
     }
 }
 
@@ -335,7 +407,7 @@ private fun HistoryList(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
-                imageVector = Icons.Filled.History,
+                imageVector = Icons.Outlined.History,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -349,7 +421,7 @@ private fun HistoryList(
                 overflow = TextOverflow.Ellipsis
             )
             IconButton(onClick = { onRemove(entry) }) {
-                Icon(imageVector = Icons.Filled.Close, contentDescription = "Remove")
+                Icon(imageVector = Icons.Outlined.Close, contentDescription = "Remove")
             }
         }
     }
@@ -384,6 +456,7 @@ private fun SuggestionRows(suggestions: List<String>, onPick: (String) -> Unit) 
 }
 
 /** Song result row with overflow actions (play, queue, share). */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun SongResultRow(
     song: Song,
@@ -398,7 +471,10 @@ private fun SongResultRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onPlaySong(QueueSource.SearchResults(songs), index) }
+            .combinedClickable(
+                onClick = { onPlaySong(QueueSource.SearchResults(songs), index) },
+                onLongClick = { expanded = true }
+            )
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -407,7 +483,7 @@ private fun SongResultRow(
             contentDescription = song.name,
             modifier = Modifier
                 .size(56.dp)
-                .clip(RoundedCornerShape(12.dp))
+                .clip(RoundedCornerShape(8.dp))
         )
         Column(
             modifier = Modifier
@@ -416,8 +492,8 @@ private fun SongResultRow(
         ) {
             Text(
                 text = song.name,
-                style = MaterialTheme.typography.titleMedium,
-                maxLines = 1,
+                style = MaterialTheme.typography.bodyLarge,
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
             Text(
@@ -465,7 +541,7 @@ private fun SongResultRow(
     }
 }
 
-/** Artist result row: 48.dp circular avatar + name. */
+/** Artist result row: 56.dp circular avatar + name + subtitle. */
 @Composable
 private fun ArtistResultRow(name: String, imageUrl: String, onOpen: () -> Unit) {
     Row(
@@ -479,16 +555,68 @@ private fun ArtistResultRow(name: String, imageUrl: String, onOpen: () -> Unit) 
             imageUrl = imageUrl,
             contentDescription = name,
             modifier = Modifier
-                .size(48.dp)
+                .size(56.dp)
                 .clip(androidx.compose.foundation.shape.CircleShape)
         )
-        Text(
-            text = name,
-            style = MaterialTheme.typography.titleMedium,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(start = 12.dp)
+        Column(modifier = Modifier.padding(start = 12.dp)) {
+            Text(
+                text = name,
+                style = MaterialTheme.typography.bodyLarge,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = "Artist",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+/** Album result row: same shape as the song row, album art leading. */
+@Composable
+private fun AlbumResultRow(
+    name: String,
+    artist: String,
+    imageUrl: String,
+    onOpen: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onOpen)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        AdaptiveImage(
+            imageUrl = imageUrl,
+            contentDescription = name,
+            modifier = Modifier
+                .size(56.dp)
+                .clip(RoundedCornerShape(8.dp))
         )
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(horizontal = 12.dp)
+        ) {
+            Text(
+                text = name,
+                style = MaterialTheme.typography.bodyLarge,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = artist,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
     }
 }
 
@@ -497,7 +625,7 @@ private fun ArtistResultRow(name: String, imageUrl: String, onOpen: () -> Unit) 
 private fun SectionTitle(text: String) {
     Text(
         text = text,
-        style = MaterialTheme.typography.headlineSmall,
+        style = MaterialTheme.typography.titleMedium,
         fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
         modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 12.dp)
     )

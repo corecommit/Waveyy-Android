@@ -72,7 +72,9 @@ data class SongDto(
 @Serializable
 data class SongsResponse(
     val success: Boolean = false,
-    val data: SongsData? = null
+    val data: SongsData? = null,
+    /** Present when the proxy (or upstream) failed instead of answering. */
+    val error: String? = null
 )
 
 /** Payload of [SongsResponse]; endpoints disagree on the list key. */
