@@ -75,7 +75,7 @@ fun SkeletonBox(width: Dp?, height: Dp, shape: Shape, modifier: Modifier = Modif
     )
     BoxWithConstraints(modifier = modifier) {
         val spanPx = with(density) { (maxWidth + 400.dp).toPx() }
-        val x = -200.dp.toPx() + progress * spanPx
+        val x = with(density) { -200.dp.toPx() } + progress * spanPx
         Box(
             modifier = Modifier
                 .then(if (width == null) Modifier.fillMaxWidth() else Modifier.width(width))
