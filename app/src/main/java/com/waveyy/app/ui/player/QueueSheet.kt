@@ -20,7 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.waveyy.app.domain.model.Song
-import com.waveyy.app.ui.components.SongCard
+import com.waveyy.app.ui.components.SongRow
 
 /**
  * Queue sheet: reorder (up/down), remove, and clear. Ports
@@ -62,7 +62,7 @@ fun QueueSheet(
         }
         itemsIndexed(queue, key = { _, song -> song.id }) { index, song ->
             Row(verticalAlignment = Alignment.CenterVertically) {
-                SongCard(
+                SongRow(
                     title = song.name,
                     artist = song.artist,
                     imageUrl = song.imageUrl,

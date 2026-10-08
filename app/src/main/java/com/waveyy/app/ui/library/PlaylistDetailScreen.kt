@@ -23,7 +23,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.waveyy.app.data.repository.PlaylistRepository
 import com.waveyy.app.domain.model.Playlist
-import com.waveyy.app.ui.components.SongCard
+import com.waveyy.app.ui.components.SongRow
 import com.waveyy.app.ui.components.WaveyyProgress
 import com.waveyy.app.ui.player.sharedPlayerViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -129,7 +129,7 @@ fun PlaylistDetailScreen(
                     androidx.compose.foundation.layout.Row(
                         verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
                     ) {
-                        SongCard(
+                        SongRow(
                             title = song.name,
                             artist = song.artist,
                             imageUrl = song.imageUrl,

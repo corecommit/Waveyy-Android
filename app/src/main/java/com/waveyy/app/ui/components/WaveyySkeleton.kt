@@ -8,6 +8,9 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -19,7 +22,6 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.waveyy.app.ui.theme.WaveyyShapes
@@ -54,8 +56,9 @@ fun WaveyySkeleton(
 
 /**
  * Horizontal rail of card-sized shimmer tiles, matching real tile
- * dimensions (~140x180dp) so loading mirrors loaded layout. Renders
- * [count] tiles (4-6 like the data rails).
+ * dimensions (140x180dp, 16.dp corners) so loading mirrors loaded layout.
+ * Shimmer sweeps onSurface at 6% base / 12% highlight. Renders [count]
+ * tiles (4-6 like the data rails).
  *
  * @param count tile count.
  * @param cardWidth tile width.
@@ -69,7 +72,8 @@ fun ShimmerRail(
     cardHeight: Dp = 180.dp,
     modifier: Modifier = Modifier
 ) {
-    val base = MaterialTheme.colorScheme.surfaceVariant
+    val base = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)
+    val highlight = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
     val sweep = rememberInfiniteTransition(label = "shimmer").animateFloat(
         initialValue = -1f,
         targetValue = 2f,
@@ -85,18 +89,58 @@ fun ShimmerRail(
     ) {
         items(count) {
             val brush = Brush.linearGradient(
-                colors = listOf(
-                    base,
-                    Color.White.copy(alpha = 0.12f),
-                    base
-                ),
+                colors = listOf(base, highlight, base),
                 start = Offset(sweep.value * 300f - 150f, 0f),
                 end = Offset(sweep.value * 300f + 150f, 200f)
             )
             Box(
                 modifier = Modifier
                     .size(cardWidth, cardHeight)
-                    .clip(RoundedCornerShape(12.dp))
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(brush)
+            )
+        }
+    }
+}
+
+/**
+ * Vertical list of 56.dp shimmer rows for list screens (search results,
+ * queue). Same onSurface sweep as [ShimmerRail].
+ *
+ * @param count row count.
+ * @param modifier layout modifier.
+ */
+@Composable
+fun ShimmerRows(
+    count: Int = 6,
+    modifier: Modifier = Modifier
+) {
+    val base = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)
+    val highlight = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+    val sweep = rememberInfiniteTransition(label = "shimmerRows").animateFloat(
+        initialValue = -1f,
+        targetValue = 2f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1400),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "shimmerRowsX"
+    )
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        repeat(count) {
+            val brush = Brush.linearGradient(
+                colors = listOf(base, highlight, base),
+                start = Offset(sweep.value * 300f - 150f, 0f),
+                end = Offset(sweep.value * 300f + 150f, 200f)
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp)
+                    .clip(RoundedCornerShape(16.dp))
                     .background(brush)
             )
         }

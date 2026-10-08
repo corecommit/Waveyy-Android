@@ -22,6 +22,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.waveyy.app.domain.model.Song
@@ -190,12 +191,17 @@ private fun PodiumRow(songs: List<Song>, onPlaySong: (List<Song>, Int) -> Unit) 
                     text = "#$rank",
                     style = MaterialTheme.typography.labelSmall
                 )
-                SongCard(
-                    title = song.name,
-                    artist = PlayCountFormatter.format(song.playCount) + " streams",
-                    imageUrl = "",
-                    songId = song.id,
-                    onPlay = { onPlaySong(songs, songs.indexOf(song)) }
+                Text(
+                    text = song.name,
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = PlayCountFormatter.format(song.playCount) + " streams",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }

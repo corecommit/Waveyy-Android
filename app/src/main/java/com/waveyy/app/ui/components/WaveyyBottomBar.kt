@@ -1,5 +1,7 @@
 package com.waveyy.app.ui.components
 
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Home
@@ -15,6 +17,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.dp
 
 /** Bottom-bar destinations (Home / Search / Library / Together / Profile). */
 enum class BottomDestination(
@@ -44,7 +47,12 @@ fun WaveyyBottomBar(
     onDestination: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    NavigationBar(modifier = modifier) {
+    NavigationBar(
+        modifier = modifier
+            .height(80.dp)
+            .navigationBarsPadding(),
+        containerColor = MaterialTheme.colorScheme.surfaceContainer
+    ) {
         BottomDestination.entries.forEach { destination ->
             val selected = currentRoute?.startsWith(destination.route) == true
             NavigationBarItem(
@@ -55,6 +63,7 @@ fun WaveyyBottomBar(
                 colors = NavigationBarItemDefaults.colors(
                     selectedIconColor = MaterialTheme.colorScheme.primary,
                     selectedTextColor = MaterialTheme.colorScheme.primary,
+                    selectedIndicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
                     unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
                     unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
                 )
