@@ -433,6 +433,9 @@ private fun SongResultRow(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+        com.waveyy.app.ui.components.WaveyyBadge(
+            text = if (song.source == com.waveyy.app.domain.model.MusicSource.YTMUSIC) "YT" else "JS"
+        )
         IconButton(onClick = { expanded = true }) {
             Icon(imageVector = Icons.Filled.MoreVert, contentDescription = "More")
         }

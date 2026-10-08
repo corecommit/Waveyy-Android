@@ -16,11 +16,14 @@ import com.waveyy.app.data.repository.AuthRepository
 import com.waveyy.app.data.repository.ListeningHistoryRepository
 import com.waveyy.app.data.repository.LyricsRepository
 import com.waveyy.app.data.repository.SongRepository
+import com.waveyy.app.data.repository.YtMusicRepository
+import com.waveyy.app.domain.model.AudioStream
+import com.waveyy.app.domain.model.MusicSource
+import com.waveyy.app.data.repository.SongRepository
 import com.waveyy.app.domain.model.CachedLyrics
 import com.waveyy.app.domain.model.Song
 import com.waveyy.app.playback.PlaybackConnection
-import com.waveyy.app.util.LyricsParser
-import dagger.hilt.android.lifecycle.HiltViewModel
+import com.waveyy.app.util.LyricsParserimport dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -63,7 +66,8 @@ class PlayerViewModel @Inject constructor(
     private val historyRepository: ListeningHistoryRepository,
     private val authRepository: AuthRepository,
     private val songRepository: SongRepository,
-    private val userPrefs: UserPrefs
+    private val userPrefs: UserPrefs,
+    private val ytmusic: YtMusicRepository
 ) : ViewModel() {
 
     private val mutableQueue = MutableStateFlow<List<Song>>(emptyList())
@@ -97,27 +101,60 @@ class PlayerViewModel @Inject constructor(
      * Mirrors tapping a song anywhere in the web app. Stream-less songs are
      * dropped up front so this queue stays index-identical to the
      * controller queue built by [QueueManager]; the tapped song is
-     * re-resolved by id so its index survives filtering.
+     * re-resolved by id so its index survives filtering. YouTube songs
+     * resolve their stream URLs lazily first.
      */
     fun playSongs(songs: List<Song>, startIndex: Int = 0) {
-        val effective = songs.filter { song -> song.streams.any { it.url.isNotBlank() } }
-        if (effective.isEmpty()) return
-        val tappedId = songs.getOrNull(startIndex)?.id
-        val index = effective.indexOfFirst { it.id == tappedId }.takeIf { it >= 0 } ?: 0
-        mutableQueue.value = effective
         viewModelScope.launch {
-            connection.playSongs(effective, index)
-            onTrackChanged(effective[index].id)
+            val resolved = resolveStreams(songs)
+            if (resolved.isEmpty()) return@launch
+            val tappedId = songs.getOrNull(startIndex)?.id
+            val index = resolved.indexOfFirst { it.id == tappedId }.takeIf { it >= 0 } ?: 0
+            mutableQueue.value = resolved
+            connection.playSongs(resolved, index)
+            onTrackChanged(resolved[index].id)
         }
     }
 
     /** Plays a tap source with Up-Next semantics per origin (see [QueueSource]). */
     fun playSource(source: com.waveyy.app.playback.QueueSource, startIndex: Int = 0) {
-        val resolved = connection.resolveSource(source, startIndex) ?: return
-        mutableQueue.value = resolved.songs
         viewModelScope.launch {
+            val withStreams = resolveStreams(source.songs)
+            if (withStreams.isEmpty()) return@launch
+            val tappedId = source.songs.getOrNull(startIndex)?.id
+            val resolved = connection.resolveSource(
+                com.waveyy.app.playback.QueueSource.Custom(withStreams),
+                withStreams.indexOfFirst { it.id == tappedId }.takeIf { it >= 0 } ?: 0
+            ) ?: return@launch
+            mutableQueue.value = resolved.songs
             connection.playItems(resolved.items, resolved.index)
             onTrackChanged(resolved.songs.getOrNull(resolved.index)?.id)
+        }
+    }
+
+    /**
+     * Resolves missing YouTube stream URLs in parallel (JioSaavn songs
+     * already carry streams). Unresolvable songs are dropped.
+     */
+    private suspend fun resolveStreams(songs: List<Song>): List<Song> {
+        val yt = songs.filter { it.source == MusicSource.YTMUSIC && it.streams.none { s -> s.url.isNotBlank() } }
+        if (yt.isEmpty()) {
+            return songs.filter { it.streams.any { s -> s.url.isNotBlank() } }
+        }
+        return kotlinx.coroutines.coroutineScope {
+            songs.map { song ->
+                kotlinx.coroutines.async {
+                    if (song.source == MusicSource.YTMUSIC && song.streams.none { it.url.isNotBlank() }) {
+                        val url = ytmusic.streamUrl(song.id.removePrefix("yt:"))
+                        if (url.isNullOrBlank()) return@async null
+                        song.copy(streams = listOf(AudioStream(url = url, quality = "", bitrateKbps = 0, lossless = false)))
+                    } else {
+                        song
+                    }
+                }
+            }.mapNotNull { deferred ->
+                runCatching { deferred.await() }.getOrNull()
+            }.filter { it.streams.any { s -> s.url.isNotBlank() } }
         }
     }
 

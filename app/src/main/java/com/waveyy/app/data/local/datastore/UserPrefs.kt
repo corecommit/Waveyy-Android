@@ -65,6 +65,15 @@ class UserPrefs @Inject constructor(
 
         /** Hinglish romanization toggle key. */
         const val HINGLISH_KEY = "hinglish-enabled"
+
+        /** InnerTube visitor token key. */
+        const val VISITOR_DATA_KEY = "yt-visitor-data"
+
+        /** YouTube Music source toggle key. */
+        const val YTMUSIC_ENABLED_KEY = "ytmusic-enabled"
+
+        /** Race-mode toggle key (fast-first vs complete). */
+        const val PREFER_FAST_KEY = "prefer-fast"
     }
 
     /** Lyrics provider id (`lrclib` or `none`). */
@@ -87,8 +96,46 @@ class UserPrefs @Inject constructor(
         context.userPrefs.edit { prefs -> prefs[hinglishKey] = enabled }
     }
 
+    /** InnerTube visitor token (rotated by the client on receipt). */
+    fun ytVisitorFlow(): Flow<String?> {
+        return context.userPrefs.data.map { it[ytVisitorKey] }
+    }
+
+    /** Reads the stored visitor token (null when never seen). */
+    suspend fun ytVisitor(): String? {
+        return context.userPrefs.data.map { it[ytVisitorKey] }.first()
+    }
+
+    /** Persists a refreshed visitor token. */
+    suspend fun setYtVisitor(token: String) {
+        context.userPrefs.edit { prefs -> prefs[ytVisitorKey] = token }
+    }
+
+    /** Whether YouTube Music source is enabled (default on). */
+    fun ytmusicEnabledFlow(): Flow<Boolean> {
+        return context.userPrefs.data.map { it[ytmusicEnabledKey] ?: true }
+    }
+
+    /** Persists the YouTube Music toggle. */
+    suspend fun setYtmusicEnabled(enabled: Boolean) {
+        context.userPrefs.edit { prefs -> prefs[ytmusicEnabledKey] = enabled }
+    }
+
+    /** Whether races resolve fast-first (default on) instead of complete. */
+    fun preferFastFlow(): Flow<Boolean> {
+        return context.userPrefs.data.map { it[preferFastKey] ?: true }
+    }
+
+    /** Persists the race-mode toggle. */
+    suspend fun setPreferFast(enabled: Boolean) {
+        context.userPrefs.edit { prefs -> prefs[preferFastKey] = enabled }
+    }
+
     private val lyricsProviderKey = stringPreferencesKey(LYRICS_PROVIDER_KEY)
     private val hinglishKey = booleanPreferencesKey(HINGLISH_KEY)
+    private val ytVisitorKey = stringPreferencesKey(VISITOR_DATA_KEY)
+    private val ytmusicEnabledKey = booleanPreferencesKey(YTMUSIC_ENABLED_KEY)
+    private val preferFastKey = booleanPreferencesKey(PREFER_FAST_KEY)
 
     /** Audio quality preference as a flow. */
     fun audioQualityFlow(): Flow<String> {
