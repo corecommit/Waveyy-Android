@@ -57,7 +57,7 @@ class QqMusicProvider @Inject constructor(
         }
         lyric = lyric.trim()
         if (lyric.isBlank()) return null
-        return if (TIMESTAMP.matcher(lyric).find()) LyricsResult.Synced(lyric) else LyricsResult.Plain(lyric)
+        return if (TIMESTAMP.containsMatchIn(lyric)) LyricsResult.Synced(lyric) else LyricsResult.Plain(lyric)
     }
 
     companion object {

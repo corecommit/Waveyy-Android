@@ -61,7 +61,7 @@ class NetEaseProvider @Inject constructor(
         if (obj["nolyric"]?.jsonPrimitive?.intOrNull == 1) return null
         val lrc = obj["lrc"]?.jsonObject?.get("lyric")?.jsonPrimitive?.content.orEmpty()
         if (lrc.isBlank()) return null
-        return if (TIMESTAMP.matcher(lrc).find()) LyricsResult.Synced(lrc) else LyricsResult.Plain(lrc)
+        return if (TIMESTAMP.containsMatchIn(lrc)) LyricsResult.Synced(lrc) else LyricsResult.Plain(lrc)
     }
 
     companion object {
