@@ -1,14 +1,22 @@
 package com.waveyy.app.ui.home
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -16,29 +24,41 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.waveyy.app.MainActivity
+import com.waveyy.app.R
+import com.waveyy.app.domain.model.Album
 import com.waveyy.app.domain.model.Song
-import com.waveyy.app.ui.components.AlbumCard
+import com.waveyy.app.ui.components.AdaptiveImage
 import com.waveyy.app.ui.components.ArtistCard
-import com.waveyy.app.ui.components.SongCard
-import com.waveyy.app.ui.components.WaveyyProgress
-import com.waveyy.app.ui.components.WaveyySkeleton
+import com.waveyy.app.ui.components.SkeletonHomeScreen
+import com.waveyy.app.ui.components.WaveyyButton
 import timber.log.Timber
 
 /**
- * Home rails: greeting, Made-for-You, Trending, Artists, Albums. Taps play
- * through the shared player queue.
+ * Home: header row, greeting, hero card, continue grid, and section grids
+ * (Made for You, Popular Artists rail, Popular Albums, Trending Now, New
+ * Releases). Taps play through the shared player queue.
  */
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel(),
     onPlaySong: (List<Song>, Int) -> Unit = { _, _ -> },
     onAlbum: (String) -> Unit = {},
-    onArtist: (String) -> Unit = {}
+    onArtist: (String) -> Unit = {},
+    onSearch: () -> Unit = {},
+    onSettings: () -> Unit = {}
 ) {
     val state by viewModel.state.collectAsState()
     val userName by viewModel.userName.collectAsState()
@@ -47,7 +67,9 @@ fun HomeScreen(
     }
     Scaffold { padding ->
         when (val current = state) {
-            HomeUiState.Loading -> HomeLoading(modifier = Modifier.padding(padding))
+            HomeUiState.Loading -> SkeletonHomeScreen(
+                modifier = Modifier.padding(padding)
+            )
             is HomeUiState.Error -> HomeError(
                 onRetry = viewModel::refresh,
                 modifier = Modifier.padding(padding)
@@ -58,23 +80,10 @@ fun HomeScreen(
                 onPlaySong = onPlaySong,
                 onAlbum = onAlbum,
                 onArtist = onArtist,
+                onSearch = onSearch,
+                onSettings = onSettings,
                 modifier = Modifier.padding(padding)
             )
-        }
-    }
-}
-
-/** Skeleton rails while loading: card-sized shimmer tiles per rail. */
-@Composable
-private fun HomeLoading(modifier: Modifier = Modifier) {
-    LazyColumn(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        items(3) {
-            com.waveyy.app.ui.components.ShimmerRail()
         }
     }
 }
@@ -82,26 +91,26 @@ private fun HomeLoading(modifier: Modifier = Modifier) {
 /** Visible error with retry — an empty-data state must never be blank. */
 @Composable
 private fun HomeError(onRetry: () -> Unit, modifier: Modifier = Modifier) {
-    androidx.compose.foundation.layout.Column(
+    Column(
         modifier = modifier
             .fillMaxSize()
             .padding(24.dp),
         verticalArrangement = Arrangement.Center,
-        horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            text = androidx.compose.ui.res.stringResource(com.waveyy.app.R.string.home_error),
+            text = stringResource(R.string.home_error),
             style = MaterialTheme.typography.titleMedium
         )
-        com.waveyy.app.ui.components.WaveyyButton(
-            text = androidx.compose.ui.res.stringResource(com.waveyy.app.R.string.action_retry),
+        WaveyyButton(
+            text = stringResource(R.string.action_retry),
             onClick = onRetry,
             modifier = Modifier.padding(top = 12.dp)
         )
     }
 }
 
-/** Loaded rails. */
+/** Loaded home: header, greeting, hero, grids, artists rail. */
 @Composable
 private fun HomeContent(
     sections: HomeSections,
@@ -109,43 +118,70 @@ private fun HomeContent(
     onPlaySong: (List<Song>, Int) -> Unit,
     onAlbum: (String) -> Unit,
     onArtist: (String) -> Unit,
+    onSearch: () -> Unit,
+    onSettings: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    LazyColumn(
+    val hero = sections.trending.firstOrNull()
+    LazyVerticalGrid(
+        columns = GridCells.Fixed(2),
         modifier = modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        contentPadding = PaddingValues(horizontal = 20.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        item {
+        item(span = { GridItemSpan(2) }) {
+            HomeHeader(
+                onExplore = {
+                    hero?.let { onPlaySong(sections.trending, 0) }
+                },
+                onSearch = onSearch,
+                onSettings = onSettings
+            )
+        }
+        item(span = { GridItemSpan(2) }) {
             GreetingHeader(username = userName)
         }
-        if (sections.recommended.isNotEmpty()) {
-            item {
-                RailTitle("Made for You")
-                SongRail(songs = sections.recommended, onPlaySong = onPlaySong)
+        if (hero != null) {
+            item(span = { GridItemSpan(2) }) {
+                HeroCard(
+                    song = hero,
+                    songs = sections.trending,
+                    onPlaySong = onPlaySong
+                )
             }
         }
         if (sections.recent.isNotEmpty()) {
-            item {
-                RailTitle("Recently Played")
-                SongRail(songs = sections.recent, onPlaySong = onPlaySong)
+            item(span = { GridItemSpan(2) }) {
+                GridSectionTitle("Continue")
+            }
+            items(sections.recent, key = { it.id }) { song ->
+                val index = sections.recent.indexOf(song)
+                GridSongCard(
+                    song = song,
+                    onPlay = { onPlaySong(sections.recent, index) }
+                )
             }
         }
-        item {
-            RailTitle("Trending")
-            SongRail(songs = sections.trending, onPlaySong = onPlaySong)
-        }
-        if (sections.newReleases.isNotEmpty()) {
-            item {
-                RailTitle("New Releases")
-                SongRail(songs = sections.newReleases, onPlaySong = onPlaySong)
+        if (sections.recommended.isNotEmpty()) {
+            item(span = { GridItemSpan(2) }) {
+                GridSectionTitle("Made for You")
+            }
+            items(sections.recommended, key = { it.id }) { song ->
+                val index = sections.recommended.indexOf(song)
+                GridSongCard(
+                    song = song,
+                    onPlay = { onPlaySong(sections.recommended, index) }
+                )
             }
         }
         if (sections.popularArtists.isNotEmpty()) {
-            item {
-                RailTitle("Popular Artists")
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    contentPadding = PaddingValues(horizontal = 16.dp)
+            item(span = { GridItemSpan(2) }) {
+                GridSectionTitle("Popular Artists")
+            }
+            item(span = { GridItemSpan(2) }) {
+                androidx.compose.foundation.lazy.LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(sections.popularArtists, key = { it.id }) { artist ->
                         ArtistCard(
@@ -159,61 +195,177 @@ private fun HomeContent(
             }
         }
         if (sections.popularAlbums.isNotEmpty()) {
-            item {
-                RailTitle("Popular Albums")
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    contentPadding = PaddingValues(horizontal = 16.dp)
-                ) {
-                    items(sections.popularAlbums, key = { it.id }) { album ->
-                        AlbumCard(
-                            title = album.name,
-                            artist = album.artist,
-                            imageUrl = album.imageUrl,
-                            albumId = album.id,
-                            onOpen = onAlbum
-                        )
-                    }
-                }
+            item(span = { GridItemSpan(2) }) {
+                GridSectionTitle("Popular Albums")
+            }
+            items(sections.popularAlbums, key = { it.id }) { album ->
+                GridAlbumCard(album = album, onOpen = { onAlbum(album.id) })
+            }
+        }
+        if (sections.trending.isNotEmpty()) {
+            item(span = { GridItemSpan(2) }) {
+                GridSectionTitle("Trending Now")
+            }
+            items(sections.trending, key = { it.id }) { song ->
+                val index = sections.trending.indexOf(song)
+                GridSongCard(
+                    song = song,
+                    onPlay = { onPlaySong(sections.trending, index) }
+                )
+            }
+        }
+        if (sections.newReleases.isNotEmpty()) {
+            item(span = { GridItemSpan(2) }) {
+                GridSectionTitle("New Releases")
+            }
+            items(sections.newReleases, key = { it.id }) { song ->
+                val index = sections.newReleases.indexOf(song)
+                GridSongCard(
+                    song = song,
+                    onPlay = { onPlaySong(sections.newReleases, index) }
+                )
             }
         }
     }
 }
 
-/** Section header. */
+/** Section header: titleLarge bold with reference padding. */
 @Composable
-private fun RailTitle(text: String) {
+private fun GridSectionTitle(text: String) {
     Text(
         text = text,
-        style = MaterialTheme.typography.headlineSmall,
+        style = MaterialTheme.typography.titleLarge,
         fontWeight = FontWeight.Bold,
-        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 12.dp)
+        modifier = Modifier.padding(top = 16.dp)
     )
 }
 
-/** Horizontal song rail; taps play from the tapped index. */
+/**
+ * Hero card: full-width 16:9 artwork with a bottom gradient scrim and
+ * overlaid title/artist. Tapping plays from the section start.
+ */
 @Composable
-private fun SongRail(
+private fun HeroCard(
+    song: Song,
     songs: List<Song>,
-    onPlaySong: (List<Song>, Int) -> Unit
+    onPlaySong: (List<Song>, Int) -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    if (songs.isEmpty()) {
-        WaveyyProgress(progress = null, modifier = Modifier.padding(16.dp))
-        return
-    }
-    LazyRow(
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-        contentPadding = PaddingValues(horizontal = 16.dp)
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .aspectRatio(16f / 9f)
+            .clickable { onPlaySong(songs, songs.indexOf(song).coerceAtLeast(0)) }
+            .clip(RoundedCornerShape(24.dp))
     ) {
-        itemsIndexed(songs, key = { _, song -> song.id }) { index, song ->
-            SongCard(
-                title = song.name,
-                artist = song.artist,
-                imageUrl = song.imageUrl,
-                songId = song.id,
-                description = null,
-                onPlay = { onPlaySong(songs, index) }
+        AdaptiveImage(
+            imageUrl = song.imageUrl,
+            contentDescription = song.name,
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(16f / 9f),
+            contentScale = ContentScale.Crop
+        )
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .background(
+                    Brush.verticalGradient(
+                        0f to Color.Transparent,
+                        1f to Color.Black.copy(alpha = 0.7f)
+                    )
+                )
+        )
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(16.dp)
+        ) {
+            Text(
+                text = song.name,
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = song.artist,
+                style = MaterialTheme.typography.titleMedium,
+                color = Color.White.copy(alpha = 0.8f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         }
+    }
+}
+
+/** 2-column grid song card: square art, 2-line title, muted subtitle. */
+@Composable
+private fun GridSongCard(
+    song: Song,
+    onPlay: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .clickable(onClick = onPlay)
+    ) {
+        AdaptiveImage(
+            imageUrl = song.imageUrl,
+            contentDescription = song.name,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(16.dp))
+        )
+        Text(
+            text = song.name,
+            style = MaterialTheme.typography.titleMedium,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(top = 6.dp)
+        )
+        Text(
+            text = song.artist,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+/** 2-column grid album card. */
+@Composable
+private fun GridAlbumCard(
+    album: Album,
+    onOpen: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .clickable(onClick = onOpen)
+    ) {
+        AdaptiveImage(
+            imageUrl = album.imageUrl,
+            contentDescription = album.name,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(16.dp))
+        )
+        Text(
+            text = album.name,
+            style = MaterialTheme.typography.titleMedium,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(top = 6.dp)
+        )
+        Text(
+            text = album.artist,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }

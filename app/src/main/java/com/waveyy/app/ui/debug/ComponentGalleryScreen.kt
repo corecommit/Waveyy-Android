@@ -30,7 +30,7 @@ import com.waveyy.app.ui.components.WaveyyDropdownMenu
 import com.waveyy.app.ui.components.WaveyyInput
 import com.waveyy.app.ui.components.WaveyyMenuEntry
 import com.waveyy.app.ui.components.WaveyyProgress
-import com.waveyy.app.ui.components.WaveyySkeleton
+import com.waveyy.app.ui.components.SkeletonBox
 import com.waveyy.app.ui.components.WaveyySlider
 import com.waveyy.app.ui.components.WaveyySpinner
 import com.waveyy.app.ui.components.WaveyyTextButton
@@ -81,7 +81,12 @@ fun ComponentGalleryScreen() {
                 WaveyyTooltip(text = "Hint") {
                     WaveyyTextButton(text = "Hold me", onClick = {})
                 }
-                WaveyySkeleton(modifier = Modifier.fillMaxWidth())
+                SkeletonBox(
+                    width = null,
+                    height = 64.dp,
+                    shape = MaterialTheme.shapes.small,
+                    modifier = Modifier.fillMaxWidth()
+                )
                 WaveyyDropdownMenu(
                     entries = listOf(WaveyyMenuEntry("One", {})),
                     anchor = { open -> WaveyyTextButton(text = "Menu", onClick = open) }
