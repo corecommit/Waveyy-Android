@@ -102,8 +102,11 @@ class SongRepository @Inject constructor(
 
     private suspend fun jsSearchRaw(query: String, limit: Int): List<Song> {
         val body = api.searchSongs(query = query, limit = limit)
+        body.error?.takeIf { it.isNotBlank() }?.let { throw java.io.IOException(it) }
         val dtos = body.data?.results.orEmpty() + body.data?.songs.orEmpty()
-        return SongMapper.toDomainList(dtos.distinctBy { it.id })
+        val songs = SongMapper.toDomainList(dtos.distinctBy { it.id })
+        Timber.d("JsSearch q=$query dtos=${dtos.size} songs=${songs.size}")
+        return songs
     }
 
     @Synchronized
@@ -162,7 +165,10 @@ class SongRepository @Inject constructor(
     /** Raw song DTOs for callers needing pre-normalization shapes. */
     fun searchSongDtos(query: String, limit: Int = 20): Flow<List<SongDto>> = flow {
         val body = api.searchSongs(query = query, limit = limit)
-        emit((body.data?.results.orEmpty() + body.data?.songs.orEmpty()).distinctBy { it.id })
+        body.error?.takeIf { it.isNotBlank() }?.let { throw java.io.IOException(it) }
+        val dtos = (body.data?.results.orEmpty() + body.data?.songs.orEmpty()).distinctBy { it.id }
+        Timber.d("SongDtos q=$query dtos=${dtos.size}")
+        emit(dtos)
     }.flowOn(Dispatchers.IO)
 
     /** Album search via the direct deployment (empty when unconfigured). */

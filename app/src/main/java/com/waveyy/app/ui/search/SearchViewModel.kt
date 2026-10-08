@@ -121,8 +121,11 @@ class SearchViewModel @Inject constructor(
 
     private suspend fun load(rawQuery: String): SearchUiState.Success {
         val variants = SearchRanking.queryVariants(rawQuery)
+        var songFailures = 0
         val songDtos = variants.take(3).flatMap { variant ->
-            runCatching { repository.searchSongDtos(variant).first() }.getOrDefault(emptyList())
+            runCatching { repository.searchSongDtos(variant).first() }
+                .onFailure { songFailures++ }
+                .getOrDefault(emptyList())
         }.distinctBy { it.id.ifBlank { null } ?: (it.name to firstArtistName(it)) }
         val songs = SongMapper.toDomainList(songDtos)
         val albums = variants.take(2).flatMap { variant ->
@@ -134,6 +137,13 @@ class SearchViewModel @Inject constructor(
             .maxByOrNull { it.score }
             ?.takeIf { it.score >= TOP_ARTIST_THRESHOLD }
         mutableSuggestions.value = buildSuggestions(rawQuery, songs, albums)
+        if (songs.isEmpty() && albums.isEmpty() && artists.isEmpty() &&
+            rawQuery.isNotBlank() && songFailures >= variants.take(3).size
+        ) {
+            // Backend answered with failures on every variant: surface an
+            // error (with Retry) instead of masquerading as "no results".
+            throw java.io.IOException("Search unavailable. Check your connection and retry.")
+        }
         return SearchUiState.Success(songs, albums, artists, top)
     }
 
