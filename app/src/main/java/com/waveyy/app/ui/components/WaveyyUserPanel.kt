@@ -3,9 +3,13 @@ package com.waveyy.app.ui.components
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.LibraryMusic
+import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -80,6 +84,7 @@ fun WaveyyUserPanel(
         if (session != null) {
             DropdownMenuItem(
                 text = { Text(session?.displayName ?: "Profile") },
+                leadingIcon = { Icon(imageVector = Icons.Filled.Person, contentDescription = null) },
                 onClick = {
                     expanded = false
                     onProfile()
@@ -87,6 +92,7 @@ fun WaveyyUserPanel(
             )
             DropdownMenuItem(
                 text = { Text("Library") },
+                leadingIcon = { Icon(imageVector = Icons.Filled.LibraryMusic, contentDescription = null) },
                 onClick = {
                     expanded = false
                     onLibrary()
@@ -94,13 +100,16 @@ fun WaveyyUserPanel(
             )
             DropdownMenuItem(
                 text = { Text("Settings") },
+                leadingIcon = { Icon(imageVector = Icons.Filled.Settings, contentDescription = null) },
                 onClick = {
                     expanded = false
                     onSettings()
                 }
             )
+            HorizontalDivider()
             DropdownMenuItem(
                 text = { Text("Sign out") },
+                leadingIcon = { Icon(imageVector = Icons.Filled.Logout, contentDescription = null) },
                 onClick = {
                     expanded = false
                     viewModel.signOut()
@@ -109,6 +118,7 @@ fun WaveyyUserPanel(
         } else {
             DropdownMenuItem(
                 text = { Text("Sign in") },
+                leadingIcon = { Icon(imageVector = Icons.Filled.Person, contentDescription = null) },
                 onClick = {
                     expanded = false
                     onSignIn()
@@ -116,6 +126,7 @@ fun WaveyyUserPanel(
             )
             DropdownMenuItem(
                 text = { Text("Settings") },
+                leadingIcon = { Icon(imageVector = Icons.Filled.Settings, contentDescription = null) },
                 onClick = {
                     expanded = false
                     onSettings()

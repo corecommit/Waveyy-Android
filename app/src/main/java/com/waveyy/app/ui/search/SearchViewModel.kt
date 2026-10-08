@@ -50,18 +50,37 @@ class SearchViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
-    private val query: String = savedStateHandle.get<String>("query").orEmpty()
+    private val initialQuery: String = savedStateHandle.get<String>("query").orEmpty()
+
+    private val mutableQuery = MutableStateFlow(initialQuery)
+    /** Current query text. */
+    val query: StateFlow<String> = mutableQuery.asStateFlow()
 
     private val mutableState = MutableStateFlow<SearchUiState>(SearchUiState.Loading)
     /** Screen state. */
     val state: StateFlow<SearchUiState> = mutableState.asStateFlow()
 
+    private val mutableSuggestions = MutableStateFlow<List<String>>(emptyList())
+    /** Trending names shown as tappable suggestions when the query is blank. */
+    val suggestions: StateFlow<List<String>> = mutableSuggestions.asStateFlow()
+
     init {
-        if (query.isBlank()) {
+        if (initialQuery.isBlank()) {
             mutableState.value = SearchUiState.Success(emptyList(), emptyList(), emptyList(), null)
         } else {
             refresh()
         }
+        viewModelScope.launch {
+            mutableSuggestions.value = runCatching {
+                repository.topCharts().first().take(8).map { it.name }
+            }.getOrDefault(emptyList())
+        }
+    }
+
+    /** Submits a new query from the in-screen field (no navigation). */
+    fun submitQuery(newQuery: String) {
+        mutableQuery.value = newQuery
+        refresh()
     }
 
     /** (Re)runs the search. */
@@ -72,7 +91,7 @@ class SearchViewModel @Inject constructor(
     private fun search() {
         mutableState.value = SearchUiState.Loading
         viewModelScope.launch {
-            runCatching { load(query) }
+            runCatching { load(mutableQuery.value) }
                 .onSuccess { mutableState.value = it }
                 .onFailure { mutableState.value = SearchUiState.Error(it.message ?: "Search failed") }
         }
