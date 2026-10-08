@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -31,8 +32,8 @@ import com.waveyy.app.ui.components.AdaptiveImage
 import com.waveyy.app.ui.components.AlbumCard
 import com.waveyy.app.ui.components.HeroPlayButton
 import com.waveyy.app.ui.components.SongCard
+import com.waveyy.app.ui.components.SkeletonRows
 import com.waveyy.app.ui.components.WaveyyErrorPanel
-import com.waveyy.app.ui.components.WaveyyProgress
 import com.waveyy.app.util.HtmlDecoder
 import com.waveyy.app.util.PlayCountFormatter
 
@@ -50,7 +51,7 @@ fun ArtistScreen(
     val state by viewModel.state.collectAsState()
     when (val current = state) {
         ArtistUiState.Loading -> {
-            WaveyyProgress(progress = null, modifier = Modifier.padding(32.dp))
+            SkeletonRows(count = 8, modifier = Modifier.padding(16.dp))
         }
         is ArtistUiState.Error -> {
             WaveyyErrorPanel(onRetry = viewModel::refresh)
@@ -63,7 +64,9 @@ fun ArtistScreen(
 @Composable
 private fun ArtistContent(page: ArtistPage, onPlaySong: (QueueSource, Int) -> Unit, onAlbum: (String) -> Unit) {
     LazyColumn(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .statusBarsPadding(),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
