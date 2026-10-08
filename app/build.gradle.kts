@@ -123,6 +123,7 @@ dependencies {
     implementation(libs.coroutines.core)
     implementation(libs.coroutines.android)
     implementation(libs.coroutines.guava)
+    implementation(libs.palette)
 
     // Local persistence — used in Phase 3.
     implementation(libs.room.runtime)
