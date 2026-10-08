@@ -3,6 +3,7 @@ package com.waveyy.app.ui.navigation
 /** Root graph destinations. Full route table lands in Phase 5. */
 object Routes {
     const val HOME = "home"
+    const val DISCOVER = "discover"
     const val SEARCH = "search?query={query}"
     const val SETTINGS = "settings"
     const val ALBUM = "album/{id}"

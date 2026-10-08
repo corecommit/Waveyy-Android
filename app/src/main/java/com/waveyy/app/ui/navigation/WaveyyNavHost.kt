@@ -39,6 +39,7 @@ import com.waveyy.app.ui.auth.LoginScreen
 import com.waveyy.app.ui.auth.SignupScreen
 import com.waveyy.app.ui.debug.ComponentGalleryScreen
 import com.waveyy.app.ui.debug.ThemeGalleryScreen
+import com.waveyy.app.ui.discover.DiscoverScreen
 import com.waveyy.app.ui.home.HomeScreen
 import com.waveyy.app.ui.library.PlaylistDetailScreen
 import com.waveyy.app.ui.library.PlaylistsScreen
@@ -70,6 +71,11 @@ fun WaveyyNavHost(
     val backStack by navController.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route
     val isPlayer = currentRoute?.startsWith("player") == true
+    // Home and search render their own headers (B1/B2); the global top bar
+    // serves the remaining routes only.
+    val showTopBar = !isPlayer &&
+        currentRoute != Routes.HOME &&
+        !(currentRoute?.startsWith("search") == true)
     var searchQuery by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
 
@@ -85,7 +91,7 @@ fun WaveyyNavHost(
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        if (!isPlayer) {
+        if (showTopBar) {
             WaveyyTopBar(
                 query = searchQuery,
                 onQuery = { searchQuery = it },
@@ -119,14 +125,21 @@ fun WaveyyNavHost(
                     HomeScreen(
                         onPlaySong = ::playSource,
                         onAlbum = { id -> navController.navigate(Routes.withId(Routes.ALBUM, id)) },
-                        onArtist = { id -> navController.navigate(Routes.withId(Routes.ARTIST, id)) }
+                        onArtist = { id -> navController.navigate(Routes.withId(Routes.ARTIST, id)) },
+                        onSearch = { navController.navigate(Routes.withQuery("")) },
+                        onSettings = { navController.navigate(Routes.SETTINGS) },
+                        onDiscover = { navController.navigate(Routes.DISCOVER) }
                     )
+                }
+                composable(Routes.DISCOVER) {
+                    DiscoverScreen(onPlaySong = ::playSource)
                 }
                 composable(Routes.SEARCH) {
                     SearchScreen(
                         onPlaySong = ::playSource,
                         onAlbum = { id -> navController.navigate(Routes.withId(Routes.ALBUM, id)) },
-                        onArtist = { id -> navController.navigate(Routes.withId(Routes.ARTIST, id)) }
+                        onArtist = { id -> navController.navigate(Routes.withId(Routes.ARTIST, id)) },
+                        onBack = { navController.popBackStack() }
                     )
                 }
                 composable(Routes.ALBUM) {

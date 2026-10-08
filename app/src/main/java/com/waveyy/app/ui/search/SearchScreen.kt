@@ -14,6 +14,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -21,6 +23,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.MoreVert
@@ -36,6 +39,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -80,7 +84,8 @@ fun SearchScreen(
     viewModel: SearchViewModel = hiltViewModel(),
     onPlaySong: (QueueSource, Int) -> Unit = { _, _ -> },
     onAlbum: (String) -> Unit = {},
-    onArtist: (String) -> Unit = {}
+    onArtist: (String) -> Unit = {},
+    onBack: () -> Unit = {}
 ) {
     val state by viewModel.state.collectAsState()
     val suggestions by viewModel.suggestions.collectAsState()
@@ -90,6 +95,10 @@ fun SearchScreen(
     var filter by remember { mutableStateOf(SearchFilter.ALL) }
     var focused by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
+    val focusRequester = remember { FocusRequester() }
+    LaunchedEffect(Unit) {
+        focusRequester.requestFocus()
+    }
     val showSongs = filter == SearchFilter.ALL || filter == SearchFilter.SONGS
     val showAlbums = filter == SearchFilter.ALL || filter == SearchFilter.ALBUMS
     val showArtists = filter == SearchFilter.ALL || filter == SearchFilter.ARTISTS
@@ -110,9 +119,17 @@ fun SearchScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp)
+                    .focusRequester(focusRequester)
                     .onFocusChanged { focused = it.isFocused },
-                placeholder = { Text("Search songs, artists, albums") },
-                leadingIcon = { Icon(imageVector = Icons.Filled.Search, contentDescription = null) },
+                placeholder = { Text(stringResource(R.string.search_hint)) },
+                leadingIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            imageVector = Icons.Filled.ArrowBack,
+                            contentDescription = "Back"
+                        )
+                    }
+                },
                 trailingIcon = {
                     if (text.isNotEmpty()) {
                         IconButton(onClick = { text = "" }) {
