@@ -6,6 +6,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import java.util.Calendar
 
@@ -24,10 +25,11 @@ fun GreetingHeader(
 ) {
     val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
     val greeting = greetingForHour(hour)
-    Column(modifier = modifier.padding(horizontal = 20.dp).padding(top = 4.dp)) {
+    Column(modifier = modifier.padding(horizontal = 20.dp)) {
         Text(
             text = greeting,
-            style = MaterialTheme.typography.headlineMedium
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.SemiBold
         )
         Text(
             text = username?.takeIf { it.isNotBlank() } ?: "Guest",
