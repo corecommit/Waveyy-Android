@@ -2,15 +2,18 @@ package com.waveyy.app.ui.settings
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -53,6 +56,24 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { userPrefs.setAudioQuality(option) }
     }
 
+    /** Whether the YouTube Music source is enabled. */
+    val ytmusicEnabled = userPrefs.ytmusicEnabledFlow()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000L), true)
+
+    /** Toggles the YouTube Music source. */
+    fun setYtmusicEnabled(enabled: Boolean) {
+        viewModelScope.launch { userPrefs.setYtmusicEnabled(enabled) }
+    }
+
+    /** Whether hybrid races resolve fast-first (vs merged-complete). */
+    val preferFast = userPrefs.preferFastFlow()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000L), true)
+
+    /** Toggles race mode. */
+    fun setPreferFast(enabled: Boolean) {
+        viewModelScope.launch { userPrefs.setPreferFast(enabled) }
+    }
+
     /** Signs out. */
     fun signOut() {
         viewModelScope.launch { auth.signOut() }
@@ -69,6 +90,8 @@ fun SettingsScreen(
     onSignIn: () -> Unit = {}
 ) {
     val quality by viewModel.audioQuality.collectAsState()
+    val ytmusicEnabled by viewModel.ytmusicEnabled.collectAsState()
+    val preferFast by viewModel.preferFast.collectAsState()
     val session by viewModel.session.collectAsState()
     Column(
         modifier = Modifier
@@ -86,6 +109,17 @@ fun SettingsScreen(
             anchor = { open ->
                 WaveyyButton(text = quality, onClick = open, modifier = Modifier.fillMaxWidth())
             }
+        )
+        Text(text = "Sources", style = MaterialTheme.typography.titleMedium)
+        SourceSwitch(
+            label = "Enable YouTube Music",
+            checked = ytmusicEnabled,
+            onChecked = viewModel::setYtmusicEnabled
+        )
+        SourceSwitch(
+            label = "Prefer fast over complete",
+            checked = preferFast,
+            onChecked = viewModel::setPreferFast
         )
         Text(text = "Theme", style = MaterialTheme.typography.titleMedium)
         Text(
@@ -112,5 +146,25 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth()
             )
         }
+    }
+}
+
+/** Labeled switch row for source toggles. */
+@Composable
+private fun SourceSwitch(
+    label: String,
+    checked: Boolean,
+    onChecked: (Boolean) -> Unit
+) {
+    androidx.compose.foundation.layout.Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier.weight(1f)
+        )
+        Switch(checked = checked, onCheckedChange = onChecked)
     }
 }

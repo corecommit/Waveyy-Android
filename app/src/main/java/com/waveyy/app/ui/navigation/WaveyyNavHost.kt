@@ -39,6 +39,7 @@ import com.waveyy.app.ui.auth.LoginScreen
 import com.waveyy.app.ui.auth.SignupScreen
 import com.waveyy.app.ui.debug.ComponentGalleryScreen
 import com.waveyy.app.ui.debug.ThemeGalleryScreen
+import com.waveyy.app.ui.debug.YtMusicDebugScreen
 import com.waveyy.app.ui.discover.DiscoverScreen
 import com.waveyy.app.ui.home.HomeScreen
 import com.waveyy.app.ui.library.PlaylistDetailScreen
@@ -169,10 +170,11 @@ fun WaveyyNavHost(
                         onLogin = { navController.popBackStack() }
                     )
                 }
-                if (BuildConfig.DEBUG) {
-                    composable(Routes.THEME_GALLERY) { ThemeGalleryScreen() }
-                    composable(DebugRoutes.COMPONENT_GALLERY) { ComponentGalleryScreen() }
-                }
+            if (BuildConfig.DEBUG) {
+                composable(Routes.THEME_GALLERY) { ThemeGalleryScreen() }
+                composable(DebugRoutes.COMPONENT_GALLERY) { ComponentGalleryScreen() }
+                composable(DebugRoutes.YT_MUSIC) { YtMusicDebugScreen() }
+            }
             }
             navigation(startDestination = Routes.PLAYER, route = Graph.PLAYER) {
                 composable(
@@ -231,6 +233,9 @@ object Graph {
 object DebugRoutes {
     /** Component gallery route. */
     const val COMPONENT_GALLERY = "debug/component-gallery"
+
+    /** YouTube Music probe route. */
+    const val YT_MUSIC = "debug/ytmusic"
 }
 
 /** Shared screen-transition duration (M3 default specs). */

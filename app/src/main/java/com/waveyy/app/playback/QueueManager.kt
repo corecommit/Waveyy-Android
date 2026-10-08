@@ -87,6 +87,9 @@ sealed interface QueueSource {
 
     /** Home feed rails. */
     data class HomeFeed(override val songs: List<Song>) : QueueSource
+
+    /** Ad-hoc list (resolved queues, tests). */
+    data class Custom(override val songs: List<Song>) : QueueSource
 }
 
 /** Index-aligned domain + controller queue pair. */

@@ -24,5 +24,6 @@ data class Song(
     val durationSec: Long,
     val playCount: Long,
     val streams: List<AudioStream>,
-    val year: String = ""
+    val year: String = "",
+    val source: MusicSource = MusicSource.JIOSAAVN
 )
