@@ -1,6 +1,7 @@
 package com.waveyy.app.data.local.datastore
 
 import android.content.Context
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -87,7 +88,7 @@ class UserPrefs @Inject constructor(
     }
 
     private val lyricsProviderKey = stringPreferencesKey(LYRICS_PROVIDER_KEY)
-    private val hinglishKey = stringPreferencesKey(HINGLISH_KEY)
+    private val hinglishKey = booleanPreferencesKey(HINGLISH_KEY)
 
     /** Audio quality preference as a flow. */
     fun audioQualityFlow(): Flow<String> {
