@@ -193,7 +193,10 @@ fun WaveyyNavHost(
                     route = Routes.PLAYER,
                     deepLinks = listOf(navDeepLink { uriPattern = "waveyy://song/{id}" })
                 ) {
-                    FullPlayerScreen(viewModel = playerVm)
+                    FullPlayerScreen(
+                    viewModel = playerVm,
+                    onClose = { navController.popBackStack() }
+                )
                 }
             }
         }
