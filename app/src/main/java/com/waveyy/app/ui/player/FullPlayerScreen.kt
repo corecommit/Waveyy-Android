@@ -1,45 +1,55 @@
 package com.waveyy.app.ui.player
 
-import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.Headphones
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.RepeatOne
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material.icons.filled.Lyrics
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -52,32 +62,24 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.media3.common.Player
 import com.waveyy.app.domain.model.Song
 import com.waveyy.app.ui.components.AdaptiveImage
-import com.waveyy.app.ui.components.WaveyySlider
-import com.waveyy.app.ui.library.AddToQueueButton
-import com.waveyy.app.ui.library.LikeSongButton
 import com.waveyy.app.ui.theme.rememberAlbumAccent
-import com.waveyy.app.util.AudioQualitySelector
 import kotlinx.coroutines.launch
 
 /**
- * Full-screen player in Material 3 Expressive style: header row, large
- * rounded artwork, dynamic accent from the art, pill play button, and a
- * chip row for secondary actions. Ports `full-player.jsx`. Queue and
- * lyrics live in bottom sheets (opened from chips), replacing the old
- * text tabs. Playback itself runs in [PlayerViewModel.connection].
+ * Full-screen Now Playing: header row, square artwork, title/artist,
+ * accent slider, transport pill, secondary actions. Everything fits on
+ * one screen (no scrolling, no swipe gestures). Ports the player route;
+ * queue and lyrics open as bottom sheets.
  *
  * @param viewModel player logic (shared instance).
- * @param onClose back navigation handler.
+ * @param onClose minimize/back handler.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -89,153 +91,187 @@ fun FullPlayerScreen(
     val state by connection.state.collectAsState()
     val queue by viewModel.queue.collectAsState()
     val scope = rememberCoroutineScope()
-    val context = LocalContext.current
     var showQueue by remember { mutableStateOf(false) }
     var showLyrics by remember { mutableStateOf(false) }
     var showOverflow by remember { mutableStateOf(false) }
     val currentSong = queue.firstOrNull { it.id == state.mediaId }
     val accent = rememberAlbumAccent(currentSong?.imageUrl, currentSong?.id)
+    val fraction = if (state.durationMs > 0L) {
+        (state.positionMs.toFloat() / state.durationMs).coerceIn(0f, 1f)
+    } else {
+        0f
+    }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .windowInsetsPadding(WindowInsets.statusBars)
             .navigationBarsPadding()
-            .padding(horizontal = 24.dp)
-            .statusBarsPadding(),
-        horizontalAlignment = Alignment.CenterHorizontally
+            .padding(horizontal = 20.dp)
     ) {
-        PlayerHeaderRow(
-            onClose = onClose,
-            onOverflow = { showOverflow = true },
-            accent = accent,
-            modifier = Modifier.fillMaxWidth()
-        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onClose) {
+                Icon(imageVector = Icons.Filled.KeyboardArrowDown, contentDescription = "Minimize")
+            }
+            Spacer(Modifier.weight(1f))
+            Surface(
+                shape = RoundedCornerShape(50),
+                color = accent.copy(alpha = 0.15f)
+            ) {
+                Text(
+                    text = "NOW PLAYING",
+                    color = accent,
+                    style = MaterialTheme.typography.labelMedium,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
+                )
+            }
+            Spacer(Modifier.weight(1f))
+            IconButton(onClick = { showOverflow = true }) {
+                Icon(imageVector = Icons.Filled.MoreVert, contentDescription = "More")
+            }
+        }
+
+        Spacer(Modifier.height(24.dp))
+
         AdaptiveImage(
             imageUrl = currentSong?.imageUrl.orEmpty(),
             contentDescription = currentSong?.name,
             modifier = Modifier
-                .fillMaxWidth(0.85f)
-                .clip(RoundedCornerShape(28.dp))
+                .fillMaxWidth()
+                .aspectRatio(1f)
+                .clip(RoundedCornerShape(28.dp)),
+            contentScale = ContentScale.Crop
         )
+
+        Spacer(Modifier.height(32.dp))
+
         Text(
             text = currentSong?.name ?: "Nothing playing",
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(top = 16.dp)
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
+        Spacer(Modifier.height(4.dp))
         Text(
             text = currentSong?.artist ?: "",
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.End,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            if (currentSong != null) {
-                AddToQueueButton(song = currentSong)
-                LikeSongButton(song = currentSong)
-            }
-        }
-        val fraction = if (state.durationMs > 0L) {
-            (state.positionMs.toFloat() / state.durationMs).coerceIn(0f, 1f)
-        } else {
-            0f
-        }
-        WaveyySlider(
+
+        Spacer(Modifier.height(24.dp))
+
+        Slider(
             value = fraction,
             onValueChange = { scope.launch { connection.seekTo((it * state.durationMs).toLong()) } },
-            activeTrackColor = accent,
-            modifier = Modifier.fillMaxWidth()
+            colors = SliderDefaults.colors(thumbColor = accent, activeTrackColor = accent)
         )
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
+
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text(
                 text = formatDuration(state.positionMs / 1000L),
-                style = MaterialTheme.typography.bodySmall,
+                style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
                 text = formatDuration(state.durationMs / 1000L),
-                style = MaterialTheme.typography.bodySmall,
+                style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+
+        Spacer(Modifier.weight(1f))
+
         Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally),
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 8.dp)
+                .padding(bottom = 24.dp),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            CircleControl(
+            FilledIconButton(
                 onClick = { scope.launch { connection.previous() } },
-                description = "Previous"
+                modifier = Modifier.size(56.dp),
+                colors = IconButtonDefaults.filledIconButtonColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                )
             ) {
-                Icon(imageVector = Icons.Filled.SkipPrevious, contentDescription = null)
+                Icon(imageVector = Icons.Filled.SkipPrevious, contentDescription = "Previous")
             }
+
+            Spacer(Modifier.width(24.dp))
+
             Button(
                 onClick = { scope.launch { connection.togglePlayPause() } },
-                modifier = Modifier.size(width = 160.dp, height = 72.dp),
-                shape = CircleShape,
-                colors = ButtonDefaults.buttonColors(containerColor = accent),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)
+                modifier = Modifier.width(160.dp).height(72.dp),
+                shape = RoundedCornerShape(50),
+                colors = ButtonDefaults.buttonColors(containerColor = accent)
             ) {
                 Icon(
                     imageVector = if (state.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
                     contentDescription = if (state.isPlaying) "Pause" else "Play",
-                    modifier = Modifier.size(36.dp)
+                    modifier = Modifier.size(32.dp)
                 )
             }
-            CircleControl(
+
+            Spacer(Modifier.width(24.dp))
+
+            FilledIconButton(
                 onClick = { scope.launch { connection.next() } },
-                description = "Next"
+                modifier = Modifier.size(56.dp),
+                colors = IconButtonDefaults.filledIconButtonColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                )
             ) {
-                Icon(imageVector = Icons.Filled.SkipNext, contentDescription = null)
+                Icon(imageVector = Icons.Filled.SkipNext, contentDescription = "Next")
             }
         }
+
         Row(
-            horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 4.dp)
+                .padding(bottom = 16.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly
         ) {
-            ChipButton(Icons.Filled.Info, "Lyrics") { showLyrics = true }
-            ChipButton(Icons.Filled.Headphones, "Audio") {
-                val best = currentSong?.let { AudioQualitySelector.selectBest(it.streams) }
-                val label = best?.let { "${it.quality.ifBlank { "stream" }} ${it.bitrateKbps}kbps" }
-                    ?: "No stream"
-                Toast.makeText(context, label, Toast.LENGTH_SHORT).show()
+            IconButton(onClick = { showLyrics = true }) {
+                Icon(imageVector = Icons.Filled.Info, contentDescription = "Lyrics")
             }
-            ChipButton(
-                Icons.Filled.Shuffle,
-                "Shuffle",
-                selected = state.shuffleEnabled,
-                accent = accent
-            ) {
-                scope.launch { connection.toggleShuffle() }
+            IconButton(onClick = { scope.launch { connection.toggleShuffle() } }) {
+                Icon(
+                    imageVector = Icons.Filled.Shuffle,
+                    contentDescription = "Shuffle",
+                    tint = if (state.shuffleEnabled) accent else MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
-            ChipButton(
-                if (state.repeatMode == Player.REPEAT_MODE_ONE) Icons.Filled.RepeatOne else Icons.Filled.Repeat,
-                "Repeat",
-                selected = state.repeatMode != Player.REPEAT_MODE_OFF,
-                accent = accent
-            ) {
-                scope.launch { connection.cycleRepeatMode() }
+            IconButton(onClick = { scope.launch { connection.cycleRepeatMode() } }) {
+                Icon(
+                    imageVector = if (state.repeatMode == Player.REPEAT_MODE_ONE) {
+                        Icons.Filled.RepeatOne
+                    } else {
+                        Icons.Filled.Repeat
+                    },
+                    contentDescription = "Repeat",
+                    tint = if (state.repeatMode == Player.REPEAT_MODE_OFF) {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    } else {
+                        accent
+                    }
+                )
             }
-            ChipButton(Icons.Filled.Add, "Queue") {
-                currentSong?.let { viewModel.appendSong(it) }
+            IconButton(onClick = { currentSong?.let { viewModel.appendSong(it) } }) {
+                Icon(imageVector = Icons.Filled.PlaylistAdd, contentDescription = "Add to queue")
             }
-            ChipButton(Icons.AutoMirrored.Filled.QueueMusic, "Up next") { showQueue = true }
+            IconButton(onClick = { showLyrics = true }) {
+                Icon(imageVector = Icons.Filled.Lyrics, contentDescription = "Lyrics")
+            }
         }
     }
     if (showQueue) {
@@ -264,126 +300,30 @@ fun FullPlayerScreen(
             LyricsSheet(viewModel = viewModel, connection = connection, song = currentSong)
         }
     }
-    if (showOverflow) {
-        ModalBottomSheet(onDismissRequest = { showOverflow = false }) {
-            androidx.compose.foundation.layout.Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                androidx.compose.material3.TextButton(
-                    onClick = {
-                        showOverflow = false
-                        currentSong?.let(viewModel::shareSong)
-                    }
-                ) {
-                    Icon(imageVector = Icons.Filled.Share, contentDescription = null)
-                    Text("Share", modifier = Modifier.padding(start = 8.dp))
-                }
-                androidx.compose.material3.TextButton(
-                    onClick = {
-                        showOverflow = false
-                        currentSong?.let { scope.launch { viewModel.downloadSong(it) } }
-                    }
-                ) {
-                    Icon(imageVector = Icons.Filled.Download, contentDescription = null)
-                    Text("Download", modifier = Modifier.padding(start = 8.dp))
-                }
+    DropdownMenu(expanded = showOverflow, onDismissRequest = { showOverflow = false }) {
+        DropdownMenuItem(
+            text = { Text("Share") },
+            leadingIcon = { Icon(imageVector = Icons.Filled.Share, contentDescription = null) },
+            onClick = {
+                showOverflow = false
+                currentSong?.let(viewModel::shareSong)
             }
-        }
-    }
-}
-
-/** Header: back chevron, NOW PLAYING label, overflow menu trigger. */
-
-/** Header: back chevron, NOW PLAYING label, overflow menu trigger. */
-@Composable
-private fun PlayerHeaderRow(
-    onClose: () -> Unit,
-    onOverflow: () -> Unit,
-    modifier: Modifier = Modifier,
-    accent: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.primary
-) {
-    // Accent is resolved by the caller screen and passed via composition
-    // local to keep this header reusable; default falls back to primary.
-    Row(
-        modifier = modifier,
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        androidx.compose.material3.IconButton(onClick = onClose) {
-            Icon(imageVector = Icons.Filled.KeyboardArrowDown, contentDescription = "Close player")
-        }
-        NowPlayingChip(accent = accent)
-        androidx.compose.material3.IconButton(onClick = onOverflow) {
-            Icon(imageVector = Icons.Filled.MoreVert, contentDescription = "More")
-        }
-    }
-}
-
-/** Accent-highlighted NOW PLAYING chip. */
-@Composable
-private fun NowPlayingChip(accent: androidx.compose.ui.graphics.Color) {
-    androidx.compose.foundation.layout.Box(
-        modifier = Modifier
-            .clip(CircleShape)
-            .background(accent.copy(alpha = 0.25f))
-            .padding(horizontal = 12.dp, vertical = 4.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = "NOW PLAYING",
-            style = MaterialTheme.typography.labelLarge,
-            color = accent
         )
-    }
-}
-
-/** 64.dp muted circle transport button. */
-@Composable
-private fun CircleControl(
-    onClick: () -> Unit,
-    description: String,
-    content: @Composable () -> Unit
-) {
-    androidx.compose.foundation.layout.Box(
-        modifier = Modifier
-            .size(64.dp)
-            .clip(CircleShape)
-            .background(MaterialTheme.colorScheme.surfaceVariant)
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center
-    ) {
-        androidx.compose.runtime.CompositionLocalProvider(
-            androidx.compose.material3.LocalContentColor provides MaterialTheme.colorScheme.onSurfaceVariant
-        ) {
-            content()
-        }
-    }
-}
-
-/** 56.dp circular action chip. */
-@Composable
-private fun ChipButton(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    description: String,
-    selected: Boolean = false,
-    accent: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.primary,
-    onClick: () -> Unit
-) {
-    androidx.compose.material3.IconButton(
-        onClick = onClick,
-        modifier = Modifier
-            .size(56.dp)
-            .clip(CircleShape)
-            .background(
-                if (selected) accent.copy(alpha = 0.25f)
-                else MaterialTheme.colorScheme.surfaceVariant
-            )
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = description,
-            tint = if (selected) accent else MaterialTheme.colorScheme.onSurfaceVariant
+        DropdownMenuItem(
+            text = { Text("Download") },
+            leadingIcon = { Icon(imageVector = Icons.Filled.Download, contentDescription = null) },
+            onClick = {
+                showOverflow = false
+                currentSong?.let { scope.launch { viewModel.downloadSong(it) } }
+            }
+        )
+        DropdownMenuItem(
+            text = { Text("Queue") },
+            leadingIcon = { Icon(imageVector = Icons.AutoMirrored.Filled.QueueMusic, contentDescription = null) },
+            onClick = {
+                showOverflow = false
+                showQueue = true
+            }
         )
     }
 }
