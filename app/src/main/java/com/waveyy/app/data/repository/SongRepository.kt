@@ -44,8 +44,8 @@ class SongRepository @Inject constructor(
     private val api: JiosaavnApi,
     private val spotifyApi: SpotifyRecApi,
     @Named("saavnDirect") private val direct: SaavnDirectApi?,
-    private val ytmusic: YtMusicRepository,
-    private val userPrefs: UserPrefs
+    private val ytmusic: YtMusicRepository? = null,
+    private val userPrefs: UserPrefs? = null
 ) {
 
     private var jsFails = 0
@@ -59,18 +59,20 @@ class SongRepository @Inject constructor(
     }.flowOn(Dispatchers.IO)
 
     private suspend fun raceSearch(query: String, limit: Int): List<Song> = coroutineScope {
-        val ytEnabled = runCatching { userPrefs.ytmusicEnabledFlow().first() }.getOrDefault(true)
-        val preferFast = runCatching { userPrefs.preferFastFlow().first() }.getOrDefault(true)
+        val prefs = userPrefs
+        val ytEnabled = prefs?.let { runCatching { it.ytmusicEnabledFlow().first() }.getOrDefault(true) } ?: true
+        val preferFast = prefs?.let { runCatching { it.preferFastFlow().first() }.getOrDefault(true) } ?: true
+        val ytClient = ytmusic
         val jsOpen = System.currentTimeMillis() >= jsDisabledUntil
-        val ytOpen = ytEnabled && System.currentTimeMillis() >= ytDisabledUntil
+        val ytOpen = ytEnabled && ytClient != null && System.currentTimeMillis() >= ytDisabledUntil
         if (!ytOpen) return@coroutineScope jsSearch(query, limit)
         if (!jsOpen) {
-            val yt = runCatching { ytmusic.searchSongs(query) }
+            val yt = runCatching { ytClient?.searchSongs(query).orEmpty() }
             recordYt(yt)
             return@coroutineScope yt.getOrDefault(emptyList())
         }
         val jsDef = async { runCatching { jsSearchRaw(query, limit) }.also(::recordJs) }
-        val ytDef = async { runCatching { ytmusic.searchSongs(query) }.also(::recordYt) }
+        val ytDef = async { runCatching { ytClient?.searchSongs(query).orEmpty() }.also(::recordYt) }
         if (preferFast) {
             val first = select<Pair<String, Result<List<Song>>>> {
                 jsDef.onAwait { "js" to it }
