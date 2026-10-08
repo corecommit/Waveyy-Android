@@ -145,7 +145,9 @@ fun WaveyyNavHost(
                 ) { TogetherScreen() }
                 composable(Routes.CONNECTIONS) { PlaceholderScreen("Connections") }
                 composable(Routes.SETTINGS) {
-                    SettingsScreen()
+                    SettingsScreen(
+                        onSignIn = { navController.navigate(Routes.LOGIN) }
+                    )
                 }
                 composable(Routes.LOGIN) {
                     LoginScreen(

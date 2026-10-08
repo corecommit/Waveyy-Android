@@ -25,6 +25,8 @@ import com.waveyy.app.ui.components.WaveyyMenuEntry
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -37,13 +39,16 @@ class SettingsViewModel @Inject constructor(
     private val userPrefs: UserPrefs,
     private val auth: AuthRepository
 ) : ViewModel() {
-
     /** Persisted audio quality label. */
     val audioQuality = userPrefs.audioQualityFlow()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000L), AUDIO_QUALITY_OPTIONS.first())
 
     /** App version name. */
     val versionName: String = BuildConfig.VERSION_NAME
+
+    /** Current session (null for guests). */
+    val session = auth.sessionFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000L), null)
 
     /** Persists the audio quality choice. */
     fun setAudioQuality(option: String) {
@@ -62,9 +67,11 @@ class SettingsViewModel @Inject constructor(
  */
 @Composable
 fun SettingsScreen(
-    viewModel: SettingsViewModel = hiltViewModel()
+    viewModel: SettingsViewModel = hiltViewModel(),
+    onSignIn: () -> Unit = {}
 ) {
     val quality by viewModel.audioQuality.collectAsState()
+    val session by viewModel.session.collectAsState()
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -94,10 +101,18 @@ fun SettingsScreen(
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        WaveyyButton(
-            text = "Sign out",
-            onClick = viewModel::signOut,
-            modifier = Modifier.fillMaxWidth()
-        )
+        if (session != null) {
+            WaveyyButton(
+                text = "Sign out",
+                onClick = viewModel::signOut,
+                modifier = Modifier.fillMaxWidth()
+            )
+        } else {
+            WaveyyButton(
+                text = "Sign in",
+                onClick = onSignIn,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
     }
 }
