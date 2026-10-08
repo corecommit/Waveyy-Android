@@ -204,6 +204,25 @@ class PlaybackConnection @Inject constructor(
         controllerFuture?.await()?.addMediaItem(item)
     }
 
+    /** Inserts one Waveyy song to play next (right after the current item). */
+    suspend fun playNextSong(song: com.waveyy.app.domain.model.Song) {
+        connect()
+        val controller = controllerFuture?.await() ?: return
+        val item = queueManager.toMediaItem(song) ?: return
+        val at = (controller.currentMediaItemIndex + 1).coerceAtLeast(0)
+        if (at >= controller.mediaItemCount) {
+            controller.addMediaItem(item)
+        } else {
+            controller.addMediaItem(at, item)
+        }
+    }
+
+    /** Sets playback speed (pitch stays at system default). */
+    suspend fun setPlaybackSpeed(speed: Float) {
+        connect()
+        controllerFuture?.await()?.setPlaybackSpeed(speed.coerceIn(0.5f, 2.0f))
+    }
+
     private fun publish(player: Player) {
         mutableState.value = PlaybackState(
             mediaId = player.currentMediaItem?.mediaId,

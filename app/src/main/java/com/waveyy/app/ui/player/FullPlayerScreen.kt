@@ -1,5 +1,6 @@
 package com.waveyy.app.ui.player
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -62,12 +63,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.Player
 import com.waveyy.app.domain.model.Song
+import com.waveyy.app.playback.PlaybackConnection
 import com.waveyy.app.ui.components.AdaptiveImage
+import com.waveyy.app.ui.library.LibraryViewModel
 import com.waveyy.app.ui.theme.rememberAlbumAccent
 import kotlinx.coroutines.launch
 
@@ -90,9 +94,18 @@ fun FullPlayerScreen(
     val state by connection.state.collectAsState()
     val queue by viewModel.queue.collectAsState()
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val libraryVm: LibraryViewModel = hiltViewModel()
+    val libraryState by libraryVm.state.collectAsState()
     var showQueue by remember { mutableStateOf(false) }
     var showLyrics by remember { mutableStateOf(false) }
     var showOverflow by remember { mutableStateOf(false) }
+    var showInfo by remember { mutableStateOf(false) }
+    var showPlaylistPicker by remember { mutableStateOf(false) }
+    var showSleepDialog by remember { mutableStateOf(false) }
+    var showSpeedDialog by remember { mutableStateOf(false) }
+    var showLyricsProvider by remember { mutableStateOf(false) }
+    var speedValue by remember { mutableStateOf(1f) }
     val currentSong = queue.firstOrNull { it.id == state.mediaId }
     val accent = rememberAlbumAccent(currentSong?.imageUrl, currentSong?.id)
     val fraction = if (state.durationMs > 0L) {
@@ -240,8 +253,8 @@ fun FullPlayerScreen(
                 .padding(bottom = 16.dp),
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
-            IconButton(onClick = { showLyrics = true }) {
-                Icon(imageVector = Icons.Filled.Info, contentDescription = "Lyrics")
+            IconButton(onClick = { showInfo = true }) {
+                Icon(imageVector = Icons.Filled.Info, contentDescription = "Song info")
             }
             IconButton(onClick = { scope.launch { connection.toggleShuffle() } }) {
                 Icon(
@@ -324,6 +337,100 @@ fun FullPlayerScreen(
                 showQueue = true
             }
         )
+    }
+    if (showInfo && currentSong != null) {
+        val infoSong = currentSong
+        SongInfoSheet(
+            song = infoSong,
+            isLiked = libraryVm.isSongLiked(infoSong.id),
+            onDismiss = { showInfo = false },
+            onAction = { action ->
+                handleInfoAction(
+                    action = action,
+                    song = infoSong,
+                    viewModel = viewModel,
+                    libraryVm = libraryVm,
+                    connection = connection,
+                    scope = scope,
+                    context = context,
+                    onPlaylistPicker = { showPlaylistPicker = true },
+                    onSleepDialog = { showSleepDialog = true },
+                    onSpeedDialog = { showSpeedDialog = true },
+                    onLyricsProvider = { showLyricsProvider = true }
+                )
+            }
+        )
+    }
+    if (showPlaylistPicker && currentSong != null) {
+        PlaylistPickerDialog(
+            song = currentSong,
+            libraryVm = libraryVm,
+            onDismiss = { showPlaylistPicker = false }
+        )
+    }
+    if (showSleepDialog) {
+        SleepTimerDialog(
+            onDismiss = { showSleepDialog = false },
+            onSelect = { minutes ->
+                showSleepDialog = false
+                if (minutes == null) {
+                    viewModel.setSleepEndOfSong()
+                } else {
+                    viewModel.setSleepTimer(minutes)
+                }
+                Toast.makeText(context, "Sleep timer set", Toast.LENGTH_SHORT).show()
+            }
+        )
+    }
+    if (showSpeedDialog) {
+        SpeedDialog(
+            initial = speedValue,
+            onDismiss = { showSpeedDialog = false },
+            onSelect = { speed ->
+                speedValue = speed
+                showSpeedDialog = false
+                viewModel.setPlaybackSpeed(speed)
+            }
+        )
+    }
+    if (showLyricsProvider) {
+        LyricsProviderDialog(
+            viewModel = viewModel,
+            onDismiss = { showLyricsProvider = false }
+        )
+    }
+}
+
+/** Routes info-sheet actions to player/library/connection operations. */
+private fun handleInfoAction(
+    action: SongAction,
+    song: Song,
+    viewModel: PlayerViewModel,
+    libraryVm: LibraryViewModel,
+    connection: PlaybackConnection,
+    scope: kotlinx.coroutines.CoroutineScope,
+    context: android.content.Context,
+    onPlaylistPicker: () -> Unit,
+    onSleepDialog: () -> Unit,
+    onSpeedDialog: () -> Unit,
+    onLyricsProvider: () -> Unit
+) {
+    fun toast(message: String) {
+        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+    }
+    when (action) {
+        SongAction.LIKE -> libraryVm.toggleLikedSong(song)
+        SongAction.DOWNLOAD -> scope.launch { viewModel.downloadSong(song) }
+        SongAction.ADD_TO_PLAYLIST -> onPlaylistPicker()
+        SongAction.PLAY_NEXT -> scope.launch { connection.playNextSong(song) }
+        SongAction.ADD_TO_QUEUE -> viewModel.appendSong(song)
+        SongAction.ARTISTS -> toast("Coming soon")
+        SongAction.SONG_RADIO -> viewModel.startRadio(song)
+        SongAction.START_RADIO -> viewModel.startRadio(song)
+        SongAction.LYRICS_PROVIDER -> onLyricsProvider()
+        SongAction.SLEEP_TIMER -> onSleepDialog()
+        SongAction.SPEED_PITCH -> onSpeedDialog()
+        SongAction.SHARE -> viewModel.shareSong(song)
     }
 }
 

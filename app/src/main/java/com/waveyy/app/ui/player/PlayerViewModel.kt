@@ -11,9 +11,11 @@ import com.waveyy.app.data.local.dao.HistoryDao
 import com.waveyy.app.data.local.HistoryEntity
 import com.waveyy.app.data.local.PlayLogEntity
 import com.waveyy.app.data.local.dao.PlayLogDao
+import com.waveyy.app.data.local.datastore.UserPrefs
 import com.waveyy.app.data.repository.AuthRepository
 import com.waveyy.app.data.repository.ListeningHistoryRepository
 import com.waveyy.app.data.repository.LyricsRepository
+import com.waveyy.app.data.repository.SongRepository
 import com.waveyy.app.domain.model.CachedLyrics
 import com.waveyy.app.domain.model.Song
 import com.waveyy.app.playback.PlaybackConnection
@@ -21,9 +23,14 @@ import com.waveyy.app.util.LyricsParser
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.net.URL
@@ -54,7 +61,9 @@ class PlayerViewModel @Inject constructor(
     private val historyDao: HistoryDao,
     private val playLogDao: PlayLogDao,
     private val historyRepository: ListeningHistoryRepository,
-    private val authRepository: AuthRepository
+    private val authRepository: AuthRepository,
+    private val songRepository: SongRepository,
+    private val userPrefs: UserPrefs
 ) : ViewModel() {
 
     private val mutableQueue = MutableStateFlow<List<Song>>(emptyList())
@@ -70,6 +79,17 @@ class PlayerViewModel @Inject constructor(
     val hinglishEnabled: StateFlow<Boolean> = mutableHinglish.asStateFlow()
 
     private var lastLoggedId: String? = null
+    private var sleepJob: Job? = null
+    private var sleepEndOfSong = false
+
+    /** Lyrics provider id (`lrclib` or `none`). */
+    val lyricsProvider: StateFlow<String> = userPrefs.lyricsProviderFlow()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000L), UserPrefs.DEFAULT_LYRICS_PROVIDER)
+
+    /** Persists the lyrics provider choice. */
+    fun setLyricsProvider(provider: String) {
+        viewModelScope.launch { userPrefs.setLyricsProvider(provider) }
+    }
 
     /**
      * Replaces the queue and starts playback, then records history.
@@ -108,6 +128,13 @@ class PlayerViewModel @Inject constructor(
     /** Records history + listening event on track change (fire-and-forget). */
     fun onTrackChanged(songId: String?) {
         if (songId.isNullOrBlank() || songId == lastLoggedId) return
+        if (sleepEndOfSong) {
+            sleepEndOfSong = false
+            viewModelScope.launch {
+                delay(500L)
+                if (connection.state.value.isPlaying) connection.togglePlayPause()
+            }
+        }
         lastLoggedId = songId
         val song = mutableQueue.value.firstOrNull { it.id == songId }
         viewModelScope.launch(Dispatchers.IO) {
@@ -128,8 +155,12 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
-    /** Loads lyrics for [song] with cache-then-fetch. */
+    /** Loads lyrics for [song] with cache-then-fetch (skipped when provider is `none`). */
     fun loadLyrics(song: Song) {
+        if (lyricsProvider.value != UserPrefs.DEFAULT_LYRICS_PROVIDER) {
+            mutableLyrics.value = LyricsUiState.Empty
+            return
+        }
         mutableLyrics.value = LyricsUiState.Loading
         viewModelScope.launch {
             val key = lyricsKey(song)
@@ -155,6 +186,46 @@ class PlayerViewModel @Inject constructor(
 
     private fun lyricsKey(song: Song): String {
         return "lyrics:${song.name}:${song.artist}:${song.album}:${song.durationSec}".lowercase()
+    }
+
+    /** Starts a radio queue: the seed song plus its recommendations. */
+    fun startRadio(song: Song) {
+        viewModelScope.launch {
+            val recs = runCatching {
+                kotlinx.coroutines.flow.first(songRepository.suggestions(song.id))
+            }.getOrDefault(emptyList())
+            val queue = (listOf(song) + recs).distinctBy { it.id }
+            if (queue.isNotEmpty()) {
+                playSource(com.waveyy.app.playback.QueueSource.Recommendations(queue), 0)
+            }
+        }
+    }
+
+    /**
+     * Schedules a sleep timer. Null cancels. Minutes count down in the
+     * background; on fire, playback pauses.
+     */
+    fun setSleepTimer(minutes: Long?) {
+        sleepJob?.cancel()
+        sleepJob = null
+        sleepEndOfSong = false
+        if (minutes == null || minutes <= 0L) return
+        sleepJob = viewModelScope.launch {
+            delay(minutes * 60L * 1000L)
+            if (connection.state.value.isPlaying) connection.togglePlayPause()
+        }
+    }
+
+    /** Pauses when the current song ends (one-shot). */
+    fun setSleepEndOfSong() {
+        sleepJob?.cancel()
+        sleepJob = null
+        sleepEndOfSong = true
+    }
+
+    /** Sets playback speed (0.5x-2.0x). */
+    fun setPlaybackSpeed(speed: Float) {
+        viewModelScope.launch { connection.setPlaybackSpeed(speed) }
     }
 
     /** Toggles romanized lyrics. */
