@@ -36,6 +36,8 @@ android {
         buildConfigField("String", "SUPABASE_URL", "\"${localProperty("SUPABASE_URL", "https://example.supabase.co")}\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"${localProperty("SUPABASE_ANON_KEY", "dummy-key-for-local-builds-only")}\"")
         buildConfigField("String", "SAAVN_API_URL", "\"${localProperty("SAAVN_API_URL", "")}\"")
+        buildConfigField("String", "MUSIXMATCH_API_KEY", "\"${localProperty("MUSIXMATCH_API_KEY", "")}\"")
+        buildConfigField("String", "GENIUS_API_KEY", "\"${localProperty("GENIUS_API_KEY", "")}\"")
     }
 
     // Release signing template (Phase 12). All values come from
