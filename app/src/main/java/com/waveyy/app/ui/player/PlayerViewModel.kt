@@ -15,7 +15,6 @@ import com.waveyy.app.data.local.datastore.UserPrefs
 import com.waveyy.app.data.repository.AuthRepository
 import com.waveyy.app.data.repository.ListeningHistoryRepository
 import com.waveyy.app.data.repository.LyricsRepository
-import com.waveyy.app.data.repository.SongRepository
 import com.waveyy.app.data.repository.YtMusicRepository
 import com.waveyy.app.domain.model.AudioStream
 import com.waveyy.app.domain.model.MusicSource
@@ -28,6 +27,9 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -138,24 +140,33 @@ class PlayerViewModel @Inject constructor(
      * already carry streams). Unresolvable songs are dropped.
      */
     private suspend fun resolveStreams(songs: List<Song>): List<Song> {
-        val yt = songs.filter { it.source == MusicSource.YTMUSIC && it.streams.none { s -> s.url.isNotBlank() } }
-        if (yt.isEmpty()) {
+        val needsResolution = songs.any { song ->
+            song.source == MusicSource.YTMUSIC && song.streams.none { it.url.isNotBlank() }
+        }
+        if (!needsResolution) {
             return songs.filter { it.streams.any { s -> s.url.isNotBlank() } }
         }
-        return kotlinx.coroutines.coroutineScope {
+        return coroutineScope {
             songs.map { song ->
-                kotlinx.coroutines.async {
-                    if (song.source == MusicSource.YTMUSIC && song.streams.none { it.url.isNotBlank() }) {
-                        val url = ytmusic.streamUrl(song.id.removePrefix("yt:"))
-                        if (url.isNullOrBlank()) return@async null
-                        song.copy(streams = listOf(AudioStream(url = url, quality = "", bitrateKbps = 0, lossless = false)))
-                    } else {
-                        song
-                    }
+                async {
+                    runCatching {
+                        if (song.source == MusicSource.YTMUSIC && song.streams.none { it.url.isNotBlank() }) {
+                            val url = ytmusic.streamUrl(song.id.removePrefix("yt:"))
+                            if (url.isNullOrBlank()) {
+                                null
+                            } else {
+                                song.copy(
+                                    streams = listOf(
+                                        AudioStream(url = url, quality = "", bitrateKbps = 0, lossless = false)
+                                    )
+                                )
+                            }
+                        } else {
+                            song
+                        }
+                    }.getOrNull()
                 }
-            }.mapNotNull { deferred ->
-                runCatching { deferred.await() }.getOrNull()
-            }.filter { it.streams.any { s -> s.url.isNotBlank() } }
+            }.awaitAll().filterNotNull().filter { it.streams.any { s -> s.url.isNotBlank() } }
         }
     }
 

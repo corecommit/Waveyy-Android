@@ -30,6 +30,7 @@ import com.waveyy.app.domain.model.Song
 import com.waveyy.app.ui.player.sharedPlayerViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
