@@ -3,6 +3,7 @@ package com.waveyy.app.ui.library
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -39,6 +40,7 @@ import com.waveyy.app.ui.sharedMainViewModel
 import com.waveyy.app.ui.components.WaveyyButton
 import com.waveyy.app.ui.components.SkeletonRows
 import com.waveyy.app.ui.components.WaveyyInput
+import com.waveyy.app.ui.player.rememberChromeBottomReserve
 import kotlinx.coroutines.flow.filter
 
 /**
@@ -55,6 +57,7 @@ fun PlaylistsScreen(
     var creating by remember { mutableStateOf(false) }
     var name by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
+    val chromeBottom = rememberChromeBottomReserve()
     LaunchedEffect(Unit) {
         mainVm.scrollToTop
             .filter { it == "playlists" }
@@ -74,6 +77,7 @@ fun PlaylistsScreen(
             .fillMaxSize()
             .statusBarsPadding(),
         state = listState,
+        contentPadding = PaddingValues(bottom = chromeBottom),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         item {

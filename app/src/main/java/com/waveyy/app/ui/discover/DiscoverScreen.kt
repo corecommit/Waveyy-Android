@@ -1,6 +1,7 @@
 package com.waveyy.app.ui.discover
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -19,6 +20,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.waveyy.app.domain.model.Song
 import com.waveyy.app.ui.components.WaveyyErrorPanel
 import com.waveyy.app.ui.components.SkeletonRows
+import com.waveyy.app.ui.player.rememberChromeBottomReserve
 
 /**
  * Discover: full-screen trending grid. Target of the compass button.
@@ -39,11 +41,13 @@ fun DiscoverScreen(
             WaveyyErrorPanel(onRetry = viewModel::refresh)
         }
         is DiscoverUiState.Success -> {
+            val chromeBottom = rememberChromeBottomReserve()
             LazyVerticalGrid(
                 columns = GridCells.Fixed(2),
                 modifier = Modifier
                     .fillMaxSize()
                     .statusBarsPadding(),
+                contentPadding = PaddingValues(bottom = chromeBottom),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
