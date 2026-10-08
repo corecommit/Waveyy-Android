@@ -72,7 +72,8 @@ object SongMapper {
             durationSec = dto.duration,
             playCount = playCountOf(dto),
             streams = streamsOf(dto.downloadUrl),
-            year = dto.year ?: dto.releaseDate?.take(4).orEmpty()
+            year = dto.year ?: dto.releaseDate?.take(4).orEmpty(),
+            primaryArtistId = dto.artists?.primary?.firstOrNull()?.id.orEmpty()
         )
     }
 

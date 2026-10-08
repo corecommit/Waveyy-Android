@@ -188,7 +188,8 @@ fun WaveyyNavHost(
                 ) {
                     FullPlayerScreen(
                     viewModel = playerVm,
-                    onClose = { navController.popBackStack() }
+                    onClose = { navController.popBackStack() },
+                    onArtist = { id -> navController.navigate(Routes.withId(Routes.ARTIST, id)) }
                 )
                 }
             }

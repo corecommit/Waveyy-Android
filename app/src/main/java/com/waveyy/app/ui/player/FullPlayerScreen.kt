@@ -88,12 +88,14 @@ import kotlinx.coroutines.launch
  *
  * @param viewModel player logic (shared instance).
  * @param onClose minimize/back handler.
+ * @param onArtist artist-page navigation (artist id).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FullPlayerScreen(
     viewModel: PlayerViewModel = sharedPlayerViewModel(),
-    onClose: () -> Unit = {}
+    onClose: () -> Unit = {},
+    onArtist: (String) -> Unit = {}
 ) {
     val connection = viewModel.connection
     val state by connection.state.collectAsState()
@@ -187,12 +189,20 @@ fun FullPlayerScreen(
             }
         }
         Spacer(Modifier.height(4.dp))
+        val artistId = currentSong?.primaryArtistId.orEmpty()
         Text(
             text = currentSong?.artist ?: "",
             style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = if (artistId.isNotBlank()) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
             maxLines = 1,
-            overflow = TextOverflow.Ellipsis
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier
+                .clickable(enabled = artistId.isNotBlank()) { onArtist(artistId) }
+                .padding(vertical = 4.dp)
         )
 
         Spacer(Modifier.height(24.dp))
@@ -361,20 +371,26 @@ fun FullPlayerScreen(
             isLiked = infoSong.id in musicLiked,
             onDismiss = { showInfo = false },
             onAction = { action ->
-                handleInfoAction(
-                    action = action,
-                    song = infoSong,
-                    viewModel = viewModel,
-                    libraryVm = libraryVm,
-                    musicVm = musicVm,
-                    connection = connection,
-                    scope = scope,
-                    context = context,
-                    onPlaylistPicker = { showPlaylistPicker = true },
-                    onSleepDialog = { showSleepDialog = true },
-                    onSpeedDialog = { showSpeedDialog = true },
-                    onLyricsProvider = { showLyricsProvider = true }
-                )
+                if (action == SongAction.ARTISTS) {
+                    val artistId = infoSong.primaryArtistId
+                    showInfo = false
+                    if (artistId.isNotBlank()) onArtist(artistId)
+                } else {
+                    handleInfoAction(
+                        action = action,
+                        song = infoSong,
+                        viewModel = viewModel,
+                        libraryVm = libraryVm,
+                        musicVm = musicVm,
+                        connection = connection,
+                        scope = scope,
+                        context = context,
+                        onPlaylistPicker = { showPlaylistPicker = true },
+                        onSleepDialog = { showSleepDialog = true },
+                        onSpeedDialog = { showSpeedDialog = true },
+                        onLyricsProvider = { showLyricsProvider = true }
+                    )
+                }
             }
         )
     }
