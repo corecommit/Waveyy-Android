@@ -133,6 +133,12 @@ class PlaybackConnection @Inject constructor(
         if (controller.isPlaying) controller.pause() else controller.play()
     }
 
+    /** Pauses playback (swipe-down on the mini-player). */
+    suspend fun pause() {
+        connect()
+        controllerFuture?.await()?.pause()
+    }
+
     /** Seeks to [positionMs] on the current item. */
     suspend fun seekTo(positionMs: Long) {
         connect()

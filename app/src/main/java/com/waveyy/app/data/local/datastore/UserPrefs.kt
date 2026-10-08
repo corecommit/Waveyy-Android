@@ -74,6 +74,12 @@ class UserPrefs @Inject constructor(
 
         /** Race-mode toggle key (fast-first vs complete). */
         const val PREFER_FAST_KEY = "prefer-fast"
+
+        /** Guest liked-song ids key (JSON string set, works without a session). */
+        const val GUEST_LIKED_IDS_KEY = "guest-liked-ids"
+
+        /** Mini-player hidden-after-swipe-down key. */
+        const val MINI_PLAYER_HIDDEN_KEY = "mini-player-hidden"
     }
 
     /** Lyrics provider id (`lrclib` or `none`). */
@@ -131,11 +137,37 @@ class UserPrefs @Inject constructor(
         context.userPrefs.edit { prefs -> prefs[preferFastKey] = enabled }
     }
 
+    /** Guest liked-song ids (empty when never liked). */
+    fun guestLikedIdsFlow(): Flow<Set<String>> {
+        return context.userPrefs.data.map { prefs ->
+            val raw = prefs[guestLikedIdsKey] ?: return@map emptySet()
+            runCatching { Json.decodeFromString<Set<String>>(raw) }.getOrDefault(emptySet())
+        }
+    }
+
+    /** Persists the guest liked-song ids. */
+    suspend fun setGuestLikedIds(ids: Set<String>) {
+        val raw = Json.encodeToString(ids)
+        context.userPrefs.edit { prefs -> prefs[guestLikedIdsKey] = raw }
+    }
+
+    /** Whether the mini-player was swiped away (reset on new song start). */
+    fun miniPlayerHiddenFlow(): Flow<Boolean> {
+        return context.userPrefs.data.map { it[miniPlayerHiddenKey] ?: false }
+    }
+
+    /** Persists the mini-player hidden flag. */
+    suspend fun setMiniPlayerHidden(hidden: Boolean) {
+        context.userPrefs.edit { prefs -> prefs[miniPlayerHiddenKey] = hidden }
+    }
+
     private val lyricsProviderKey = stringPreferencesKey(LYRICS_PROVIDER_KEY)
     private val hinglishKey = booleanPreferencesKey(HINGLISH_KEY)
     private val ytVisitorKey = stringPreferencesKey(VISITOR_DATA_KEY)
     private val ytmusicEnabledKey = booleanPreferencesKey(YTMUSIC_ENABLED_KEY)
     private val preferFastKey = booleanPreferencesKey(PREFER_FAST_KEY)
+    private val guestLikedIdsKey = stringPreferencesKey(GUEST_LIKED_IDS_KEY)
+    private val miniPlayerHiddenKey = booleanPreferencesKey(MINI_PLAYER_HIDDEN_KEY)
 
     /** Audio quality preference as a flow. */
     fun audioQualityFlow(): Flow<String> {

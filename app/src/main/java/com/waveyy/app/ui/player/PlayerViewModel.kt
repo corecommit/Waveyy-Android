@@ -94,6 +94,23 @@ class PlayerViewModel @Inject constructor(
     val lyricsProvider: StateFlow<String> = userPrefs.lyricsProviderFlow()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000L), UserPrefs.DEFAULT_LYRICS_PROVIDER)
 
+    /** Mini-player hidden flag (set by swipe-down, cleared on new song start). */
+    val miniPlayerHidden: StateFlow<Boolean> = userPrefs.miniPlayerHiddenFlow()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000L), false)
+
+    /** Pauses playback and hides the mini-player until the next song starts. */
+    fun hideMiniPlayer() {
+        viewModelScope.launch {
+            connection.pause()
+            userPrefs.setMiniPlayerHidden(true)
+        }
+    }
+
+    /** Clears the swipe-down hidden flag (called when a new song starts). */
+    fun clearMiniPlayerHidden() {
+        viewModelScope.launch { userPrefs.setMiniPlayerHidden(false) }
+    }
+
     /** Persists the lyrics provider choice. */
     fun setLyricsProvider(provider: String) {
         viewModelScope.launch { userPrefs.setLyricsProvider(provider) }
@@ -114,6 +131,7 @@ class PlayerViewModel @Inject constructor(
             val tappedId = songs.getOrNull(startIndex)?.id
             val index = resolved.indexOfFirst { it.id == tappedId }.takeIf { it >= 0 } ?: 0
             mutableQueue.value = resolved
+            userPrefs.setMiniPlayerHidden(false)
             connection.playSongs(resolved, index)
             onTrackChanged(resolved[index].id)
         }
@@ -130,6 +148,7 @@ class PlayerViewModel @Inject constructor(
                 withStreams.indexOfFirst { it.id == tappedId }.takeIf { it >= 0 } ?: 0
             ) ?: return@launch
             mutableQueue.value = resolved.songs
+            userPrefs.setMiniPlayerHidden(false)
             connection.playItems(resolved.items, resolved.index)
             onTrackChanged(resolved.songs.getOrNull(resolved.index)?.id)
         }
