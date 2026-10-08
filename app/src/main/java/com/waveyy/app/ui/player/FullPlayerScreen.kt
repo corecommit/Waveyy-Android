@@ -38,8 +38,6 @@ import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Lyrics
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
@@ -49,10 +47,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -117,19 +119,31 @@ fun FullPlayerScreen(
     var speedValue by remember { mutableStateOf(1f) }
     val currentSong = queue.firstOrNull { it.id == state.mediaId }
     val accent = rememberAlbumAccent(currentSong?.imageUrl, currentSong?.id)
+    val vmError by viewModel.playerError.collectAsState()
+    val snackbarHost = remember { SnackbarHostState() }
+    LaunchedEffect(vmError, state.error) {
+        val message = vmError ?: state.error ?: return@LaunchedEffect
+        val result = snackbarHost.showSnackbar(message, actionLabel = "Retry")
+        viewModel.clearPlayerError()
+        connection.clearError()
+        if (result == SnackbarResult.ActionPerformed) {
+            currentSong?.let { viewModel.playSong(it) }
+        }
+    }
     val fraction = if (state.durationMs > 0L) {
         (state.positionMs.toFloat() / state.durationMs).coerceIn(0f, 1f)
     } else {
         0f
     }
 
+    Box(modifier = Modifier.fillMaxSize()) {
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
             .statusBarsPadding()
             .navigationBarsPadding()
-            .padding(horizontal = 20.dp)
+            .padding(horizontal = 16.dp)
     ) {
         Row(
             modifier = Modifier
@@ -143,11 +157,11 @@ fun FullPlayerScreen(
             Spacer(Modifier.weight(1f))
             Surface(
                 shape = RoundedCornerShape(50),
-                color = accent.copy(alpha = 0.15f)
+                color = MaterialTheme.colorScheme.primaryContainer
             ) {
                 Text(
                     text = "NOW PLAYING",
-                    color = accent,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
                     style = MaterialTheme.typography.labelMedium,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
                 )
@@ -312,6 +326,14 @@ fun FullPlayerScreen(
             }
         }
     }
+        SnackbarHost(
+            hostState = snackbarHost,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(horizontal = 16.dp)
+                .padding(bottom = 88.dp)
+        )
+    }
     if (showQueue) {
         ModalBottomSheet(
             onDismissRequest = { showQueue = false },
@@ -338,31 +360,38 @@ fun FullPlayerScreen(
             LyricsSheet(viewModel = viewModel, connection = connection, song = currentSong)
         }
     }
-    DropdownMenu(expanded = showOverflow, onDismissRequest = { showOverflow = false }) {
-        DropdownMenuItem(
-            text = { Text("Share") },
-            leadingIcon = { Icon(imageVector = Icons.Filled.Share, contentDescription = null) },
-            onClick = {
-                showOverflow = false
-                currentSong?.let(viewModel::shareSong)
+    if (showOverflow) {
+        ModalBottomSheet(
+            onDismissRequest = { showOverflow = false },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ) {
+            Column(modifier = Modifier.padding(bottom = 32.dp)) {
+                OverflowSheetRow(
+                    icon = Icons.Filled.Share,
+                    label = "Share",
+                    onClick = {
+                        showOverflow = false
+                        currentSong?.let(viewModel::shareSong)
+                    }
+                )
+                OverflowSheetRow(
+                    icon = Icons.Filled.Download,
+                    label = "Download",
+                    onClick = {
+                        showOverflow = false
+                        currentSong?.let { scope.launch { viewModel.downloadSong(it) } }
+                    }
+                )
+                OverflowSheetRow(
+                    icon = Icons.AutoMirrored.Filled.QueueMusic,
+                    label = "Queue",
+                    onClick = {
+                        showOverflow = false
+                        showQueue = true
+                    }
+                )
             }
-        )
-        DropdownMenuItem(
-            text = { Text("Download") },
-            leadingIcon = { Icon(imageVector = Icons.Filled.Download, contentDescription = null) },
-            onClick = {
-                showOverflow = false
-                currentSong?.let { scope.launch { viewModel.downloadSong(it) } }
-            }
-        )
-        DropdownMenuItem(
-            text = { Text("Queue") },
-            leadingIcon = { Icon(imageVector = Icons.AutoMirrored.Filled.QueueMusic, contentDescription = null) },
-            onClick = {
-                showOverflow = false
-                showQueue = true
-            }
-        )
+        }
     }
     if (showInfo && currentSong != null) {
         val infoSong = currentSong
@@ -474,4 +503,27 @@ private fun formatDuration(totalSeconds: Long): String {
     val minutes = totalSeconds / 60L
     val seconds = (totalSeconds % 60L).toString().padStart(2, '0')
     return "$minutes:$seconds"
+}
+
+/** One anchored overflow-menu row (share / download / queue). */
+@Composable
+private fun OverflowSheetRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 24.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(imageVector = icon, contentDescription = null)
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier.padding(start = 16.dp)
+        )
+    }
 }

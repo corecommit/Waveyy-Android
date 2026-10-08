@@ -7,6 +7,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import com.waveyy.app.domain.model.Song
 import com.waveyy.app.util.AudioQualitySelector
+import timber.log.Timber
 import javax.inject.Inject
 
 /**
@@ -26,6 +27,7 @@ class QueueManager @Inject constructor() {
     /** Translates one song; null when no playable stream exists. */
     fun toMediaItem(song: Song): MediaItem? {
         val url = AudioQualitySelector.selectBestUrl(song.streams)
+        Timber.d("MediaItem id=%s streams=%d uri=%s", song.id, song.streams.size, url)
         if (url.isBlank()) return null
         val metadata = MediaMetadata.Builder()
             .setTitle(song.name)
