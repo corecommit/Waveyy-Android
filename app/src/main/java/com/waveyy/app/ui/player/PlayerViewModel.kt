@@ -192,7 +192,7 @@ class PlayerViewModel @Inject constructor(
     fun startRadio(song: Song) {
         viewModelScope.launch {
             val recs = runCatching {
-                kotlinx.coroutines.flow.first(songRepository.suggestions(song.id))
+                songRepository.suggestions(song.id).first()
             }.getOrDefault(emptyList())
             val queue = (listOf(song) + recs).distinctBy { it.id }
             if (queue.isNotEmpty()) {

@@ -85,6 +85,7 @@ fun HomeScreen(
                 onArtist = onArtist,
                 onSearch = onSearch,
                 onSettings = onSettings,
+                onDiscover = onDiscover,
                 modifier = Modifier.padding(padding)
             )
         }
@@ -123,6 +124,7 @@ private fun HomeContent(
     onArtist: (String) -> Unit,
     onSearch: () -> Unit,
     onSettings: () -> Unit,
+    onDiscover: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val hero = sections.trending.firstOrNull()
