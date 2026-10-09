@@ -97,16 +97,41 @@ fun HomeScreen(
                 onRetry = viewModel::refresh,
                 modifier = Modifier.padding(padding)
             )
-            is HomeUiState.Success -> HomeContent(
-                sections = current.sections,
-                onPlaySong = onPlaySong,
-                onAlbum = onAlbum,
-                onArtist = onArtist,
-                onSearch = onSearch,
-                onSettings = onSettings,
-                onDiscover = onDiscover,
-                modifier = Modifier.padding(padding)
-            )
+            is HomeUiState.Success -> {
+                val sections = current.sections
+                val allEmpty = sections.trending.isEmpty() &&
+                    sections.recent.isEmpty() &&
+                    sections.recommended.isEmpty() &&
+                    sections.popularAlbums.isEmpty() &&
+                    sections.popularArtists.isEmpty() &&
+                    sections.newReleases.isEmpty()
+                if (allEmpty) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(24.dp),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "Nothing to show yet. Check your sources in Settings.",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                } else {
+                    HomeContent(
+                        sections = current.sections,
+                        onPlaySong = onPlaySong,
+                        onAlbum = onAlbum,
+                        onArtist = onArtist,
+                        onSearch = onSearch,
+                        onSettings = onSettings,
+                        onDiscover = onDiscover,
+                        modifier = Modifier.padding(padding)
+                    )
+                }
+            }
         }
     }
 }

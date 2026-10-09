@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import timber.log.Timber
 import javax.inject.Inject
 
 /** Home rail bundle. */
@@ -138,9 +139,13 @@ class HomeViewModel @Inject constructor(
         val trending = mutableListOf<Song>()
         suspend fun pull(songs: List<Song>, limit: Int) {
             if (trending.size >= TRENDING_LIMIT || limit <= 0) return
-            val (picked, next) = TrendingCurator.curate(songs.map(::toDto), limit, trackKeys)
-            trending += SongMapper.toDomainList(picked)
-            trackKeys = next
+            runCatching {
+                val (picked, next) = TrendingCurator.curate(songs.map(::toDto), limit, trackKeys)
+                trending += SongMapper.toDomainList(picked)
+                trackKeys = next
+            }.onFailure {
+                Timber.tag("HomeVM").w(it, "pull failed, continuing")
+            }
         }
         if (!localeIsHindi) {
             pull(
@@ -167,7 +172,10 @@ class HomeViewModel @Inject constructor(
                 TRENDING_LIMIT - trending.size
             )
         }
-        if (trending.isEmpty()) throw IllegalStateException("No clean charts data")
+        // Never throw here. An empty trending rail is a valid state — the
+        // other rails (Continue, Made for You, recommendations) may still
+        // populate. The Home screen renders an empty state if everything is
+        // empty; the current behaviour of throwing kills the whole screen.
         return trending
     }
 
@@ -280,7 +288,11 @@ class HomeViewModel @Inject constructor(
             "bollywood hits" to 5,
             "punjabi hits" to 5,
             "latest tamil hits" to 5,
-            "telugu hits" to 5
+            "telugu hits" to 5,
+            // English fallbacks so the rail still populates when Saavn is
+            // disabled (YouTube Music returns hits for these).
+            "top english hits" to 5,
+            "popular international songs" to 5
         )
 
         private val GENERIC_FALLBACKS = listOf(

@@ -143,25 +143,16 @@ class PlaybackConnection @Inject constructor(
     }
 
     /**
-     * Replaces the whole queue without interrupting the currently-playing
-     * item: rebuilds items from [songs], finds the current media id, and
-     * uses setMediaItems with the current position preserved.
+     * Appends [items] to the controller queue without touching the current
+     * item or its position. Used by the background backfill in
+     * PlayerViewModel.playSource — the current song keeps playing
+     * uninterrupted while the queue grows.
      */
-    suspend fun replaceQueuePreservingCurrent(
-        songs: List<com.waveyy.app.domain.model.Song>
-    ) {
+    suspend fun appendItems(items: List<MediaItem>) {
+        if (items.isEmpty()) return
         connect()
         val controller = controllerFuture?.await() ?: return
-        if (songs.isEmpty()) return
-        val items = queueManager.toMediaItems(songs)
-        if (items.isEmpty()) return
-        val currentId = controller.currentMediaItem?.mediaId
-        val position = controller.currentPosition
-        val wasPlaying = controller.isPlaying
-        val index = items.indexOfFirst { it.mediaId == currentId }.takeIf { it >= 0 } ?: 0
-        controller.setMediaItems(items, index, position)
-        controller.prepare()
-        if (wasPlaying) controller.play()
+        controller.addMediaItems(items)
     }
 
     /** Toggles play/pause on the current item. */
