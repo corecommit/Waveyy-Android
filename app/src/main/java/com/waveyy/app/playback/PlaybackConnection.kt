@@ -36,6 +36,7 @@ import javax.inject.Singleton
  * @param shuffleEnabled whether shuffle is on.
  * @param error last player error message, or null. Surfaced once via
  * Snackbar; preserved across publishes until cleared.
+ * @param mediaIndex controller queue position (drives displayed metadata).
  */
 data class PlaybackState(
     val mediaId: String? = null,
@@ -45,7 +46,8 @@ data class PlaybackState(
     val isBuffering: Boolean = false,
     val repeatMode: Int = Player.REPEAT_MODE_OFF,
     val shuffleEnabled: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val mediaIndex: Int = 0
 )
 
 /**
@@ -189,6 +191,15 @@ class PlaybackConnection @Inject constructor(
         controllerFuture?.await()?.seekToPrevious()
     }
 
+    /** Swaps the controller item at [index] with [song]'s fresh streams. */
+    suspend fun replaceItem(index: Int, song: com.waveyy.app.domain.model.Song) {
+        connect()
+        val controller = controllerFuture?.await() ?: return
+        if (index < 0 || index >= controller.mediaItemCount) return
+        val item = queueManager.toMediaItem(song) ?: return
+        controller.replaceMediaItem(index, item)
+    }
+
     /** Cycles repeat mode OFF -> ALL -> ONE. */
     suspend fun cycleRepeatMode() {
         connect()
@@ -255,6 +266,13 @@ class PlaybackConnection @Inject constructor(
 
     private fun publish(player: Player) {
         val previousError = mutableState.value.error
+        Timber.tag("PlaybackConn").d(
+            "publish: index=%d/%d id=%s playing=%s",
+            player.currentMediaItemIndex,
+            player.mediaItemCount,
+            player.currentMediaItem?.mediaId,
+            player.isPlaying
+        )
         mutableState.value = PlaybackState(
             mediaId = player.currentMediaItem?.mediaId,
             isPlaying = player.isPlaying,
@@ -263,7 +281,8 @@ class PlaybackConnection @Inject constructor(
             isBuffering = player.playbackState == Player.STATE_BUFFERING,
             repeatMode = player.repeatMode,
             shuffleEnabled = player.shuffleModeEnabled,
-            error = previousError
+            error = previousError,
+            mediaIndex = player.currentMediaItemIndex.coerceAtLeast(0)
         )
     }
 
