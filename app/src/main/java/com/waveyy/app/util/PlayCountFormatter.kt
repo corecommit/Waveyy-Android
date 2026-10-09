@@ -6,13 +6,19 @@ package com.waveyy.app.util
  */
 object PlayCountFormatter {
 
-    /** Formats [count] compactly, returning "0" for missing values. */
+    /** Formats [count] compactly, returning "" for missing values. */
     fun format(count: Long): String {
-        if (count <= 0L) return "0"
+        if (count <= 0L) return ""
         if (count >= 1_000_000_000L) return trim(count / 1_000_000_000.0) + "B"
         if (count >= 1_000_000L) return trim(count / 1_000_000.0) + "M"
         if (count >= 1_000L) return trim(count / 1_000.0) + "K"
         return count.toString()
+    }
+
+    /** Formats [count], returning [fallback] when count is unknown/zero. */
+    fun formatOr(count: Long, fallback: String): String {
+        val text = format(count)
+        return text.ifEmpty { fallback }
     }
 
     private fun trim(value: Double): String {

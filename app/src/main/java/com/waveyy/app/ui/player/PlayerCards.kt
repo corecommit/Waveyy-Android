@@ -226,11 +226,14 @@ fun ArtistCard(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                Text(
-                    text = "${PlayCountFormatter.format(data.followerCount)} subscribers",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                val followers = PlayCountFormatter.format(data.followerCount)
+                if (followers.isNotEmpty()) {
+                    Text(
+                        text = "$followers subscribers",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
     }
@@ -258,18 +261,21 @@ fun SongMetadataCard(
                 fontWeight = FontWeight.Bold
             )
             Spacer(Modifier.height(12.dp))
-            Text(
-                text = PlayCountFormatter.format(song.playCount),
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                text = "plays" + (song.year.takeIf { it.isNotBlank() }?.let { " • $it" } ?: ""),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Start
-            )
-            Spacer(Modifier.height(8.dp))
+            val playCount = PlayCountFormatter.format(song.playCount)
+            if (playCount.isNotEmpty()) {
+                Text(
+                    text = playCount,
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "plays" + (song.year.takeIf { it.isNotBlank() }?.let { " • $it" } ?: ""),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Start
+                )
+                Spacer(Modifier.height(8.dp))
+            }
             Text(
                 text = song.album,
                 style = MaterialTheme.typography.bodyMedium,
