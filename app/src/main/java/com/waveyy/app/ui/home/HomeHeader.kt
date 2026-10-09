@@ -55,7 +55,7 @@ fun HomeHeader(
             .statusBarsPadding()
             .padding(horizontal = 20.dp)
             .padding(top = 12.dp),
-        verticalAlignment = Alignment.Top
+        verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
             text = "Home",
@@ -64,8 +64,7 @@ fun HomeHeader(
         )
         Spacer(Modifier.weight(1f))
         Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.padding(top = 4.dp)
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             HeaderIconButton(
                 image = Icons.Outlined.Explore,

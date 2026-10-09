@@ -138,11 +138,6 @@ fun FullPlayerScreen(
     var lyricsCardY by remember { mutableStateOf<Int?>(null) }
     val lyricsState by viewModel.lyrics.collectAsState()
     val raceWinner by viewModel.raceWinner.collectAsState()
-    val activeLine = activeLyricIndex(lyricsState, state.positionMs)
-    LaunchedEffect(activeLine) {
-        val y = lyricsCardY ?: return@LaunchedEffect
-        if (activeLine >= 0) scrollState.animateScrollTo((y - 300).coerceAtLeast(0))
-    }
     val fraction = if (state.durationMs > 0L) {
         (state.positionMs.toFloat() / state.durationMs).coerceIn(0f, 1f)
     } else {
