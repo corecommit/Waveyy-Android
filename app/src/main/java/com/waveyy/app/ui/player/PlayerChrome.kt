@@ -1,12 +1,11 @@
 package com.waveyy.app.ui.player
 
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.calculateBottomPadding
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -32,6 +31,7 @@ fun rememberChromeBottomReserve(): Dp {
         .distinctUntilChanged()
         .collectAsState(initial = false)
     if (!active) return 0.dp
-    val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val density = LocalDensity.current
+    val navBottom = with(density) { WindowInsets.navigationBars.getBottom(density).toDp() }
     return MINI_PLAYER_RESERVE + NAV_PILL_RESERVE + navBottom
 }

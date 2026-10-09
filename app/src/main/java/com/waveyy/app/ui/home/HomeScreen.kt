@@ -153,7 +153,7 @@ private fun HomeContent(
         columns = GridCells.Fixed(2),
         modifier = modifier.fillMaxSize(),
         state = gridState,
-        contentPadding = PaddingValues(horizontal = 20.dp, bottom = chromeBottom),
+        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 0.dp, bottom = chromeBottom),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
