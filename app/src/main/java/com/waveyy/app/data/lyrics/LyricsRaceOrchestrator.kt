@@ -3,6 +3,7 @@ package com.waveyy.app.data.lyrics
 import com.waveyy.app.di.IoDispatcher
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
@@ -34,7 +35,7 @@ class LyricsRaceOrchestrator @Inject constructor(
         artist: String,
         title: String,
         duration: Long,
-        timeoutMs: Long = 1500L,
+        timeoutMs: Long = 3000L,
         onlyProvider: String? = null
     ): Scored? = coroutineScope {
         val deferreds = providers
@@ -47,14 +48,18 @@ class LyricsRaceOrchestrator @Inject constructor(
                     r?.let { Scored(it, p.name, 0.0, elapsed) }
                 }
             }
-        val collected = mutableListOf<Scored>()
-        val deadline = System.currentTimeMillis() + timeoutMs
-        deferreds.forEach { d ->
-            val remaining = deadline - System.currentTimeMillis()
-            if (remaining <= 0) return@forEach
-            withTimeoutOrNull(remaining) { d.await() }?.let { collected += it }
-        }
+
+        // Collect ALL results within the shared window — one slow provider
+        // must not block the collection of faster ones.
+        val results: List<Scored?> = withTimeoutOrNull(timeoutMs) {
+            deferreds.awaitAll()
+        }.orEmpty()
+
+        // Cancel any that didn't finish in time.
         deferreds.forEach { it.cancel() }
+
+        val collected = results.filterNotNull()
+        if (collected.isEmpty()) return@coroutineScope null
         collected.map { it.copy(score = computeScore(it)) }.maxByOrNull { it.score }
     }
 

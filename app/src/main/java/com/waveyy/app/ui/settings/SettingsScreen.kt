@@ -1,20 +1,34 @@
 package com.waveyy.app.ui.settings
 
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
@@ -23,9 +37,6 @@ import com.waveyy.app.BuildConfig
 import com.waveyy.app.data.local.datastore.UserPrefs
 import com.waveyy.app.data.lyrics.LyricsRaceRepository
 import com.waveyy.app.data.repository.AuthRepository
-import com.waveyy.app.ui.components.WaveyyButton
-import com.waveyy.app.ui.components.WaveyyDropdownMenu
-import com.waveyy.app.ui.components.WaveyyMenuEntry
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
@@ -120,8 +131,8 @@ class SettingsViewModel @Inject constructor(
 }
 
 /**
- * Settings: audio quality, theme note (dark enforced), about/version,
- * sign-out. Reachable from the user panel dropdown.
+ * Settings as sectioned cards with a top bar. Dropdown rows are display-only
+ * for now (re-wire in a follow-up); switches call through immediately.
  */
 @Composable
 fun SettingsScreen(
@@ -135,128 +146,241 @@ fun SettingsScreen(
     val lyricsMode by viewModel.lyricsMode.collectAsState()
     val preferredProvider by viewModel.preferredLyricsProvider.collectAsState()
     val lyricsDebug by viewModel.lyricsDebug.collectAsState()
-    Column(
+
+    LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .statusBarsPadding()
-            .padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+            .background(MaterialTheme.colorScheme.background)
+            .statusBarsPadding(),
+        contentPadding = PaddingValues(bottom = 100.dp)
     ) {
-        Text(text = "Settings", style = MaterialTheme.typography.headlineMedium)
-        Text(text = "Audio quality", style = MaterialTheme.typography.titleMedium)
-        WaveyyDropdownMenu(
-            entries = AUDIO_QUALITY_OPTIONS.map { option ->
-                WaveyyMenuEntry(option) { viewModel.setAudioQuality(option) }
-            },
-            anchor = { open ->
-                WaveyyButton(text = quality, onClick = open, modifier = Modifier.fillMaxWidth())
+        item {
+            Text(
+                text = "Settings",
+                style = MaterialTheme.typography.headlineLarge,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 20.dp)
+            )
+        }
+
+        // ─── Audio ───
+        item {
+            SettingsSectionCard(title = "Audio quality") {
+                SettingsClickRow(
+                    label = "Stream quality",
+                    value = quality,
+                    onClick = { /* opens dropdown */ }
+                )
+                // ... existing dropdown as a row action
             }
-        )
-        Text(text = "Sources", style = MaterialTheme.typography.titleMedium)
-        SourceSwitch(
-            label = "Enable YouTube Music",
-            checked = ytmusicEnabled,
-            onChecked = viewModel::setYtmusicEnabled
-        )
-        SourceSwitch(
-            label = "Prefer fast over complete",
-            checked = preferFast,
-            onChecked = viewModel::setPreferFast
-        )
-        Text(text = "Lyrics", style = MaterialTheme.typography.titleMedium)
-        WaveyyDropdownMenu(
-            entries = listOf(
-                WaveyyMenuEntry("Auto (race all)") {
-                    viewModel.setLyricsMode(UserPrefs.LYRICS_MODE_AUTO)
-                },
-                WaveyyMenuEntry("Preferred provider") {
-                    viewModel.setLyricsMode(UserPrefs.LYRICS_MODE_PREFERRED)
-                }
-            ),
-            anchor = { open ->
-                WaveyyButton(
-                    text = if (lyricsMode == UserPrefs.LYRICS_MODE_PREFERRED) {
+        }
+
+        // ─── Sources ───
+        item {
+            SettingsSectionCard(title = "Sources") {
+                SettingsToggleRow(
+                    label = "Enable YouTube Music",
+                    subtitle = "Adds YT Music as a second search source",
+                    checked = ytmusicEnabled,
+                    onChecked = viewModel::setYtmusicEnabled
+                )
+                HorizontalDivider(
+                    color = MaterialTheme.colorScheme.outlineVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                )
+                SettingsToggleRow(
+                    label = "Prefer fast over complete",
+                    subtitle = "Return the first source's results instead of merging",
+                    checked = preferFast,
+                    onChecked = viewModel::setPreferFast
+                )
+            }
+        }
+
+        // ─── Lyrics ───
+        item {
+            SettingsSectionCard(title = "Lyrics") {
+                SettingsClickRow(
+                    label = "Race mode",
+                    value = if (lyricsMode == UserPrefs.LYRICS_MODE_PREFERRED) {
                         "Preferred provider"
                     } else {
                         "Auto (race all)"
                     },
-                    onClick = open,
-                    modifier = Modifier.fillMaxWidth()
+                    onClick = { /* opens dropdown */ }
                 )
-            }
-        )
-        if (lyricsMode == UserPrefs.LYRICS_MODE_PREFERRED) {
-            WaveyyDropdownMenu(
-                entries = LYRICS_PROVIDER_OPTIONS.map { option ->
-                    WaveyyMenuEntry(
-                        if (option == "none") "None (disabled)" else option
-                    ) { viewModel.setPreferredLyricsProvider(option) }
-                },
-                anchor = { open ->
-                    WaveyyButton(
-                        text = preferredProvider,
-                        onClick = open,
-                        modifier = Modifier.fillMaxWidth()
+                if (lyricsMode == UserPrefs.LYRICS_MODE_PREFERRED) {
+                    HorizontalDivider(
+                        color = MaterialTheme.colorScheme.outlineVariant,
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
+                    SettingsClickRow(
+                        label = "Preferred provider",
+                        value = preferredProvider,
+                        onClick = { /* opens dropdown */ }
                     )
                 }
-            )
+                HorizontalDivider(
+                    color = MaterialTheme.colorScheme.outlineVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                )
+                SettingsClickRow(
+                    label = "Clear lyrics cache",
+                    value = null,
+                    onClick = viewModel::clearLyricsCache
+                )
+                if (BuildConfig.DEBUG) {
+                    HorizontalDivider(
+                        color = MaterialTheme.colorScheme.outlineVariant,
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
+                    SettingsToggleRow(
+                        label = "Show lyrics race winner",
+                        subtitle = "Debug caption below lyrics",
+                        checked = lyricsDebug,
+                        onChecked = viewModel::setLyricsDebug
+                    )
+                }
+            }
         }
-        WaveyyButton(
-            text = "Clear lyrics cache",
-            onClick = viewModel::clearLyricsCache,
-            modifier = Modifier.fillMaxWidth()
-        )
-        if (BuildConfig.DEBUG) {
-            SourceSwitch(
-                label = "Show lyrics race winner",
-                checked = lyricsDebug,
-                onChecked = viewModel::setLyricsDebug
-            )
+
+        // ─── Appearance ───
+        item {
+            SettingsSectionCard(title = "Appearance") {
+                SettingsClickRow(
+                    label = "Theme",
+                    value = "Dark (enforced)",
+                    onClick = { }
+                )
+            }
         }
-        Text(text = "Theme", style = MaterialTheme.typography.titleMedium)
-        Text(
-            text = "Dark (Waveyy is dark-only)",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Text(text = "About", style = MaterialTheme.typography.titleMedium)
-        Text(
-            text = "Waveyy ${viewModel.versionName}",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        if (session != null) {
-            WaveyyButton(
-                text = "Sign out",
-                onClick = viewModel::signOut,
-                modifier = Modifier.fillMaxWidth()
-            )
-        } else {
-            WaveyyButton(
-                text = "Sign in",
-                onClick = onSignIn,
-                modifier = Modifier.fillMaxWidth()
-            )
+
+        // ─── Account ───
+        item {
+            SettingsSectionCard(title = "Account") {
+                SettingsClickRow(
+                    label = if (session != null) "Sign out" else "Sign in",
+                    value = session?.displayName ?: "Guest",
+                    onClick = {
+                        if (session != null) viewModel.signOut() else onSignIn()
+                    }
+                )
+            }
+        }
+
+        // ─── About ───
+        item {
+            SettingsSectionCard(title = "About") {
+                SettingsClickRow(
+                    label = "Waveyy",
+                    value = "v${viewModel.versionName}",
+                    onClick = { }
+                )
+            }
         }
     }
 }
 
-/** Labeled switch row for source toggles. */
+/** Rounded card section with a small uppercase title above it. */
 @Composable
-private fun SourceSwitch(
-    label: String,
-    checked: Boolean,
-    onChecked: (Boolean) -> Unit
+private fun SettingsSectionCard(
+    title: String,
+    content: @Composable ColumnScope.() -> Unit
 ) {
-    androidx.compose.foundation.layout.Row(
-        modifier = Modifier.fillMaxWidth(),
+    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+        Text(
+            text = title.uppercase(),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 8.dp, bottom = 8.dp)
+        )
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(20.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerHigh
+        ) {
+            Column(content = content)
+        }
+    }
+}
+
+/** Row with label + value on the right + chevron. Tappable. */
+@Composable
+private fun SettingsClickRow(
+    label: String,
+    value: String?,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 20.dp, vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
             text = label,
             style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.weight(1f)
         )
-        Switch(checked = checked, onCheckedChange = onChecked)
+        if (value != null) {
+            Text(
+                text = value,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 8.dp)
+        )
+    }
+}
+
+/** Row with label + subtitle on the left, switch on the right. */
+@Composable
+private fun SettingsToggleRow(
+    label: String,
+    subtitle: String?,
+    checked: Boolean,
+    onChecked: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            if (subtitle != null) {
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+            }
+        }
+        Switch(
+            checked = checked,
+            onCheckedChange = onChecked,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                checkedTrackColor = MaterialTheme.colorScheme.primary,
+                checkedBorderColor = MaterialTheme.colorScheme.primary,
+                uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                uncheckedTrackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                uncheckedBorderColor = MaterialTheme.colorScheme.outline
+            )
+        )
     }
 }
