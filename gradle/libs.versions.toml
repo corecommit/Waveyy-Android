@@ -22,6 +22,7 @@ coil = "3.1.0"
 supabase = "3.2.6"
 socketio = "2.1.0"
 timber = "5.0.1"
+haze = "1.6.10"
 leakcanary = "2.14"
 junit = "4.13.2"
 turbine = "1.0.0"
@@ -79,6 +80,7 @@ supabase-auth = { group = "io.github.jan-tennert.supabase", name = "auth-kt", ve
 supabase-realtime = { group = "io.github.jan-tennert.supabase", name = "realtime-kt", version.ref = "supabase" }
 socketio-client = { group = "io.socket", name = "socket.io-client", version.ref = "socketio" }
 timber = { group = "com.jakewharton.timber", name = "timber", version.ref = "timber" }
+haze = { module = "dev.chrisbanes.haze:haze", version.ref = "haze" }
 leakcanary = { group = "com.squareup.leakcanary", name = "leakcanary-android", version.ref = "leakcanary" }
 # Test dependencies.
 junit = { group = "junit", name = "junit", version.ref = "junit" }
