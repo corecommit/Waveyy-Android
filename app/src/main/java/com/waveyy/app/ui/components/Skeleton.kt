@@ -99,26 +99,29 @@ fun SkeletonHomeScreen(
     modifier: Modifier = Modifier,
     header: @Composable () -> Unit = {}
 ) {
-    Box(modifier = modifier.fillMaxSize()) {
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(2),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp),
-            contentPadding = PaddingValues(top = 72.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(2) }) {
-                Column(modifier = Modifier.padding(horizontal = 20.dp)) {
-                    header()
-                }
+    LazyVerticalGrid(
+        columns = GridCells.Fixed(2),
+        modifier = modifier.fillMaxSize(),
+        contentPadding = PaddingValues(
+            start = 20.dp,
+            end = 20.dp,
+            top = 0.dp,
+            bottom = 4.dp
+        ),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(2) }) {
+            Column(modifier = Modifier.background(MaterialTheme.colorScheme.background)) {
+                header()
             }
+        }
         item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(2) }) {
             SkeletonBox(
                 width = null,
                 height = 200.dp,
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp)
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
+                modifier = Modifier.padding(top = 16.dp)
             )
         }
         items(4) {
@@ -134,16 +137,6 @@ fun SkeletonHomeScreen(
         }
         items(4) {
             SkeletonBox(width = null, height = 150.dp, shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
-        }
-        }
-
-        // Header overlay, positioned identically to the loaded state.
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .fillMaxWidth()
-        ) {
-            header()
         }
     }
 }
