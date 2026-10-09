@@ -1,5 +1,7 @@
 package com.waveyy.app.ui.player
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -26,7 +28,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.boundsInParent
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -121,7 +125,24 @@ fun LyricsCard(
                     Column {
                         lines.subList(start, end).forEachIndexed { i, line ->
                             val lineIdx = start + i
-                            val isCurrent = lineIdx == idx
+                            val distance = kotlin.math.abs(lineIdx - idx)
+                            val isCurrent = distance == 0
+                            // Gentler falloff than the full screen since the card is small.
+                            val blurRadius = (distance * 0.4f).coerceAtMost(2f)
+                            val alpha = (1f - distance * 0.15f).coerceIn(0.35f, 1f)
+                            val scale = (1f - distance * 0.02f).coerceIn(0.92f, 1f)
+
+                            val animatedAlpha by animateFloatAsState(
+                                targetValue = alpha,
+                                animationSpec = tween(400),
+                                label = "cardAlpha$i"
+                            )
+                            val animatedScale by animateFloatAsState(
+                                targetValue = scale,
+                                animationSpec = tween(400),
+                                label = "cardScale$i"
+                            )
+
                             Text(
                                 text = line.text,
                                 style = if (isCurrent) {
@@ -130,8 +151,15 @@ fun LyricsCard(
                                     MaterialTheme.typography.bodyLarge
                                 },
                                 fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
-                                color = Color.White.copy(alpha = if (isCurrent) 1f else 0.5f),
-                                modifier = Modifier.padding(vertical = 6.dp)
+                                color = Color.White.copy(alpha = animatedAlpha),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .graphicsLayer {
+                                        scaleX = animatedScale
+                                        scaleY = animatedScale
+                                    }
+                                    .blur(radius = blurRadius.dp)
+                                    .padding(vertical = 6.dp)
                             )
                         }
                     }

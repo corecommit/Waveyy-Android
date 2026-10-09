@@ -9,6 +9,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.waveyy.app.domain.model.Song
 
@@ -37,7 +38,7 @@ fun LikeSongButton(
         Icon(
             imageVector = if (isLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
             contentDescription = if (isLiked) "Unlike" else "Like",
-            tint = if (isLiked) MaterialTheme.colorScheme.primary
+            tint = if (isLiked) Color(0xFFE53E3E)
             else MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
