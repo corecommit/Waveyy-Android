@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -26,10 +27,12 @@ private val NAV_PILL_RESERVE = 80.dp
 @Composable
 fun rememberChromeBottomReserve(): Dp {
     val connection = sharedPlayerViewModel().connection
-    val active by connection.state
-        .map { it.mediaId != null }
-        .distinctUntilChanged()
-        .collectAsState(initial = false)
+    val presence = remember(connection) {
+        connection.state
+            .map { it.mediaId != null }
+            .distinctUntilChanged()
+    }
+    val active by presence.collectAsState(initial = false)
     if (!active) return 0.dp
     val density = LocalDensity.current
     val navBottom = with(density) { WindowInsets.navigationBars.getBottom(density).toDp() }
