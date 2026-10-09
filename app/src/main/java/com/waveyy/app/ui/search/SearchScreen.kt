@@ -5,9 +5,10 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -32,7 +33,9 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.History
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.SearchOff
 import androidx.compose.material.icons.outlined.WifiOff
 import androidx.compose.material3.DropdownMenu
@@ -57,9 +60,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
@@ -77,9 +80,10 @@ import kotlinx.coroutines.launch
 /** Result-section filter. */
 enum class SearchFilter(val label: String) {
     ALL("All"),
-    SONGS("Songs"),
+    TRACKS("Tracks"),
     ALBUMS("Albums"),
-    ARTISTS("Artists")
+    ARTISTS("Artists"),
+    PLAYLISTS("Playlists")
 }
 
 /**
@@ -115,9 +119,10 @@ fun SearchScreen(
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
     }
-    val showSongs = filter == SearchFilter.ALL || filter == SearchFilter.SONGS
+    val showSongs = filter == SearchFilter.ALL || filter == SearchFilter.TRACKS
     val showAlbums = filter == SearchFilter.ALL || filter == SearchFilter.ALBUMS
     val showArtists = filter == SearchFilter.ALL || filter == SearchFilter.ARTISTS
+    val showPlaylists = filter == SearchFilter.ALL || filter == SearchFilter.PLAYLISTS
     val chromeBottom = rememberChromeBottomReserve()
 
     fun submit(query: String) {
@@ -136,42 +141,74 @@ fun SearchScreen(
                     .background(MaterialTheme.colorScheme.background)
                     .statusBarsPadding()
             ) {
-                OutlinedTextField(
-                value = text,
-                onValueChange = { text = it },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp)
-                    .padding(horizontal = 16.dp)
-                    .focusRequester(focusRequester)
-                    .onFocusChanged { focused = it.isFocused },
-                placeholder = { Text(stringResource(R.string.search_hint)) },
-                leadingIcon = {
-                    IconButton(onClick = onBack) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Back button as a circular icon button, outside the pill.
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                            .clickable(onClick = onBack),
+                        contentAlignment = Alignment.Center
+                    ) {
                         Icon(
                             imageVector = Icons.Filled.ArrowBack,
-                            contentDescription = "Back"
+                            contentDescription = "Back",
+                            tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
-                },
-                trailingIcon = {
-                    if (text.isNotEmpty()) {
-                        IconButton(onClick = { text = "" }) {
-                            Icon(imageVector = Icons.Outlined.Close, contentDescription = "Clear")
+
+                    // Pill search field.
+                    OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp)
+                        .focusRequester(focusRequester)
+                        .onFocusChanged { focused = it.isFocused },
+                    placeholder = {
+                        Text(
+                            text = "Search songs, artists, albums",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Outlined.Search,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    },
+                    trailingIcon = {
+                        if (text.isNotEmpty()) {
+                            IconButton(onClick = { text = "" }) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Close,
+                                    contentDescription = "Clear",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
-                    }
-                },
-                singleLine = true,
-                shape = RoundedCornerShape(28.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    unfocusedBorderColor = MaterialTheme.colorScheme.surfaceContainerHigh
-                ),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                keyboardActions = KeyboardActions(onSearch = { submit(text) })
-                )
+                    },
+                    singleLine = true,
+                    shape = RoundedCornerShape(percent = 50),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        focusedBorderColor = Color.Transparent,
+                        unfocusedBorderColor = Color.Transparent
+                    ),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(onSearch = { submit(text) })
+                    )
+                }
             }
         }
         if (text.isBlank() && focused && history.isNotEmpty()) {
@@ -181,6 +218,11 @@ fun SearchScreen(
                     onPick = { submit(it) },
                     onRemove = viewModel::removeHistoryEntry,
                     onClear = viewModel::clearHistory
+                )
+            }
+            item {
+                GenreChipsSection(
+                    onPick = { genre -> submit(genre) }
                 )
             }
         } else {
@@ -219,6 +261,7 @@ fun SearchScreen(
                             showSongs = showSongs,
                             showAlbums = showAlbums,
                             showArtists = showArtists,
+                            showPlaylists = showPlaylists,
                             suggestions = suggestions,
                             onPlaySong = onPlaySong,
                             onAlbum = onAlbum,
@@ -241,6 +284,7 @@ private fun ResultsBody(
     showSongs: Boolean,
     showAlbums: Boolean,
     showArtists: Boolean,
+    showPlaylists: Boolean,
     suggestions: List<String>,
     onPlaySong: (QueueSource, Int) -> Unit,
     onAlbum: (String) -> Unit,
@@ -295,6 +339,15 @@ private fun ResultsBody(
                                 )
                             }
                         }
+                    }
+                    if (showPlaylists) {
+                        SectionTitle("Playlists")
+                        Text(
+                            text = "Playlists coming soon",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                        )
                     }
                     if (suggestions.isNotEmpty()) {
                         SectionTitle("Suggestions")
@@ -653,4 +706,56 @@ private fun shareText(context: android.content.Context, song: Song) {
         putExtra(android.content.Intent.EXTRA_TEXT, "${song.name} by ${song.artist}\nwaveyy://song/${song.id}")
     }
     context.startActivity(android.content.Intent.createChooser(send, null))
+}
+
+/** Genre/mood chips for the blank-query discovery section. */
+@Composable
+private fun GenreChipsSection(onPick: (String) -> Unit) {
+    val genres = listOf(
+        "Pop", "Rock", "Hip-Hop", "Lo-Fi",
+        "Electronic", "Indie", "R&B", "Bollywood",
+        "Jazz", "Metal", "Acoustic", "Chill",
+        "Anime", "Classical", "Synthwave"
+    )
+
+    Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.Explore,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(20.dp)
+            )
+            Text(
+                text = "Explore genres & moods",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(start = 8.dp)
+            )
+        }
+
+        // Flow layout: wrap chips across multiple rows.
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            genres.forEach { genre ->
+                FilterChip(
+                    selected = false,
+                    onClick = { onPick(genre) },
+                    label = { Text(genre) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        labelColor = MaterialTheme.colorScheme.onSurface
+                    )
+                )
+            }
+        }
+    }
 }

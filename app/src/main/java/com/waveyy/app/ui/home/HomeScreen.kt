@@ -73,7 +73,6 @@ fun HomeScreen(
     onDiscover: () -> Unit = {}
 ) {
     val state by viewModel.state.collectAsState()
-    val userName by viewModel.userName.collectAsState()
     LaunchedEffect(Unit) {
         Timber.tag(MainActivity.WAVEYY_TIMING).d("HomeScreen first composition")
     }
@@ -88,7 +87,6 @@ fun HomeScreen(
             )
             is HomeUiState.Success -> HomeContent(
                 sections = current.sections,
-                userName = userName,
                 onPlaySong = onPlaySong,
                 onAlbum = onAlbum,
                 onArtist = onArtist,
@@ -128,7 +126,6 @@ private fun HomeError(onRetry: () -> Unit, modifier: Modifier = Modifier) {
 @Composable
 private fun HomeContent(
     sections: HomeSections,
-    userName: String?,
     onPlaySong: (QueueSource, Int) -> Unit,
     onAlbum: (String) -> Unit,
     onArtist: (String) -> Unit,
@@ -165,7 +162,6 @@ private fun HomeContent(
                     onSearch = onSearch,
                     onSettings = onSettings
                 )
-                GreetingHeader(username = userName)
             }
         }
         if (hero != null) {
