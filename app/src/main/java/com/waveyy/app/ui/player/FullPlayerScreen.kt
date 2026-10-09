@@ -22,9 +22,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.MoreVert
@@ -114,8 +112,8 @@ fun FullPlayerScreen(
     val musicVm: MusicViewModel = sharedMusicViewModel()
     val musicLiked by musicVm.likedSongIds.collectAsStateWithLifecycle()
     var showQueue by remember { mutableStateOf(false) }
-    var showOverflow by remember { mutableStateOf(false) }
     var showInfo by remember { mutableStateOf(false) }
+    var showMetadata by remember { mutableStateOf(false) }
     var showPlaylistPicker by remember { mutableStateOf(false) }
     var showSleepDialog by remember { mutableStateOf(false) }
     var showSpeedDialog by remember { mutableStateOf(false) }
@@ -184,7 +182,7 @@ fun FullPlayerScreen(
                 )
             }
             Spacer(Modifier.weight(1f))
-            IconButton(onClick = { showOverflow = true }) {
+            IconButton(onClick = { showInfo = true }) {
                 Icon(imageVector = Icons.Filled.MoreVert, contentDescription = "More")
             }
         }
@@ -319,7 +317,7 @@ fun FullPlayerScreen(
                 .padding(bottom = 16.dp),
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
-            IconButton(onClick = { showInfo = true }) {
+            IconButton(onClick = { showMetadata = true }) {
                 Icon(imageVector = Icons.Filled.Info, contentDescription = "Song info")
             }
             IconButton(onClick = { scope.launch { connection.toggleShuffle() } }) {
@@ -417,39 +415,6 @@ fun FullPlayerScreen(
             )
         }
     }
-    if (showOverflow) {
-        ModalBottomSheet(
-            onDismissRequest = { showOverflow = false },
-            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-        ) {
-            Column(modifier = Modifier.padding(bottom = 32.dp)) {
-                OverflowSheetRow(
-                    icon = Icons.Filled.Share,
-                    label = "Share",
-                    onClick = {
-                        showOverflow = false
-                        currentSong?.let(viewModel::shareSong)
-                    }
-                )
-                OverflowSheetRow(
-                    icon = Icons.Filled.Download,
-                    label = "Download",
-                    onClick = {
-                        showOverflow = false
-                        currentSong?.let { scope.launch { viewModel.downloadSong(it) } }
-                    }
-                )
-                OverflowSheetRow(
-                    icon = Icons.AutoMirrored.Filled.QueueMusic,
-                    label = "Queue",
-                    onClick = {
-                        showOverflow = false
-                        showQueue = true
-                    }
-                )
-            }
-        }
-    }
     if (showInfo && currentSong != null) {
         val infoSong = currentSong
         SongInfoSheet(
@@ -478,6 +443,12 @@ fun FullPlayerScreen(
                     )
                 }
             }
+        )
+    }
+    if (showMetadata && currentSong != null) {
+        SongMetadataSheet(
+            song = currentSong,
+            onDismiss = { showMetadata = false }
         )
     }
     if (showPlaylistPicker && currentSong != null) {
@@ -560,27 +531,4 @@ private fun formatDuration(totalSeconds: Long): String {
     val minutes = totalSeconds / 60L
     val seconds = (totalSeconds % 60L).toString().padStart(2, '0')
     return "$minutes:$seconds"
-}
-
-/** One anchored overflow-menu row (share / download / queue). */
-@Composable
-private fun OverflowSheetRow(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    label: String,
-    onClick: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 24.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(imageVector = icon, contentDescription = null)
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyLarge,
-            modifier = Modifier.padding(start = 16.dp)
-        )
-    }
 }
