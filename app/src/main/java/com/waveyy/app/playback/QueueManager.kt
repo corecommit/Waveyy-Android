@@ -62,18 +62,26 @@ class QueueManager @Inject constructor() {
     fun setQueueFromSource(source: QueueSource, startIndex: Int): ResolvedQueue? {
         val tappedId = source.songs.getOrNull(startIndex)?.id
         // Dedupe by song id, keeping the FIRST occurrence so the tapped index
-        // is stable. Also drop blank ids and stream-less songs.
-        val seen = mutableSetOf<String>()
+        // is stable, then by normalized title so remixes/covers of the same
+        // song don't spam the queue. Also drop blank ids and stream-less songs.
+        val seenIds = mutableSetOf<String>()
+        val seenTitles = mutableSetOf<String>()
         val effective = source.songs
-            .filter { song -> song.id.isNotBlank() && seen.add(song.id) }
+            .filter { song -> song.id.isNotBlank() && seenIds.add(song.id) }
+            .filter { song ->
+                val key = com.waveyy.app.domain.usecase.SearchRanking.titleKey(song.name)
+                // Songs with empty/unusable titles still get through (edge case).
+                key.isEmpty() || seenTitles.add(key)
+            }
             .filter { song -> song.streams.any { it.url.isNotBlank() } }
         if (effective.isEmpty()) return null
         val index = effective.indexOfFirst { it.id == tappedId }.takeIf { it >= 0 } ?: 0
         val items = toMediaItems(effective)
         Timber.tag("QueueMgr").d(
-            "setQueueFromSource: input=%d unique=%d effective=%d tappedId=%s index=%d",
+            "setQueueFromSource: input=%d uniqueId=%d uniqueTitle=%d effective=%d tappedId=%s index=%d",
             source.songs.size,
             source.songs.map { it.id }.distinct().size,
+            source.songs.map { com.waveyy.app.domain.usecase.SearchRanking.titleKey(it.name) }.distinct().size,
             effective.size,
             tappedId,
             index

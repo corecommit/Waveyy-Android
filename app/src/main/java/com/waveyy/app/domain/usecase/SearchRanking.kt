@@ -60,6 +60,43 @@ object SearchRanking {
     }
 
     /**
+     * Normalizes a song title for dedup purposes: strips feature credits,
+     * remix/version/format suffixes, and trailing parentheticals so "Harvey",
+     * "Harvey (Remix)", "Harvey - Slowed + Reverb", and "Harvey (feat. X)"
+     * all collapse to the same key.
+     *
+     * Returns an empty string when the title has no usable content.
+     */
+    fun titleKey(name: String?): String {
+        if (name.isNullOrBlank()) return ""
+        // Lowercase, strip punctuation/diacritics.
+        val normalized = normalizeText(name)
+        // Cut at feature credits.
+        val noFeature = normalized
+            .substringBefore(" feat ")
+            .substringBefore(" ft ")
+            .substringBefore(" featuring ")
+        // Drop known version/format words and anything after them.
+        val versionWords = listOf(
+            "remix", "remixed", "remaster", "remastered",
+            "sped", "slowed", "reverb", "reverbed",
+            "live", "acoustic", "instrumental", "unplugged",
+            "cover", "version", "edit", "extended", "radio",
+            "demo", "deluxe", "remastered",
+            "audio", "official", "lyric", "lyrics", "video"
+        )
+        var result = noFeature
+        for (word in versionWords) {
+            val idx = result.indexOf(" $word")
+            if (idx >= 0) {
+                result = result.substring(0, idx)
+                break
+            }
+        }
+        return result.trim()
+    }
+
+    /**
      * Artist relevance score for a raw [query] (higher is better, 100 is an
      * exact variant match). Mirrors `getArtistScore` exactly, including the
      * >= 50 top-result threshold used by callers.
