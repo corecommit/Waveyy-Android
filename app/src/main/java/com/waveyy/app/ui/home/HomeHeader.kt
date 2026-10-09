@@ -19,6 +19,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -26,6 +27,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.Box
+import timber.log.Timber
 
 /**
  * Home header row: "Home" title plus three circular action buttons
@@ -45,6 +47,9 @@ fun HomeHeader(
     onSettings: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    LaunchedEffect(Unit) {
+        Timber.tag("HomeHeader").d("RENDERED: gap=8dp, buttonSize=40dp, iconSize=20dp")
+    }
     Row(
         modifier = modifier
             .fillMaxWidth()
