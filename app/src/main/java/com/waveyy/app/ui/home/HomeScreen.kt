@@ -264,6 +264,7 @@ private fun HomeContent(
                 )
             }
         }
+        }
 
         HomeHeader(
             onExplore = onDiscover,
