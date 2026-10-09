@@ -121,7 +121,8 @@ fun FullPlayerScreen(
     var showSpeedDialog by remember { mutableStateOf(false) }
     var showLyricsProvider by remember { mutableStateOf(false) }
     var speedValue by remember { mutableStateOf(1f) }
-    val currentSong = queue.firstOrNull { it.id == state.mediaId }
+    val currentSong = queue.getOrNull(state.mediaIndex)
+        ?: queue.firstOrNull { it.id == state.mediaId }
     val accent = rememberAlbumAccent(currentSong?.imageUrl, currentSong?.id)
     val vmError by viewModel.playerError.collectAsState()
     val snackbarHost = remember { SnackbarHostState() }
@@ -266,7 +267,7 @@ fun FullPlayerScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             FilledIconButton(
-                onClick = { scope.launch { connection.previous() } },
+                onClick = { viewModel.rewind() },
                 modifier = Modifier.size(56.dp),
                 colors = IconButtonDefaults.filledIconButtonColors(
                     containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
@@ -293,7 +294,7 @@ fun FullPlayerScreen(
             Spacer(Modifier.width(24.dp))
 
             FilledIconButton(
-                onClick = { scope.launch { connection.next() } },
+                onClick = { viewModel.advance() },
                 modifier = Modifier.size(56.dp),
                 colors = IconButtonDefaults.filledIconButtonColors(
                     containerColor = MaterialTheme.colorScheme.surfaceContainerHigh

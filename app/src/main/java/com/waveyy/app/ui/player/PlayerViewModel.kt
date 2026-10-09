@@ -178,7 +178,7 @@ class PlayerViewModel @Inject constructor(
      */
     fun playSongs(songs: List<Song>, startIndex: Int = 0) {
         viewModelScope.launch {
-            val resolved = resolveStreams(songs)
+            val resolved = ensureFreshStreams(resolveStreams(songs))
             if (resolved.isEmpty()) {
                 mutablePlayerError.value = UNPLAYABLE_MESSAGE
                 return@launch
@@ -195,7 +195,7 @@ class PlayerViewModel @Inject constructor(
     /** Plays a tap source with Up-Next semantics per origin (see [QueueSource]). */
     fun playSource(source: com.waveyy.app.playback.QueueSource, startIndex: Int = 0) {
         viewModelScope.launch {
-            val withStreams = resolveStreams(source.songs)
+            val withStreams = ensureFreshStreams(resolveStreams(source.songs))
             if (withStreams.isEmpty()) {
                 mutablePlayerError.value = UNPLAYABLE_MESSAGE
                 return@launch
@@ -227,7 +227,8 @@ class PlayerViewModel @Inject constructor(
             song.streams.none { it.url.isNotBlank() }
         }
         if (!needsResolution) {
-            return songs.filter { it.streams.any { s -> s.url.isNotBlank() } }
+            return songs.filter { it.streams.any { s -> s.url.isNotBlank() } }.dedupe()
+                .also(::stampAll)
         }
         return coroutineScope {
             songs.map { song ->
@@ -240,8 +241,21 @@ class PlayerViewModel @Inject constructor(
                         }
                     }.getOrNull()
                 }
-            }.awaitAll().filterNotNull().filter { it.streams.any { s -> s.url.isNotBlank() } }
+            }.awaitAll().filterNotNull().filter { it.streams.any { s -> s.url.isNotBlank() } }.dedupe()
+                .also(::stampAll)
         }
+    }
+
+    /** Marks [songs] as freshly resolved (stream TTL counts from now). */
+    private fun stampAll(songs: List<Song>) {
+        val now = System.currentTimeMillis()
+        songs.forEach { queueResolvedAt[it.id] = now }
+    }
+
+    /** Deduplicates by song id, keeping the first occurrence (never by name). */
+    private fun List<Song>.dedupe(): List<Song> {
+        val seen = mutableSetOf<String>()
+        return filter { it.id.isNotBlank() && seen.add(it.id) }
     }
 
     /** Re-fetches playable streams for one stream-less [song]. */
@@ -256,6 +270,61 @@ class PlayerViewModel @Inject constructor(
             )
         }
         return songRepository.refreshSong(song)
+    }
+
+    private val queueResolvedAt = mutableMapOf<String, Long>()
+
+    /** Re-resolves stale streams (older than 30 min) before playing. */
+    suspend fun ensureFreshStreams(songs: List<Song>): List<Song> {
+        val now = System.currentTimeMillis()
+        return songs.map { song ->
+            val lastResolved = queueResolvedAt[song.id] ?: 0L
+            if (now - lastResolved < STREAM_TTL_MS && song.streams.any { it.url.isNotBlank() }) {
+                song
+            } else {
+                val refreshed = refreshStreams(song)
+                if (refreshed != null) {
+                    queueResolvedAt[refreshed.id] = now
+                    refreshed
+                } else {
+                    song
+                }
+            }
+        }
+    }
+
+    /** Advances to the next item, refreshing its stream URL first. */
+    fun advance() {
+        viewModelScope.launch {
+            val current = mutableQueue.value
+            val at = connection.state.value.mediaIndex
+            val next = current.getOrNull(at + 1)
+            if (next != null) {
+                val fresh = ensureFreshStreams(listOf(next)).firstOrNull()
+                if (fresh != null && fresh != next) {
+                    mutableQueue.value = current.toMutableList().also { it[at + 1] = fresh }
+                    connection.replaceItem(at + 1, fresh)
+                }
+            }
+            connection.next()
+        }
+    }
+
+    /** Returns to the previous item, refreshing its stream URL first. */
+    fun rewind() {
+        viewModelScope.launch {
+            val current = mutableQueue.value
+            val at = connection.state.value.mediaIndex
+            val prev = current.getOrNull(at - 1)
+            if (prev != null) {
+                val fresh = ensureFreshStreams(listOf(prev)).firstOrNull()
+                if (fresh != null && fresh != prev) {
+                    mutableQueue.value = current.toMutableList().also { it[at - 1] = fresh }
+                    connection.replaceItem(at - 1, fresh)
+                }
+            }
+            connection.previous()
+        }
     }
 
     /** Plays a single song (queue of one). */
@@ -487,6 +556,9 @@ class PlayerViewModel @Inject constructor(
     companion object {
         private const val HISTORY_CAP = 50
         private const val PLAY_LOG_CAP = 300
+
+        /** Stream freshness TTL (re-resolve URLs older than this). */
+        private const val STREAM_TTL_MS = 30L * 60L * 1000L
 
         /** Snackbar text when nothing tapped is playable. */
         const val UNPLAYABLE_MESSAGE = "Unable to play this song. Try again."

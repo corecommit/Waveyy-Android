@@ -71,7 +71,8 @@ fun WaveyyNavHost(
     val navController: NavHostController = rememberNavController()
     val playback by playerVm.connection.state.collectAsState()
     val queue by playerVm.queue.collectAsState()
-    val currentSong = queue.firstOrNull { it.id == playback.mediaId }
+    val currentSong = queue.getOrNull(playback.mediaIndex)
+        ?: queue.firstOrNull { it.id == playback.mediaId }
     val backStack by navController.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route
     val isPlayer = currentRoute?.startsWith("player") == true

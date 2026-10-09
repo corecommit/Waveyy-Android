@@ -21,7 +21,10 @@ import javax.inject.Inject
 class QueueManager @Inject constructor() {
     /** Translates songs into playable media items, skipping stream-less ones. */
     fun toMediaItems(songs: List<Song>): List<MediaItem> {
-        return songs.mapNotNull(::toMediaItem)
+        val seen = mutableSetOf<String>()
+        return songs
+            .filter { it.id.isNotBlank() && seen.add(it.id) }
+            .mapNotNull(::toMediaItem)
     }
 
     /** Translates one song; null when no playable stream exists. */
@@ -57,11 +60,24 @@ class QueueManager @Inject constructor() {
      * nothing is playable.
      */
     fun setQueueFromSource(source: QueueSource, startIndex: Int): ResolvedQueue? {
-        val effective = source.songs.filter { song -> song.streams.any { it.url.isNotBlank() } }
-        if (effective.isEmpty()) return null
         val tappedId = source.songs.getOrNull(startIndex)?.id
+        // Dedupe by song id, keeping the FIRST occurrence so the tapped index
+        // is stable. Also drop blank ids and stream-less songs.
+        val seen = mutableSetOf<String>()
+        val effective = source.songs
+            .filter { song -> song.id.isNotBlank() && seen.add(song.id) }
+            .filter { song -> song.streams.any { it.url.isNotBlank() } }
+        if (effective.isEmpty()) return null
         val index = effective.indexOfFirst { it.id == tappedId }.takeIf { it >= 0 } ?: 0
         val items = toMediaItems(effective)
+        Timber.tag("QueueMgr").d(
+            "setQueueFromSource: input=%d unique=%d effective=%d tappedId=%s index=%d",
+            source.songs.size,
+            source.songs.map { it.id }.distinct().size,
+            effective.size,
+            tappedId,
+            index
+        )
         if (items.isEmpty()) return null
         return ResolvedQueue(effective, items, index)
     }
