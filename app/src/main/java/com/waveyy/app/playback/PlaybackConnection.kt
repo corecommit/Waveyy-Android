@@ -155,6 +155,18 @@ class PlaybackConnection @Inject constructor(
         controllerFuture?.await()?.pause()
     }
 
+    /**
+     * Stops playback entirely (not pause) and clears the current item. Used by
+     * the mini-player swipe-down gesture. The service stays alive but idle.
+     */
+    suspend fun stopPlayback() {
+        connect()
+        val controller = controllerFuture?.await() ?: return
+        controller.stop()
+        controller.clearMediaItems()
+        publish(controller)
+    }
+
     /** Seeks to [positionMs] on the current item. */
     suspend fun seekTo(positionMs: Long) {
         connect()

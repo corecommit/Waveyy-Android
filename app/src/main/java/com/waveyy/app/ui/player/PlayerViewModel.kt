@@ -158,6 +158,14 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
+    /** Stops playback and hides the mini-player (swipe-down gesture). */
+    fun stopAndHide() {
+        viewModelScope.launch {
+            connection.stopPlayback()
+            userPrefs.setMiniPlayerHidden(true)
+        }
+    }
+
     /** Clears the swipe-down hidden flag (called when a new song starts). */
     fun clearMiniPlayerHidden() {
         viewModelScope.launch { userPrefs.setMiniPlayerHidden(false) }

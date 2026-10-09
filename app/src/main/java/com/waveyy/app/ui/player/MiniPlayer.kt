@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
@@ -82,7 +81,7 @@ fun MiniPlayer(
     var dragX by remember(currentSong.id) { mutableFloatStateOf(0f) }
     var dragY by remember(currentSong.id) { mutableFloatStateOf(0f) }
     val thresholdPx = with(LocalDensity.current) { 80.dp.toPx() }
-    val maxVisual = 24f
+    val maxVisual = thresholdPx    // allow full threshold travel
 
     val offsetX = dragX.coerceIn(-maxVisual, maxVisual)
     val offsetY = dragY.coerceIn(-maxVisual, maxVisual)
@@ -96,20 +95,15 @@ fun MiniPlayer(
             .fillMaxWidth()
             .padding(horizontal = 12.dp)
             .padding(bottom = 8.dp)
-            .graphicsLayer {
-                translationX = offsetX
-                translationY = offsetY
-            }
             .pointerInput(currentSong.id) {
                 detectDragGestures(
                     onDragStart = { hapticFired = false },
                     onDragEnd = {
-                        Timber.tag("MiniPlayer").d("drag end: x=$dragX y=$dragY (clamped to ±24px)")
+                        Timber.tag("MiniPlayer").d("drag end: x=$dragX y=$dragY (clamped)")
                         when {
                             dragX > thresholdPx -> scope.launch { connection.previous() }
                             dragX < -thresholdPx -> scope.launch { connection.next() }
-                            dragY > thresholdPx -> playerVm.hideMiniPlayer()
-                            dragY < -thresholdPx -> onExpand()
+                            dragY > thresholdPx -> playerVm.stopAndHide()
                         }
                         dragX = 0f
                         dragY = 0f
@@ -134,6 +128,18 @@ fun MiniPlayer(
                 .clip(RoundedCornerShape(28.dp))
                 .background(MaterialTheme.colorScheme.surfaceContainerHigh)
                 .background(accent.copy(alpha = 0.08f))
+                .graphicsLayer {
+                    translationX = offsetX
+                    translationY = offsetY
+                    alpha = if (dragY > 0f) {
+                        (1f - dragY / (thresholdPx * 1.5f)).coerceIn(0.4f, 1f)
+                    } else {
+                        1f
+                    }
+                    val s = if (abs(offsetX) > 8f || abs(offsetY) > 8f) 1.02f else 1.0f
+                    scaleX = s
+                    scaleY = s
+                }
                 .clickable(onClick = onExpand)
                 .height(64.dp)
                 .padding(horizontal = 8.dp),
@@ -188,14 +194,6 @@ fun MiniPlayer(
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary.copy(alpha = dragAlpha(offsetX)),
                 modifier = Modifier.align(Alignment.CenterStart).padding(start = 20.dp)
-            )
-        }
-        if (offsetY < -8f) {
-            Icon(
-                imageVector = Icons.Filled.KeyboardArrowUp,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary.copy(alpha = dragAlpha(offsetY)),
-                modifier = Modifier.align(Alignment.Center)
             )
         }
         if (offsetY > 8f) {
