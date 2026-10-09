@@ -69,7 +69,7 @@ fun PlaylistsScreen(
     }
 
     if (state.loading) {
-        SkeletonRows(count = 6, modifier = Modifier.padding(16.dp))
+        SkeletonRows(count = 6)
         return
     }
     LazyColumn(

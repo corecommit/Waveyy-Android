@@ -35,7 +35,7 @@ fun DiscoverScreen(
     val state by viewModel.state.collectAsState()
     when (val current = state) {
         DiscoverUiState.Loading -> {
-            SkeletonRows(count = 8, modifier = Modifier.padding(16.dp))
+            SkeletonRows(count = 8)
         }
         is DiscoverUiState.Error -> {
             WaveyyErrorPanel(onRetry = viewModel::refresh)

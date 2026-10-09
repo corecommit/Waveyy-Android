@@ -78,13 +78,16 @@ fun MiniPlayer(
     if (state.mediaId == null || currentSong == null || hidden) return
     LaunchedEffect(currentSong.id) { playerVm.clearMiniPlayerHidden() }
 
-    var dragX by remember(currentSong.id) { mutableFloatStateOf(0f) }
-    var dragY by remember(currentSong.id) { mutableFloatStateOf(0f) }
+    // Raw drag amounts — unbounded, drive action thresholds.
+    var rawDragX by remember(currentSong.id) { mutableFloatStateOf(0f) }
+    var rawDragY by remember(currentSong.id) { mutableFloatStateOf(0f) }
     val thresholdPx = with(LocalDensity.current) { 80.dp.toPx() }
-    val maxVisual = thresholdPx    // allow full threshold travel
+    // Visual shift cap — how far the content actually slides inside the pill.
+    val maxVisual = with(LocalDensity.current) { 12.dp.toPx() }
 
-    val offsetX = dragX.coerceIn(-maxVisual, maxVisual)
-    val offsetY = dragY.coerceIn(-maxVisual, maxVisual)
+    // Visible translation: clamped so the content only wiggles a little.
+    val offsetX = rawDragX.coerceIn(-maxVisual, maxVisual)
+    val offsetY = rawDragY.coerceIn(-maxVisual, maxVisual)
     var hapticFired by remember(currentSong.id) { mutableStateOf(false) }
     val accent = rememberAlbumAccent(currentSong.imageUrl, currentSong.id)
 
@@ -99,20 +102,21 @@ fun MiniPlayer(
                 detectDragGestures(
                     onDragStart = { hapticFired = false },
                     onDragEnd = {
-                        Timber.tag("MiniPlayer").d("drag end: x=$dragX y=$dragY (clamped)")
+                        Timber.tag("MiniPlayer").d("drag end: x=$rawDragX y=$rawDragY")
                         when {
-                            dragX > thresholdPx -> scope.launch { connection.previous() }
-                            dragX < -thresholdPx -> scope.launch { connection.next() }
-                            dragY > thresholdPx -> playerVm.stopAndHide()
+                            rawDragX > thresholdPx -> scope.launch { connection.previous() }
+                            rawDragX < -thresholdPx -> scope.launch { connection.next() }
+                            rawDragY > thresholdPx -> playerVm.stopAndHide()
                         }
-                        dragX = 0f
-                        dragY = 0f
+                        rawDragX = 0f
+                        rawDragY = 0f
                     },
                     onDrag = { change, drag ->
                         change.consume()
-                        dragX = (dragX + drag.x).coerceIn(-maxVisual, maxVisual)
-                        dragY = (dragY + drag.y).coerceIn(-maxVisual, maxVisual)
-                        val crossed = abs(dragX) > thresholdPx || abs(dragY) > thresholdPx
+                        // Raw drag: unbounded, drives the action threshold.
+                        rawDragX += drag.x
+                        rawDragY += drag.y
+                        val crossed = abs(rawDragX) > thresholdPx || abs(rawDragY) > thresholdPx
                         if (crossed && !hapticFired) {
                             hapticFired = true
                             haptics.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -131,8 +135,8 @@ fun MiniPlayer(
                 .graphicsLayer {
                     translationX = offsetX
                     translationY = offsetY
-                    alpha = if (dragY > 0f) {
-                        (1f - dragY / (thresholdPx * 1.5f)).coerceIn(0.4f, 1f)
+                    alpha = if (rawDragY > 0f) {
+                        (1f - rawDragY / (thresholdPx * 1.5f)).coerceIn(0.4f, 1f)
                     } else {
                         1f
                     }
