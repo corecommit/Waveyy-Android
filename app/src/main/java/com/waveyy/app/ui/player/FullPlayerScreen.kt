@@ -16,10 +16,8 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.outlined.AddCircleOutline
@@ -131,10 +129,6 @@ fun FullPlayerScreen(
             currentSong?.let { viewModel.playSong(it) }
         }
     }
-    val scrollState = rememberScrollState()
-    var lyricsCardY by remember { mutableStateOf<Int?>(null) }
-    val lyricsState by viewModel.lyrics.collectAsState()
-    val raceWinner by viewModel.raceWinner.collectAsState()
     val fraction = if (state.durationMs > 0L) {
         (state.positionMs.toFloat() / state.durationMs).coerceIn(0f, 1f)
     } else {
@@ -155,7 +149,6 @@ fun FullPlayerScreen(
             )
             .statusBarsPadding()
             .navigationBarsPadding()
-            .verticalScroll(scrollState)
             .padding(horizontal = 16.dp)
     ) {
         Row(
@@ -185,19 +178,23 @@ fun FullPlayerScreen(
             }
         }
 
-        Spacer(Modifier.height(24.dp))
-
-        AdaptiveImage(
-            imageUrl = currentSong?.imageUrl.orEmpty(),
-            contentDescription = currentSong?.name,
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .aspectRatio(1f)
-                .clip(RoundedCornerShape(28.dp)),
-            contentScale = ContentScale.Crop
-        )
-
-        Spacer(Modifier.height(32.dp))
+                .weight(1f)
+                .padding(vertical = 8.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            AdaptiveImage(
+                imageUrl = currentSong?.imageUrl.orEmpty(),
+                contentDescription = currentSong?.name,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .aspectRatio(1f)
+                    .clip(RoundedCornerShape(28.dp)),
+                contentScale = ContentScale.Crop
+            )
+        }
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -265,8 +262,6 @@ fun FullPlayerScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-
-        Spacer(Modifier.weight(1f))
 
         Row(
             modifier = Modifier
@@ -355,48 +350,9 @@ fun FullPlayerScreen(
             }) {
                 Icon(imageVector = Icons.Filled.PlaylistAdd, contentDescription = "Add to playlist")
             }
-            IconButton(onClick = {
-                scope.launch {
-                    lyricsCardY?.let { y ->
-                        scrollState.animateScrollTo((y - 300).coerceAtLeast(0))
-                    }
-                }
-            }) {
+            IconButton(onClick = { currentSong?.let { onFullLyrics(it.id) } }) {
                 Icon(imageVector = Icons.Filled.Lyrics, contentDescription = "Lyrics")
             }
-        }
-
-        Spacer(Modifier.height(24.dp))
-
-        if (currentSong != null) {
-            LyricsCard(
-                viewModel = viewModel,
-                song = currentSong,
-                lyrics = lyricsState,
-                winnerProvider = raceWinner?.provider,
-                positionMs = state.positionMs,
-                accent = accent,
-                onShare = { viewModel.shareSong(currentSong) },
-                onShowFull = { onFullLyrics(currentSong.id) },
-                onPositioned = { y -> lyricsCardY = y }
-            )
-
-            Spacer(Modifier.height(24.dp))
-
-            ArtistCard(
-                viewModel = viewModel,
-                artistId = currentSong.primaryArtistId,
-                onClick = {
-                    val id = currentSong.primaryArtistId
-                    if (id.isNotBlank()) onArtist(id)
-                }
-            )
-
-            Spacer(Modifier.height(16.dp))
-
-            SongMetadataCard(song = currentSong)
-
-            Spacer(Modifier.height(80.dp))
         }
     }
         SnackbarHost(

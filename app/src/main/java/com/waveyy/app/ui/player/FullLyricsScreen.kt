@@ -204,12 +204,13 @@ fun FullLyricsScreen(
                 ) {
                     itemsIndexed(lines) { i, line ->
                         val distance = kotlin.math.abs(i - idx)
-                        // Progressive blur: 0 at current, up to 8.dp for far lines.
-                        val blurRadius = (distance * 2.2f).coerceAtMost(8f)
-                        // Progressive alpha: 1.0 at current, 0.15 minimum for distant.
-                        val alpha = (1f - distance * 0.18f).coerceIn(0.15f, 1f)
-                        // Progressive scale: 1.0 at current, 0.85 for far lines.
-                        val scale = (1f - distance * 0.04f).coerceIn(0.85f, 1f)
+                        // Progressive blur: 0 at current, up to 3.dp for very far lines.
+                        val blurRadius = (distance * 0.6f).coerceAtMost(3f)
+                        // Progressive alpha: 1.0 at current, 0.40 minimum — distant lines stay
+                        // readable.
+                        val alpha = (1f - distance * 0.10f).coerceIn(0.40f, 1f)
+                        // Progressive scale: 1.0 at current, 0.90 for far lines.
+                        val scale = (1f - distance * 0.02f).coerceIn(0.90f, 1f)
 
                         // Smoothly animate transitions when idx changes.
                         val animatedAlpha by animateFloatAsState(
