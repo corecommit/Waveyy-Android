@@ -16,13 +16,13 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.automirrored.filled.QueueMusic
+import androidx.compose.material.icons.outlined.AddCircleOutline
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.MoreVert
@@ -36,8 +36,6 @@ import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Lyrics
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
@@ -214,6 +212,13 @@ fun FullPlayerScreen(
                 modifier = Modifier.weight(1f)
             )
             if (currentSong != null) {
+                IconButton(onClick = { showPlaylistPicker = true }) {
+                    Icon(
+                        imageVector = Icons.Outlined.AddCircleOutline,
+                        contentDescription = "Add to playlist",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
                 LikeSongButton(song = currentSong)
             }
         }
@@ -267,64 +272,50 @@ fun FullPlayerScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(bottom = 24.dp),
-            horizontalArrangement = Arrangement.Center,
+            horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            FilledIconButton(
-                onClick = { viewModel.rewind() },
-                modifier = Modifier.size(56.dp),
-                colors = IconButtonDefaults.filledIconButtonColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+            IconButton(onClick = { scope.launch { connection.toggleShuffle() } }) {
+                Icon(
+                    imageVector = Icons.Filled.Shuffle,
+                    contentDescription = "Shuffle",
+                    tint = if (state.shuffleEnabled) accent
+                           else MaterialTheme.colorScheme.onSurfaceVariant
                 )
-            ) {
-                Icon(imageVector = Icons.Filled.SkipPrevious, contentDescription = "Previous")
             }
-
-            Spacer(Modifier.width(24.dp))
-
-            Button(
+            IconButton(
+                onClick = { viewModel.rewind() },
+                modifier = Modifier.size(56.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.SkipPrevious,
+                    contentDescription = "Previous",
+                    modifier = Modifier.size(36.dp)
+                )
+            }
+            FilledIconButton(
                 onClick = { scope.launch { connection.togglePlayPause() } },
-                modifier = Modifier.width(160.dp).height(72.dp),
-                shape = RoundedCornerShape(50),
-                colors = ButtonDefaults.buttonColors(
+                modifier = Modifier.size(72.dp),
+                colors = IconButtonDefaults.filledIconButtonColors(
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary
                 )
             ) {
                 Icon(
-                    imageVector = if (state.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                    imageVector = if (state.isPlaying) Icons.Filled.Pause
+                                  else Icons.Filled.PlayArrow,
                     contentDescription = if (state.isPlaying) "Pause" else "Play",
-                    modifier = Modifier.size(32.dp)
+                    modifier = Modifier.size(36.dp)
                 )
             }
-
-            Spacer(Modifier.width(24.dp))
-
-            FilledIconButton(
+            IconButton(
                 onClick = { viewModel.advance() },
-                modifier = Modifier.size(56.dp),
-                colors = IconButtonDefaults.filledIconButtonColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
-                )
+                modifier = Modifier.size(56.dp)
             ) {
-                Icon(imageVector = Icons.Filled.SkipNext, contentDescription = "Next")
-            }
-        }
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 16.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
-            IconButton(onClick = { showMetadata = true }) {
-                Icon(imageVector = Icons.Filled.Info, contentDescription = "Song info")
-            }
-            IconButton(onClick = { scope.launch { connection.toggleShuffle() } }) {
                 Icon(
-                    imageVector = Icons.Filled.Shuffle,
-                    contentDescription = "Shuffle",
-                    tint = if (state.shuffleEnabled) accent else MaterialTheme.colorScheme.onSurfaceVariant
+                    imageVector = Icons.Filled.SkipNext,
+                    contentDescription = "Next",
+                    modifier = Modifier.size(36.dp)
                 )
             }
             IconButton(onClick = { scope.launch { connection.cycleRepeatMode() } }) {
@@ -342,8 +333,27 @@ fun FullPlayerScreen(
                     }
                 )
             }
-            IconButton(onClick = { currentSong?.let { viewModel.appendSong(it) } }) {
-                Icon(imageVector = Icons.Filled.PlaylistAdd, contentDescription = "Add to queue")
+        }
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly
+        ) {
+            IconButton(onClick = { showMetadata = true }) {
+                Icon(imageVector = Icons.Filled.Info, contentDescription = "Song info")
+            }
+            IconButton(onClick = { showQueue = true }) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.QueueMusic,
+                    contentDescription = "Queue"
+                )
+            }
+            IconButton(onClick = {
+                currentSong?.let { showPlaylistPicker = true }
+            }) {
+                Icon(imageVector = Icons.Filled.PlaylistAdd, contentDescription = "Add to playlist")
             }
             IconButton(onClick = {
                 scope.launch {

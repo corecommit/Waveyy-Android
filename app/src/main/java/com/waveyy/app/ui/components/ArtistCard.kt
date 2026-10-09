@@ -38,6 +38,7 @@ fun ArtistCard(
     Column(
         modifier = modifier
             .width(120.dp)
+            .clip(CircleShape)
             .clickable { onOpen(artistId) }
             .padding(4.dp),
         horizontalAlignment = Alignment.CenterHorizontally

@@ -42,6 +42,7 @@ fun SongCard(
     Column(
         modifier = modifier
             .width(140.dp)
+            .clip(RoundedCornerShape(16.dp))
             .clickable { onPlay(songId) }
     ) {
         AdaptiveImage(

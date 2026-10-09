@@ -282,8 +282,8 @@ private fun HeroCard(
         modifier = modifier
             .fillMaxWidth()
             .aspectRatio(16f / 9f)
-            .clickable { onPlaySong(QueueSource.HomeFeed(songs), songs.indexOf(song).coerceAtLeast(0)) }
             .clip(RoundedCornerShape(24.dp))
+            .clickable { onPlaySong(QueueSource.HomeFeed(songs), songs.indexOf(song).coerceAtLeast(0)) }
     ) {
         AdaptiveImage(
             imageUrl = song.imageUrl,
@@ -336,6 +336,7 @@ fun GridSongCard(
 ) {
     Column(
         modifier = modifier
+            .clip(RoundedCornerShape(16.dp))
             .clickable(onClick = onPlay)
     ) {
         AdaptiveImage(
@@ -371,6 +372,7 @@ private fun GridAlbumCard(
 ) {
     Column(
         modifier = modifier
+            .clip(RoundedCornerShape(16.dp))
             .clickable(onClick = onOpen)
     ) {
         AdaptiveImage(

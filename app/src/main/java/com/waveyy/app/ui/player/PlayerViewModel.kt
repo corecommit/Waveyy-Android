@@ -200,27 +200,69 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
-    /** Plays a tap source with Up-Next semantics per origin (see [QueueSource]). */
+    /**
+     * Plays a tap source. Resolves ONLY the tapped song synchronously so
+     * playback starts within ~500ms; the rest of the list is resolved in the
+     * background and the queue is swapped in once ready, preserving the
+     * current position. Fixes the "spam Continue to make it play" symptom
+     * when the source list has 10+ stream-less songs.
+     */
     fun playSource(source: com.waveyy.app.playback.QueueSource, startIndex: Int = 0) {
         viewModelScope.launch {
-            val withStreams = ensureFreshStreams(resolveStreams(source.songs))
-            if (withStreams.isEmpty()) {
+            val tappedSong = source.songs.getOrNull(startIndex)
+            if (tappedSong == null || tappedSong.id.isBlank()) {
                 mutablePlayerError.value = UNPLAYABLE_MESSAGE
                 return@launch
             }
-            val tappedId = source.songs.getOrNull(startIndex)?.id
-            val resolved = connection.resolveSource(
-                com.waveyy.app.playback.QueueSource.Custom(withStreams),
-                withStreams.indexOfFirst { it.id == tappedId }.takeIf { it >= 0 } ?: 0
-            )
-            if (resolved == null) {
+
+            // 1. Resolve ONLY the tapped song.
+            val resolvedTapped = if (tappedSong.streams.any { it.url.isNotBlank() }) {
+                tappedSong
+            } else {
+                runCatching { refreshStreams(tappedSong) }.getOrNull() ?: tappedSong
+            }
+            if (resolvedTapped.streams.none { it.url.isNotBlank() }) {
                 mutablePlayerError.value = UNPLAYABLE_MESSAGE
                 return@launch
             }
-            mutableQueue.value = resolved.songs
+
+            // 2. Play immediately (queue of one).
+            val oneSong = listOf(resolvedTapped)
+            mutableQueue.value = oneSong
             userPrefs.setMiniPlayerHidden(false)
-            connection.playItems(resolved.items, resolved.index)
-            onTrackChanged(resolved.songs.getOrNull(resolved.index)?.id)
+            connection.playSongs(oneSong, 0)
+            onTrackChanged(resolvedTapped.id)
+
+            // 3. In the background: resolve the rest, then swap the queue.
+            launch {
+                val others = source.songs.filterIndexed { i, s ->
+                    i != startIndex && s.id.isNotBlank() && s.id != resolvedTapped.id
+                }
+                val resolvedOthers = coroutineScope {
+                    others.map { song ->
+                        async {
+                            if (song.streams.any { s -> s.url.isNotBlank() }) song
+                            else runCatching { refreshStreams(song) }.getOrNull() ?: song
+                        }
+                    }.awaitAll()
+                }.filter { it.streams.any { s -> s.url.isNotBlank() } }
+
+                // Dedupe by id, keeping the tapped song first.
+                val seen = mutableSetOf<String>()
+                val finalQueue = (listOf(resolvedTapped) + resolvedOthers)
+                    .filter { seen.add(it.id) }
+                // Only swap if the user hasn't moved on meanwhile.
+                if (finalQueue.size > 1 &&
+                    connection.state.value.mediaId == resolvedTapped.id
+                ) {
+                    mutableQueue.value = finalQueue
+                    connection.replaceQueuePreservingCurrent(finalQueue)
+                    Timber.tag("PlayerVM").d(
+                        "queue backfilled: %d songs, current preserved",
+                        finalQueue.size
+                    )
+                }
+            }
         }
     }
 
