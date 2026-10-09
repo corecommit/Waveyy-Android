@@ -102,6 +102,12 @@ fun SearchScreen(
     val history by viewModel.searchHistory.collectAsState()
     val activeQuery by viewModel.query.collectAsState()
     var text by remember(activeQuery) { mutableStateOf(activeQuery) }
+    LaunchedEffect(text) {
+        if (text.isNotBlank() && text != activeQuery) {
+            kotlinx.coroutines.delay(300)
+            viewModel.submitQuery(text)
+        }
+    }
     var filter by remember { mutableStateOf(SearchFilter.ALL) }
     var focused by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current

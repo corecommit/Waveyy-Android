@@ -35,19 +35,17 @@ import androidx.compose.ui.unit.dp
 /**
  * Shimmer skeleton primitives replacing the old stripe implementation.
  * Sweep: 1200ms linear loop, horizontal gradient
- * (`surface` 10% → 20% → 10%) traveling -200.dp → +200.dp on x.
- * Base fill is `surfaceContainerLow`; every shape mirrors its content
- * counterpart's corners.
+ * (`surfaceContainerHigh` base with an 8%-alpha white sweep) traveling
+ * -200.dp → +200.dp on x. Base fill is `surfaceContainerHigh` so shapes
+ * stay visible against the near-black background; every shape mirrors its
+ * content counterpart's corners.
  */
 @Composable
 private fun shimmerBrush(sweep: Float): Brush {
-    val stops = listOf(
-        MaterialTheme.colorScheme.surface.copy(alpha = 0.10f),
-        MaterialTheme.colorScheme.surface.copy(alpha = 0.20f),
-        MaterialTheme.colorScheme.surface.copy(alpha = 0.10f)
-    )
+    val base = MaterialTheme.colorScheme.surfaceContainerHigh
+    val highlight = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
     return Brush.linearGradient(
-        colors = stops,
+        colors = listOf(base, highlight, base),
         start = Offset(sweep, 0f),
         end = Offset(sweep + 400f, 300f)
     )
@@ -81,7 +79,7 @@ fun SkeletonBox(width: Dp?, height: Dp, shape: Shape, modifier: Modifier = Modif
                 .then(if (width == null) Modifier.fillMaxWidth() else Modifier.width(width))
                 .height(height)
                 .clip(shape)
-                .background(MaterialTheme.colorScheme.surfaceContainerLow)
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
                 .background(shimmerBrush(x))
         )
     }
