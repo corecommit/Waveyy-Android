@@ -234,7 +234,7 @@ class PlayerViewModel @Inject constructor(
             connection.playSongs(oneSong, 0)
             onTrackChanged(resolvedTapped.id)
 
-            // 3. In the background: resolve the rest, then swap the queue.
+            // 3. In the background: resolve the rest, then append them to the queue.
             launch {
                 val others = source.songs.filterIndexed { i, s ->
                     i != startIndex && s.id.isNotBlank() && s.id != resolvedTapped.id
@@ -250,19 +250,28 @@ class PlayerViewModel @Inject constructor(
 
                 // Dedupe by id, keeping the tapped song first.
                 val seen = mutableSetOf<String>()
-                val finalQueue = (listOf(resolvedTapped) + resolvedOthers)
-                    .filter { seen.add(it.id) }
-                // Only swap if the user hasn't moved on meanwhile.
-                if (finalQueue.size > 1 &&
-                    connection.state.value.mediaId == resolvedTapped.id
-                ) {
-                    mutableQueue.value = finalQueue
-                    connection.replaceQueuePreservingCurrent(finalQueue)
-                    Timber.tag("PlayerVM").d(
-                        "queue backfilled: %d songs, current preserved",
-                        finalQueue.size
-                    )
+                seen.add(resolvedTapped.id)
+                val extraSongs = resolvedOthers.filter { seen.add(it.id) }
+                if (extraSongs.isEmpty()) return@launch
+
+                // Guard: only append if the user hasn't moved on meanwhile.
+                if (connection.state.value.mediaId != resolvedTapped.id) {
+                    Timber.tag("PlayerVM").d("skipping backfill: user moved on")
+                    return@launch
                 }
+
+                // Convert to MediaItems and append — the current item keeps playing
+                // with no re-prepare, no re-seek, no glitch.
+                val items = com.waveyy.app.playback.QueueManager()
+                    .toMediaItems(extraSongs)
+                if (items.isEmpty()) return@launch
+
+                connection.appendItems(items)
+                mutableQueue.value = listOf(resolvedTapped) + extraSongs
+                Timber.tag("PlayerVM").d(
+                    "queue appended: %d extra songs, current kept",
+                    extraSongs.size
+                )
             }
         }
     }
