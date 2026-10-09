@@ -124,11 +124,23 @@ class SearchViewModel @Inject constructor(
     private suspend fun load(rawQuery: String): SearchUiState.Success {
         val variants = SearchRanking.queryVariants(rawQuery)
         var songFailures = 0
-        val songDtos = variants.take(3).flatMap { variant ->
+        val rawDtos = variants.take(3).flatMap { variant ->
             runCatching { repository.searchSongDtos(variant).first() }
                 .onFailure { songFailures++ }
                 .getOrDefault(emptyList())
-        }.distinctBy { it.id.ifBlank { null } ?: (it.name to firstArtistName(it)) }
+        }
+        val songDtos = rawDtos
+            // First dedupe exact duplicates by id.
+            .distinctBy { it.id.ifBlank { null } ?: (it.name to firstArtistName(it)) }
+            // Then dedupe by normalized title, keeping the first occurrence
+            // (the highest-ranked one from the API).
+            .distinctBy { SearchRanking.titleKey(it.name) }
+        Timber.tag("SearchVM").d(
+            "title dedupe: raw=%d, after id=%d, after title=%d",
+            rawDtos.size,
+            rawDtos.distinctBy { it.id }.size,
+            songDtos.size
+        )
         val songs = SongMapper.toDomainList(songDtos)
         val albums = variants.take(2).flatMap { variant ->
             runCatching { repository.searchAlbums(variant).first() }.getOrDefault(emptyList())
