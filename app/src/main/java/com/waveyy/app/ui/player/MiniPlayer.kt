@@ -1,7 +1,5 @@
 package com.waveyy.app.ui.player
 
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -28,6 +26,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -49,6 +48,7 @@ import com.waveyy.app.ui.components.AdaptiveImage
 import com.waveyy.app.ui.library.LikeSongButton
 import com.waveyy.app.ui.theme.rememberAlbumAccent
 import kotlinx.coroutines.launch
+import timber.log.Timber
 import kotlin.math.abs
 
 /**
@@ -79,18 +79,15 @@ fun MiniPlayer(
     if (state.mediaId == null || currentSong == null || hidden) return
     LaunchedEffect(currentSong.id) { playerVm.clearMiniPlayerHidden() }
 
-    val offsetX = remember(currentSong.id) { Animatable(0f) }
-    val offsetY = remember(currentSong.id) { Animatable(0f) }
+    var dragX by remember(currentSong.id) { mutableFloatStateOf(0f) }
+    var dragY by remember(currentSong.id) { mutableFloatStateOf(0f) }
     val thresholdPx = with(LocalDensity.current) { 80.dp.toPx() }
+    val maxVisual = 24f
+
+    val offsetX = dragX.coerceIn(-maxVisual, maxVisual)
+    val offsetY = dragY.coerceIn(-maxVisual, maxVisual)
     var hapticFired by remember(currentSong.id) { mutableStateOf(false) }
     val accent = rememberAlbumAccent(currentSong.imageUrl, currentSong.id)
-
-    fun snapBack() {
-        scope.launch {
-            offsetX.animateTo(0f, spring(dampingRatio = 0.7f, stiffness = 400f))
-            offsetY.animateTo(0f, spring(dampingRatio = 0.7f, stiffness = 400f))
-        }
-    }
 
     val dragAlpha = { value: Float -> (abs(value) / thresholdPx).coerceIn(0f, 1f) }
 
@@ -100,35 +97,28 @@ fun MiniPlayer(
             .padding(horizontal = 12.dp)
             .padding(bottom = 8.dp)
             .graphicsLayer {
-                translationX = offsetX.value
-                translationY = offsetY.value
+                translationX = offsetX
+                translationY = offsetY
             }
             .pointerInput(currentSong.id) {
                 detectDragGestures(
                     onDragStart = { hapticFired = false },
                     onDragEnd = {
+                        Timber.tag("MiniPlayer").d("drag end: x=$dragX y=$dragY (clamped to ±24px)")
                         when {
-                            offsetX.value > thresholdPx -> {
-                                scope.launch { connection.previous() }
-                                snapBack()
-                            }
-                            offsetX.value < -thresholdPx -> {
-                                scope.launch { connection.next() }
-                                snapBack()
-                            }
-                            offsetY.value > thresholdPx -> playerVm.hideMiniPlayer()
-                            offsetY.value < -thresholdPx -> onExpand()
-                            else -> snapBack()
+                            dragX > thresholdPx -> scope.launch { connection.previous() }
+                            dragX < -thresholdPx -> scope.launch { connection.next() }
+                            dragY > thresholdPx -> playerVm.hideMiniPlayer()
+                            dragY < -thresholdPx -> onExpand()
                         }
+                        dragX = 0f
+                        dragY = 0f
                     },
                     onDrag = { change, drag ->
                         change.consume()
-                        scope.launch {
-                            offsetX.snapTo(offsetX.value + drag.x)
-                            offsetY.snapTo(offsetY.value + drag.y)
-                        }
-                        val crossed = abs(offsetX.value) > thresholdPx ||
-                            abs(offsetY.value) > thresholdPx
+                        dragX = (dragX + drag.x).coerceIn(-maxVisual, maxVisual)
+                        dragY = (dragY + drag.y).coerceIn(-maxVisual, maxVisual)
+                        val crossed = abs(dragX) > thresholdPx || abs(dragY) > thresholdPx
                         if (crossed && !hapticFired) {
                             hapticFired = true
                             haptics.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -184,35 +174,35 @@ fun MiniPlayer(
             }
         }
         // Directional hints that fade in while dragging.
-        if (offsetX.value < -8f) {
+        if (offsetX < -8f) {
             Icon(
                 imageVector = Icons.Filled.SkipNext,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary.copy(alpha = dragAlpha(offsetX.value)),
+                tint = MaterialTheme.colorScheme.primary.copy(alpha = dragAlpha(offsetX)),
                 modifier = Modifier.align(Alignment.CenterEnd).padding(end = 20.dp)
             )
         }
-        if (offsetX.value > 8f) {
+        if (offsetX > 8f) {
             Icon(
                 imageVector = Icons.Filled.SkipPrevious,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary.copy(alpha = dragAlpha(offsetX.value)),
+                tint = MaterialTheme.colorScheme.primary.copy(alpha = dragAlpha(offsetX)),
                 modifier = Modifier.align(Alignment.CenterStart).padding(start = 20.dp)
             )
         }
-        if (offsetY.value < -8f) {
+        if (offsetY < -8f) {
             Icon(
                 imageVector = Icons.Filled.KeyboardArrowUp,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary.copy(alpha = dragAlpha(offsetY.value)),
+                tint = MaterialTheme.colorScheme.primary.copy(alpha = dragAlpha(offsetY)),
                 modifier = Modifier.align(Alignment.Center)
             )
         }
-        if (offsetY.value > 8f) {
+        if (offsetY > 8f) {
             Icon(
                 imageVector = Icons.Filled.KeyboardArrowDown,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary.copy(alpha = dragAlpha(offsetY.value)),
+                tint = MaterialTheme.colorScheme.primary.copy(alpha = dragAlpha(offsetY)),
                 modifier = Modifier.align(Alignment.Center)
             )
         }
