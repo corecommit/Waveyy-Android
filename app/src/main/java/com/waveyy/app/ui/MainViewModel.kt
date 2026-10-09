@@ -1,5 +1,6 @@
 package com.waveyy.app.ui
 
+import androidx.activity.ComponentActivity
 import androidx.activity.compose.LocalActivity
 import androidx.compose.runtime.Composable
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -37,6 +38,7 @@ class MainViewModel @Inject constructor() : ViewModel() {
  */
 @Composable
 fun sharedMainViewModel(): MainViewModel {
-    val activity = LocalActivity.current ?: error("MainViewModel requires an Activity host")
+    val activity = LocalActivity.current as? ComponentActivity
+        ?: error("MainViewModel requires a ComponentActivity host")
     return hiltViewModel(activity)
 }

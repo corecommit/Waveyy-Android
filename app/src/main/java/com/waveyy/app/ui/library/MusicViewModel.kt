@@ -1,5 +1,6 @@
 package com.waveyy.app.ui.library
 
+import androidx.activity.ComponentActivity
 import androidx.activity.compose.LocalActivity
 import androidx.compose.runtime.Composable
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -95,6 +96,7 @@ class MusicViewModel @Inject constructor(
  */
 @Composable
 fun sharedMusicViewModel(): MusicViewModel {
-    val activity = LocalActivity.current ?: error("MusicViewModel requires an Activity host")
+    val activity = LocalActivity.current as? ComponentActivity
+        ?: error("MusicViewModel requires a ComponentActivity host")
     return hiltViewModel(activity)
 }

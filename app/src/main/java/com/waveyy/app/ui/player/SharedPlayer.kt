@@ -1,5 +1,6 @@
 package com.waveyy.app.ui.player
 
+import androidx.activity.ComponentActivity
 import androidx.activity.compose.LocalActivity
 import androidx.compose.runtime.Composable
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -13,6 +14,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
  */
 @Composable
 fun sharedPlayerViewModel(): PlayerViewModel {
-    val activity = LocalActivity.current ?: error("PlayerViewModel requires an Activity host")
+    val activity = LocalActivity.current as? ComponentActivity
+        ?: error("PlayerViewModel requires a ComponentActivity host")
     return hiltViewModel(activity)
 }
