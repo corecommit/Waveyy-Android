@@ -41,20 +41,17 @@ class LibraryViewModel @Inject constructor(
         refresh()
     }
 
-    /** Reloads playlists for the current user (empty for guests). */
+    /** Reloads playlists for the current user (local-only for guests). */
     fun refresh() {
         val userId = auth.currentUser()?.id
-        if (userId.isNullOrBlank()) {
-            mutableState.value = LibraryState(loading = false)
-            return
-        }
         mutableState.value = mutableState.value.copy(loading = true, userId = userId)
         viewModelScope.launch {
             playlists.getPlaylists(userId)
                 .onSuccess { loaded ->
                     mutableState.value = LibraryState(
                         playlists = loaded,
-                        likedPlaylistId = PlaylistRepository.likedPlaylistId(userId),
+                        likedPlaylistId = if (userId.isNullOrBlank()) "local_liked"
+                                          else PlaylistRepository.likedPlaylistId(userId),
                         loading = false,
                         userId = userId
                     )
@@ -71,7 +68,7 @@ class LibraryViewModel @Inject constructor(
 
     /** Creates a playlist, then reloads. */
     fun createPlaylist(name: String) {
-        val userId = mutableState.value.userId ?: return
+        val userId = mutableState.value.userId
         viewModelScope.launch {
             playlists.createPlaylist(userId, name)
                 .onSuccess { refresh() }
@@ -80,7 +77,7 @@ class LibraryViewModel @Inject constructor(
 
     /** Deletes a playlist, then reloads. */
     fun deletePlaylist(playlistId: String) {
-        val userId = mutableState.value.userId ?: return
+        val userId = mutableState.value.userId
         viewModelScope.launch {
             playlists.deletePlaylist(userId, playlistId)
                 .onSuccess { refresh() }
@@ -89,7 +86,7 @@ class LibraryViewModel @Inject constructor(
 
     /** Adds a song, then reloads. */
     fun addSong(playlistId: String, song: Song) {
-        val userId = mutableState.value.userId ?: return
+        val userId = mutableState.value.userId
         viewModelScope.launch {
             playlists.addSong(userId, playlistId, song)
                 .onSuccess { refresh() }
@@ -98,7 +95,7 @@ class LibraryViewModel @Inject constructor(
 
     /** Removes a song, then reloads. */
     fun removeSong(playlistId: String, songId: String) {
-        val userId = mutableState.value.userId ?: return
+        val userId = mutableState.value.userId
         viewModelScope.launch {
             playlists.removeSong(userId, playlistId, songId)
                 .onSuccess { refresh() }
@@ -115,7 +112,7 @@ class LibraryViewModel @Inject constructor(
 
     /** Toggles a song in the Liked list (ensuring it exists first). */
     fun toggleLikedSong(song: Song) {
-        val userId = mutableState.value.userId ?: return
+        val userId = mutableState.value.userId
         viewModelScope.launch {
             val liked = playlists.ensureLikedPlaylist(userId).getOrNull() ?: return@launch
             if (isSongLiked(song.id)) {

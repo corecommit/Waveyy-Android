@@ -1,9 +1,12 @@
 package com.waveyy.app.domain.model
 
+import kotlinx.serialization.Serializable
+
 /**
  * Canonical audio stream candidate for a song, mirroring one entry of the
  * JioSaavn `downloadUrl` array after quality ranking.
  */
+@Serializable
 data class AudioStream(
     val url: String,
     val quality: String,
@@ -15,6 +18,7 @@ data class AudioStream(
  * A playable song, normalized from the various JioSaavn response shapes
  * (see `SongMapper`).
  */
+@Serializable
 data class Song(
     val id: String,
     val name: String,

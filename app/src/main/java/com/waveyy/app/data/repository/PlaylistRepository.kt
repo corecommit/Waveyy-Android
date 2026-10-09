@@ -1,5 +1,6 @@
 package com.waveyy.app.data.repository
 
+import com.waveyy.app.data.local.datastore.UserPrefs
 import com.waveyy.app.data.remote.auth.SupabaseClientProvider
 import com.waveyy.app.domain.model.Playlist
 import com.waveyy.app.domain.model.Song
@@ -37,13 +38,14 @@ class PlaylistBackendMissingException :
 
 /**
  * Playlist CRUD ported from `lib/playlists.js`, backed by the `playlists`
- * and `playlist_songs` tables (`supabase/playlists.sql`). Guests receive
- * errors (matching the web's "Guest cannot perform this action"); a missing
- * schema surfaces as [PlaylistBackendMissingException] (PGRST205).
+ * and `playlist_songs` tables (`supabase/playlists.sql`). Guests use
+ * local-only DataStore playlists; a missing schema surfaces as
+ * [PlaylistBackendMissingException] (PGRST205).
  */
 @Singleton
 class PlaylistRepository @Inject constructor(
-    private val clientProvider: SupabaseClientProvider
+    private val clientProvider: SupabaseClientProvider,
+    private val userPrefs: UserPrefs
 ) {
 
     /** Returns true when [error] means the playlists tables do not exist. */
@@ -61,7 +63,7 @@ class PlaylistRepository @Inject constructor(
     /** Loads the user's playlists with songs (liked first). */
     suspend fun getPlaylists(userId: String?): Result<List<Playlist>> {
         if (userId.isNullOrBlank()) {
-            return Result.failure(IllegalStateException("Guest cannot perform this action"))
+            return Result.success(userPrefs.guestPlaylists())
         }
         return runCatching {
             val client = clientProvider.client
@@ -87,12 +89,20 @@ class PlaylistRepository @Inject constructor(
 
     /** Creates a playlist (optimistic id generated client-side, like the web). */
     suspend fun createPlaylist(userId: String?, name: String): Result<Playlist> {
-        if (userId.isNullOrBlank()) {
-            return Result.failure(IllegalStateException("Guest cannot perform this action"))
-        }
         val safeName = name.trim().ifBlank { "My Playlist" }
         if (safeName.equals(LIKED_NAME, ignoreCase = true)) {
             return Result.failure(IllegalArgumentException("\"$LIKED_NAME\" is reserved for your likes"))
+        }
+        if (userId.isNullOrBlank()) {
+            val playlist = Playlist(
+                id = "local_${System.currentTimeMillis()}_${(0..99999).random()}",
+                name = safeName,
+                songs = emptyList(),
+                createdAt = System.currentTimeMillis()
+            )
+            val existing = userPrefs.guestPlaylists()
+            userPrefs.setGuestPlaylists(existing + playlist)
+            return Result.success(playlist)
         }
         return runCatching {
             val playlist = Playlist(
@@ -114,7 +124,12 @@ class PlaylistRepository @Inject constructor(
     /** Deletes a playlist (the Liked list is protected). */
     suspend fun deletePlaylist(userId: String?, playlistId: String): Result<Unit> {
         if (userId.isNullOrBlank()) {
-            return Result.failure(IllegalStateException("Guest cannot perform this action"))
+            if (playlistId == "local_liked") {
+                return Result.failure(IllegalArgumentException("Liked Songs playlist cannot be deleted"))
+            }
+            val existing = userPrefs.guestPlaylists()
+            userPrefs.setGuestPlaylists(existing.filterNot { it.id == playlistId })
+            return Result.success(Unit)
         }
         if (isLikedPlaylist(playlistId, userId)) {
             return Result.failure(IllegalArgumentException("Liked Songs playlist cannot be deleted"))
@@ -136,7 +151,14 @@ class PlaylistRepository @Inject constructor(
     /** Adds a song (upsert on playlist + song). */
     suspend fun addSong(userId: String?, playlistId: String, song: Song): Result<Unit> {
         if (userId.isNullOrBlank()) {
-            return Result.failure(IllegalStateException("Guest cannot perform this action"))
+            val existing = userPrefs.guestPlaylists()
+            val updated = existing.map { pl ->
+                if (pl.id == playlistId && pl.songs.none { it.id == song.id }) {
+                    pl.copy(songs = pl.songs + song)
+                } else pl
+            }
+            userPrefs.setGuestPlaylists(updated)
+            return Result.success(Unit)
         }
         return runCatching {
             clientProvider.client.from("playlist_songs").upsert(
@@ -162,7 +184,14 @@ class PlaylistRepository @Inject constructor(
     /** Removes a song from a playlist. */
     suspend fun removeSong(userId: String?, playlistId: String, songId: String): Result<Unit> {
         if (userId.isNullOrBlank()) {
-            return Result.failure(IllegalStateException("Guest cannot perform this action"))
+            val existing = userPrefs.guestPlaylists()
+            val updated = existing.map { pl ->
+                if (pl.id == playlistId) {
+                    pl.copy(songs = pl.songs.filterNot { it.id == songId })
+                } else pl
+            }
+            userPrefs.setGuestPlaylists(updated)
+            return Result.success(Unit)
         }
         return runCatching {
             clientProvider.client.from("playlist_songs").delete {
@@ -182,7 +211,17 @@ class PlaylistRepository @Inject constructor(
     /** Ensures the reserved `liked_<userId>` playlist exists. */
     suspend fun ensureLikedPlaylist(userId: String?): Result<Playlist> {
         if (userId.isNullOrBlank()) {
-            return Result.failure(IllegalStateException("Guest cannot perform this action"))
+            val existing = userPrefs.guestPlaylists()
+            val liked = existing.firstOrNull { it.id == "local_liked" }
+            if (liked != null) return Result.success(liked)
+            val newLiked = Playlist(
+                id = "local_liked",
+                name = LIKED_NAME,
+                songs = emptyList(),
+                createdAt = 0L
+            )
+            userPrefs.setGuestPlaylists(existing + newLiked)
+            return Result.success(newLiked)
         }
         val id = likedPlaylistId(userId)
         getPlaylists(userId).onSuccess { playlists ->
