@@ -105,7 +105,7 @@ fun PlaylistDetailScreen(
     val player = sharedPlayerViewModel()
     when (val current = state) {
         PlaylistDetailUiState.Loading -> {
-            SkeletonRows(count = 8, modifier = Modifier.padding(16.dp))
+            SkeletonRows(count = 8)
         }
         PlaylistDetailUiState.Missing -> {
             Text(

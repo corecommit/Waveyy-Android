@@ -6,6 +6,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -76,7 +78,7 @@ fun HomeScreen(
     LaunchedEffect(Unit) {
         Timber.tag(MainActivity.WAVEYY_TIMING).d("HomeScreen first composition")
     }
-    Scaffold { padding ->
+    Scaffold(contentWindowInsets = WindowInsets(0)) { padding ->
         when (val current = state) {
             HomeUiState.Loading -> SkeletonHomeScreen(
                 modifier = Modifier.padding(padding)
@@ -164,8 +166,10 @@ private fun HomeContent(
                     onSearch = onSearch,
                     onSettings = onSettings
                 )
-                Spacer(Modifier.height(8.dp))
-                GreetingHeader(username = userName)
+                GreetingHeader(
+                    username = userName,
+                    modifier = Modifier.offset(y = (-8).dp)
+                )
             }
         }
         if (hero != null) {

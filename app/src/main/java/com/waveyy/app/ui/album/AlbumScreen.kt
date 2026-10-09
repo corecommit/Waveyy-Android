@@ -44,7 +44,7 @@ fun AlbumScreen(
     val state by viewModel.state.collectAsState()
     when (val current = state) {
         AlbumUiState.Loading -> {
-            SkeletonRows(count = 8, modifier = Modifier.padding(16.dp))
+            SkeletonRows(count = 8)
         }
         is AlbumUiState.Error -> {
             WaveyyErrorPanel(onRetry = viewModel::refresh)

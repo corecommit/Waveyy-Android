@@ -142,7 +142,10 @@ fun SkeletonHomeScreen(modifier: Modifier = Modifier) {
  */
 @Composable
 fun SkeletonRows(count: Int = 6, modifier: Modifier = Modifier) {
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(
+        modifier = modifier.padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
         repeat(count) {
             Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                 SkeletonBox(width = 56.dp, height = 56.dp, shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp))

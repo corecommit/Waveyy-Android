@@ -52,7 +52,7 @@ fun ArtistScreen(
     val state by viewModel.state.collectAsState()
     when (val current = state) {
         ArtistUiState.Loading -> {
-            SkeletonRows(count = 8, modifier = Modifier.padding(16.dp))
+            SkeletonRows(count = 8)
         }
         is ArtistUiState.Error -> {
             WaveyyErrorPanel(onRetry = viewModel::refresh)
