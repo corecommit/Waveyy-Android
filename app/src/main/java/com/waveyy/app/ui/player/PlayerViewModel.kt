@@ -20,6 +20,7 @@ import com.waveyy.app.data.repository.ListeningHistoryRepository
 import com.waveyy.app.data.repository.LyricsRepository
 import com.waveyy.app.data.repository.YtMusicRepository
 import com.waveyy.app.domain.model.AudioStream
+import com.waveyy.app.domain.model.Artist
 import com.waveyy.app.domain.model.MusicSource
 import com.waveyy.app.data.repository.SongRepository
 import com.waveyy.app.domain.model.CachedLyrics
@@ -138,6 +139,11 @@ class PlayerViewModel @Inject constructor(
     /** Clears a surfaced playback error (after the Snackbar is shown). */
     fun clearPlayerError() {
         mutablePlayerError.value = null
+    }
+
+    /** Artist details for the player cards (null when unknown). */
+    fun artistFlow(id: String): kotlinx.coroutines.flow.Flow<Artist?> {
+        return songRepository.artistById(id)
     }
 
     /** Mini-player hidden flag (set by swipe-down, cleared on new song start). */

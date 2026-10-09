@@ -17,8 +17,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Add
@@ -64,6 +66,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -91,13 +94,15 @@ import kotlinx.coroutines.launch
  * @param viewModel player logic (shared instance).
  * @param onClose minimize/back handler.
  * @param onArtist artist-page navigation (artist id).
+ * @param onFullLyrics full-lyrics navigation (song id).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FullPlayerScreen(
     viewModel: PlayerViewModel = sharedPlayerViewModel(),
     onClose: () -> Unit = {},
-    onArtist: (String) -> Unit = {}
+    onArtist: (String) -> Unit = {},
+    onFullLyrics: (String) -> Unit = {}
 ) {
     val connection = viewModel.connection
     val state by connection.state.collectAsState()
@@ -109,7 +114,6 @@ fun FullPlayerScreen(
     val musicVm: MusicViewModel = sharedMusicViewModel()
     val musicLiked by musicVm.likedSongIds.collectAsStateWithLifecycle()
     var showQueue by remember { mutableStateOf(false) }
-    var showLyrics by remember { mutableStateOf(false) }
     var showOverflow by remember { mutableStateOf(false) }
     var showInfo by remember { mutableStateOf(false) }
     var showPlaylistPicker by remember { mutableStateOf(false) }
@@ -130,6 +134,15 @@ fun FullPlayerScreen(
             currentSong?.let { viewModel.playSong(it) }
         }
     }
+    val scrollState = rememberScrollState()
+    var lyricsCardY by remember { mutableStateOf<Int?>(null) }
+    val lyricsState by viewModel.lyrics.collectAsState()
+    val raceWinner by viewModel.raceWinner.collectAsState()
+    val activeLine = activeLyricIndex(lyricsState, state.positionMs)
+    LaunchedEffect(activeLine) {
+        val y = lyricsCardY ?: return@LaunchedEffect
+        if (activeLine >= 0) scrollState.animateScrollTo((y - 300).coerceAtLeast(0))
+    }
     val fraction = if (state.durationMs > 0L) {
         (state.positionMs.toFloat() / state.durationMs).coerceIn(0f, 1f)
     } else {
@@ -140,9 +153,17 @@ fun FullPlayerScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
+            .background(
+                Brush.verticalGradient(
+                    listOf(
+                        accent.copy(alpha = 0.5f),
+                        MaterialTheme.colorScheme.background
+                    )
+                )
+            )
             .statusBarsPadding()
             .navigationBarsPadding()
+            .verticalScroll(scrollState)
             .padding(horizontal = 16.dp)
     ) {
         Row(
@@ -194,7 +215,7 @@ fun FullPlayerScreen(
                 text = currentSong?.name ?: "Nothing playing",
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
-                maxLines = 1,
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f)
             )
@@ -321,9 +342,48 @@ fun FullPlayerScreen(
             IconButton(onClick = { currentSong?.let { viewModel.appendSong(it) } }) {
                 Icon(imageVector = Icons.Filled.PlaylistAdd, contentDescription = "Add to queue")
             }
-            IconButton(onClick = { showLyrics = true }) {
+            IconButton(onClick = {
+                scope.launch {
+                    lyricsCardY?.let { y ->
+                        scrollState.animateScrollTo((y - 300).coerceAtLeast(0))
+                    }
+                }
+            }) {
                 Icon(imageVector = Icons.Filled.Lyrics, contentDescription = "Lyrics")
             }
+        }
+
+        Spacer(Modifier.height(24.dp))
+
+        if (currentSong != null) {
+            LyricsCard(
+                viewModel = viewModel,
+                song = currentSong,
+                lyrics = lyricsState,
+                winnerProvider = raceWinner?.provider,
+                positionMs = state.positionMs,
+                accent = accent,
+                onShare = { viewModel.shareSong(currentSong) },
+                onShowFull = { onFullLyrics(currentSong.id) },
+                onPositioned = { y -> lyricsCardY = y }
+            )
+
+            Spacer(Modifier.height(24.dp))
+
+            ArtistCard(
+                viewModel = viewModel,
+                artistId = currentSong.primaryArtistId,
+                onClick = {
+                    val id = currentSong.primaryArtistId
+                    if (id.isNotBlank()) onArtist(id)
+                }
+            )
+
+            Spacer(Modifier.height(16.dp))
+
+            SongMetadataCard(song = currentSong)
+
+            Spacer(Modifier.height(80.dp))
         }
     }
         SnackbarHost(
@@ -350,14 +410,6 @@ fun FullPlayerScreen(
                     showQueue = false
                 }
             )
-        }
-    }
-    if (showLyrics) {
-        ModalBottomSheet(
-            onDismissRequest = { showLyrics = false },
-            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-        ) {
-            LyricsSheet(viewModel = viewModel, connection = connection, song = currentSong)
         }
     }
     if (showOverflow) {
