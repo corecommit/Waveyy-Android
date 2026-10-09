@@ -284,6 +284,7 @@ private fun HomeContent(
         )
     }
 }
+}
 
 /** Section header: titleLarge bold with reference padding. */
 @Composable
