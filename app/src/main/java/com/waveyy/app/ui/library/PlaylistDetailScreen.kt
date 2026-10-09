@@ -69,10 +69,6 @@ class PlaylistDetailViewModel @Inject constructor(
     /** Reloads the playlist. */
     fun refresh() {
         val userId = auth.currentUser()?.id
-        if (userId.isNullOrBlank()) {
-            mutableState.value = PlaylistDetailUiState.Missing
-            return
-        }
         viewModelScope.launch {
             playlists.getPlaylists(userId)
                 .onSuccess { loaded ->
@@ -86,7 +82,7 @@ class PlaylistDetailViewModel @Inject constructor(
 
     /** Removes a song, then reloads. */
     fun removeSong(songId: String) {
-        val userId = auth.currentUser()?.id ?: return
+        val userId = auth.currentUser()?.id
         viewModelScope.launch {
             playlists.removeSong(userId, playlistId, songId)
                 .onSuccess { refresh() }

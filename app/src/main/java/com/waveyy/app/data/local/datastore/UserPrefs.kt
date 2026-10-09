@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.waveyy.app.domain.model.Playlist
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -83,6 +84,9 @@ class UserPrefs @Inject constructor(
 
         /** Kill music when the app is closed. */
         const val STOP_MUSIC_ON_CLOSE_KEY = "stop-music-on-close"
+
+        /** Guest playlist blob (JSON-encoded list of minimal playlist rows). */
+        const val GUEST_PLAYLISTS_KEY = "guest-playlists"
 
         /** Guest liked-song ids key (JSON string set, works without a session). */
         const val GUEST_LIKED_IDS_KEY = "guest-liked-ids"
@@ -188,6 +192,26 @@ class UserPrefs @Inject constructor(
         context.userPrefs.edit { prefs -> prefs[stopMusicOnCloseKey] = enabled }
     }
 
+    /** Guest playlists (empty for signed-in users or never-created). */
+    fun guestPlaylistsFlow(): Flow<List<Playlist>> {
+        return context.userPrefs.data.map { prefs ->
+            val raw = prefs[guestPlaylistsKey] ?: return@map emptyList()
+            runCatching { Json.decodeFromString<List<Playlist>>(raw) }.getOrDefault(emptyList())
+        }
+    }
+
+    /** Reads guest playlists synchronously. */
+    suspend fun guestPlaylists(): List<Playlist> {
+        val raw = context.userPrefs.data.map { it[guestPlaylistsKey] }.first() ?: return emptyList()
+        return runCatching { Json.decodeFromString<List<Playlist>>(raw) }.getOrDefault(emptyList())
+    }
+
+    /** Persists the guest playlists list. */
+    suspend fun setGuestPlaylists(playlists: List<Playlist>) {
+        val raw = Json.encodeToString(playlists)
+        context.userPrefs.edit { prefs -> prefs[guestPlaylistsKey] = raw }
+    }
+
     /** Guest liked-song ids (empty when never liked). */
     fun guestLikedIdsFlow(): Flow<Set<String>> {
         return context.userPrefs.data.map { prefs ->
@@ -240,6 +264,7 @@ class UserPrefs @Inject constructor(
     private val saavnEnabledKey = booleanPreferencesKey(SAAVN_ENABLED_KEY)
     private val preferVideoKey = booleanPreferencesKey(PREFER_VIDEO_KEY)
     private val stopMusicOnCloseKey = booleanPreferencesKey(STOP_MUSIC_ON_CLOSE_KEY)
+    private val guestPlaylistsKey = stringPreferencesKey(GUEST_PLAYLISTS_KEY)
     private val guestLikedIdsKey = stringPreferencesKey(GUEST_LIKED_IDS_KEY)
     private val miniPlayerHiddenKey = booleanPreferencesKey(MINI_PLAYER_HIDDEN_KEY)
     private val lyricsModeKey = stringPreferencesKey(LYRICS_MODE_KEY)

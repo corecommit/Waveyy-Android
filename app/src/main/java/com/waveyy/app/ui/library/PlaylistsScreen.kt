@@ -1,25 +1,32 @@
 package com.waveyy.app.ui.library
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material3.Card
+import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.runtime.Composable
@@ -31,12 +38,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.waveyy.app.R
+import com.waveyy.app.domain.model.Playlist
 import com.waveyy.app.ui.MainViewModel
 import com.waveyy.app.ui.sharedMainViewModel
+import com.waveyy.app.ui.components.AdaptiveImage
 import com.waveyy.app.ui.components.WaveyyButton
 import com.waveyy.app.ui.components.SkeletonRows
 import com.waveyy.app.ui.components.WaveyyInput
@@ -44,8 +56,9 @@ import com.waveyy.app.ui.player.rememberChromeBottomReserve
 import kotlinx.coroutines.flow.filter
 
 /**
- * Library: playlist grid with create/delete, plus the backend-missing card
- * when `supabase/playlists.sql` was never applied.
+ * Library: 2-column playlist grid with create flow, plus the
+ * backend-missing card when `supabase/playlists.sql` was never applied.
+ * Guests get local-only DataStore playlists.
  */
 @Composable
 fun PlaylistsScreen(
@@ -56,14 +69,14 @@ fun PlaylistsScreen(
     val state by viewModel.state.collectAsState()
     var creating by remember { mutableStateOf(false) }
     var name by remember { mutableStateOf("") }
-    val listState = rememberLazyListState()
+    val gridState = rememberLazyGridState()
     val chromeBottom = rememberChromeBottomReserve()
     LaunchedEffect(Unit) {
         mainVm.scrollToTop
             .filter { it == "playlists" }
             .collect {
-                if (listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 0) {
-                    listState.animateScrollToItem(0)
+                if (gridState.firstVisibleItemIndex > 0 || gridState.firstVisibleItemScrollOffset > 0) {
+                    gridState.animateScrollToItem(0)
                 }
             }
     }
@@ -72,35 +85,59 @@ fun PlaylistsScreen(
         SkeletonRows(count = 6)
         return
     }
-    LazyColumn(
+
+    LazyVerticalGrid(
+        columns = GridCells.Fixed(2),
         modifier = Modifier
             .fillMaxSize()
             .statusBarsPadding(),
-        state = listState,
-        contentPadding = PaddingValues(bottom = chromeBottom),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        state = gridState,
+        contentPadding = PaddingValues(
+            start = 16.dp,
+            end = 16.dp,
+            top = 8.dp,
+            bottom = chromeBottom
+        ),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        item {
+        item(span = { GridItemSpan(2) }) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                    .padding(vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
                     text = stringResource(R.string.library_title),
                     style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f)
                 )
-                IconButton(onClick = { creating = true }) {
-                    Icon(imageVector = Icons.Filled.Add, contentDescription = stringResource(R.string.playlist_create))
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                        .clickable { creating = true },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Add,
+                        contentDescription = stringResource(R.string.playlist_create),
+                        tint = MaterialTheme.colorScheme.onSurface
+                    )
                 }
             }
         }
+
         if (state.backendMissing) {
-            item {
-                Card(modifier = Modifier.padding(horizontal = 16.dp)) {
+            item(span = { GridItemSpan(2) }) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh
+                ) {
                     Text(
                         text = stringResource(R.string.playlist_backend_missing),
                         style = MaterialTheme.typography.bodyMedium,
@@ -109,52 +146,22 @@ fun PlaylistsScreen(
                 }
             }
         }
-        if (state.userId == null && !state.backendMissing) {
-            item {
-                Text(
-                    text = stringResource(R.string.library_guest),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 16.dp)
-                )
-            }
-        }
+
         items(state.playlists, key = { it.id }) { playlist ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { onOpen(playlist.id) }
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                if (playlist.id == state.likedPlaylistId) {
-                    Icon(
-                        imageVector = Icons.Filled.Favorite,
-                        contentDescription = null,
-                        modifier = Modifier.padding(end = 12.dp)
-                    )
-                }
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(text = playlist.name, style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        text = "${playlist.songs.size} songs",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                if (playlist.id != state.likedPlaylistId) {
-                    IconButton(onClick = { viewModel.deletePlaylist(playlist.id) }) {
-                        Icon(
-                            imageVector = Icons.Filled.Delete,
-                            contentDescription = stringResource(R.string.playlist_delete)
-                        )
-                    }
-                }
-            }
+            PlaylistGridCard(
+                playlist = playlist,
+                isLiked = playlist.id == state.likedPlaylistId,
+                onClick = { onOpen(playlist.id) }
+            )
         }
+
         if (creating) {
-            item {
-            Card(modifier = Modifier.padding(horizontal = 16.dp)) {
+            item(span = { GridItemSpan(2) }) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh
+                ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         WaveyyInput(
                             value = name,
@@ -186,5 +193,66 @@ fun PlaylistsScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun PlaylistGridCard(
+    playlist: Playlist,
+    isLiked: Boolean,
+    onClick: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(1f)
+                .clip(RoundedCornerShape(16.dp))
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+        ) {
+            if (isLiked) {
+                Icon(
+                    imageVector = Icons.Filled.Favorite,
+                    contentDescription = null,
+                    tint = Color(0xFFE53E3E),
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .size(48.dp)
+                )
+            } else if (playlist.songs.isNotEmpty()) {
+                AdaptiveImage(
+                    imageUrl = playlist.songs.first().imageUrl,
+                    contentDescription = playlist.name,
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Filled.QueueMusic,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .size(48.dp)
+                )
+            }
+        }
+        Text(
+            text = playlist.name,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(top = 8.dp)
+        )
+        Text(
+            text = "${playlist.songs.size} ${if (playlist.songs.size == 1) "song" else "songs"}",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
