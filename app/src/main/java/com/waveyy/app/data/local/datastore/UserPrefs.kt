@@ -75,6 +75,15 @@ class UserPrefs @Inject constructor(
         /** Race-mode toggle key (fast-first vs complete). */
         const val PREFER_FAST_KEY = "prefer-fast"
 
+        /** Saavn source toggle key (default enabled). */
+        const val SAAVN_ENABLED_KEY = "saavn-enabled"
+
+        /** Prefer video over music (YT Music only). */
+        const val PREFER_VIDEO_KEY = "prefer-video"
+
+        /** Kill music when the app is closed. */
+        const val STOP_MUSIC_ON_CLOSE_KEY = "stop-music-on-close"
+
         /** Guest liked-song ids key (JSON string set, works without a session). */
         const val GUEST_LIKED_IDS_KEY = "guest-liked-ids"
 
@@ -149,6 +158,36 @@ class UserPrefs @Inject constructor(
         context.userPrefs.edit { prefs -> prefs[preferFastKey] = enabled }
     }
 
+    /** Whether JioSaavn source is enabled (default on). */
+    fun saavnEnabledFlow(): Flow<Boolean> {
+        return context.userPrefs.data.map { it[saavnEnabledKey] ?: true }
+    }
+
+    /** Persists the JioSaavn toggle. */
+    suspend fun setSaavnEnabled(enabled: Boolean) {
+        context.userPrefs.edit { prefs -> prefs[saavnEnabledKey] = enabled }
+    }
+
+    /** Whether to prefer video results (YT Music only). */
+    fun preferVideoFlow(): Flow<Boolean> {
+        return context.userPrefs.data.map { it[preferVideoKey] ?: false }
+    }
+
+    /** Persists the prefer-video toggle. */
+    suspend fun setPreferVideo(enabled: Boolean) {
+        context.userPrefs.edit { prefs -> prefs[preferVideoKey] = enabled }
+    }
+
+    /** Whether to stop playback when the app is task-removed. */
+    fun stopMusicOnCloseFlow(): Flow<Boolean> {
+        return context.userPrefs.data.map { it[stopMusicOnCloseKey] ?: false }
+    }
+
+    /** Persists the stop-on-close toggle. */
+    suspend fun setStopMusicOnClose(enabled: Boolean) {
+        context.userPrefs.edit { prefs -> prefs[stopMusicOnCloseKey] = enabled }
+    }
+
     /** Guest liked-song ids (empty when never liked). */
     fun guestLikedIdsFlow(): Flow<Set<String>> {
         return context.userPrefs.data.map { prefs ->
@@ -198,6 +237,9 @@ class UserPrefs @Inject constructor(
     private val ytVisitorKey = stringPreferencesKey(VISITOR_DATA_KEY)
     private val ytmusicEnabledKey = booleanPreferencesKey(YTMUSIC_ENABLED_KEY)
     private val preferFastKey = booleanPreferencesKey(PREFER_FAST_KEY)
+    private val saavnEnabledKey = booleanPreferencesKey(SAAVN_ENABLED_KEY)
+    private val preferVideoKey = booleanPreferencesKey(PREFER_VIDEO_KEY)
+    private val stopMusicOnCloseKey = booleanPreferencesKey(STOP_MUSIC_ON_CLOSE_KEY)
     private val guestLikedIdsKey = stringPreferencesKey(GUEST_LIKED_IDS_KEY)
     private val miniPlayerHiddenKey = booleanPreferencesKey(MINI_PLAYER_HIDDEN_KEY)
     private val lyricsModeKey = stringPreferencesKey(LYRICS_MODE_KEY)

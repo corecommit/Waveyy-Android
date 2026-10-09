@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -110,7 +109,7 @@ fun SearchScreen(
     LaunchedEffect(text) {
         if (text.isNotBlank() && text != activeQuery) {
             kotlinx.coroutines.delay(300)
-            viewModel.submitQuery(text)
+            viewModel.submitQuery(text, addToHistory = false)
         }
     }
     var filter by remember { mutableStateOf(SearchFilter.ALL) }
@@ -128,7 +127,7 @@ fun SearchScreen(
 
     fun submit(query: String) {
         focusManager.clearFocus()
-        viewModel.submitQuery(query)
+        viewModel.submitQuery(query, addToHistory = true)
     }
 
     LazyColumn(
@@ -171,13 +170,14 @@ fun SearchScreen(
                     onValueChange = { text = it },
                     modifier = Modifier
                         .weight(1f)
-                        .height(48.dp)
                         .focusRequester(focusRequester)
                         .onFocusChanged { focused = it.isFocused },
                     placeholder = {
                         Text(
                             text = "Search songs, artists, albums",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     },
                     leadingIcon = {

@@ -91,7 +91,10 @@ fun SkeletonBox(width: Dp?, height: Dp, shape: Shape, modifier: Modifier = Modif
  * pill, second 2x2 grid — mirroring the loaded layout shapes.
  */
 @Composable
-fun SkeletonHomeScreen(modifier: Modifier = Modifier) {
+fun SkeletonHomeScreen(
+    modifier: Modifier = Modifier,
+    header: @Composable () -> Unit = {}
+) {
     LazyVerticalGrid(
         columns = GridCells.Fixed(2),
         modifier = modifier
@@ -102,15 +105,8 @@ fun SkeletonHomeScreen(modifier: Modifier = Modifier) {
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(2) }) {
-            Row(
-                modifier = Modifier.padding(vertical = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                SkeletonBox(width = 120.dp, height = 32.dp, shape = MaterialTheme.shapes.small)
-                androidx.compose.foundation.layout.Spacer(modifier = Modifier.weight(1f))
-                repeat(3) {
-                    SkeletonBox(width = 48.dp, height = 48.dp, shape = androidx.compose.foundation.shape.CircleShape)
-                }
+            Column(modifier = Modifier.padding(horizontal = 20.dp)) {
+                header()
             }
         }
         item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(2) }) {

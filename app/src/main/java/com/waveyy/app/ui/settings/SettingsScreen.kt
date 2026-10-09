@@ -74,6 +74,24 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { userPrefs.setAudioQuality(option) }
     }
 
+    /** Whether JioSaavn is enabled (default on). */
+    val saavnEnabled = userPrefs.saavnEnabledFlow()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000L), true)
+
+    /** Toggles JioSaavn. */
+    fun setSaavnEnabled(enabled: Boolean) {
+        viewModelScope.launch { userPrefs.setSaavnEnabled(enabled) }
+    }
+
+    /** Whether to prefer video over music (YT only). */
+    val preferVideo = userPrefs.preferVideoFlow()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000L), false)
+
+    /** Toggles prefer-video. */
+    fun setPreferVideo(enabled: Boolean) {
+        viewModelScope.launch { userPrefs.setPreferVideo(enabled) }
+    }
+
     /** Whether the YouTube Music source is enabled. */
     val ytmusicEnabled = userPrefs.ytmusicEnabledFlow()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000L), true)
@@ -124,6 +142,15 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { lyricsRace.clearCache() }
     }
 
+    /** Whether to stop playback when the app is task-removed. */
+    val stopMusicOnClose = userPrefs.stopMusicOnCloseFlow()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000L), false)
+
+    /** Toggles stop-on-close. */
+    fun setStopMusicOnClose(enabled: Boolean) {
+        viewModelScope.launch { userPrefs.setStopMusicOnClose(enabled) }
+    }
+
     /** Signs out. */
     fun signOut() {
         viewModelScope.launch { auth.signOut() }
@@ -140,8 +167,11 @@ fun SettingsScreen(
     onSignIn: () -> Unit = {}
 ) {
     val quality by viewModel.audioQuality.collectAsState()
+    val saavnEnabled by viewModel.saavnEnabled.collectAsState()
+    val preferVideo by viewModel.preferVideo.collectAsState()
     val ytmusicEnabled by viewModel.ytmusicEnabled.collectAsState()
     val preferFast by viewModel.preferFast.collectAsState()
+    val stopMusicOnClose by viewModel.stopMusicOnClose.collectAsState()
     val session by viewModel.session.collectAsState()
     val lyricsMode by viewModel.lyricsMode.collectAsState()
     val preferredProvider by viewModel.preferredLyricsProvider.collectAsState()
@@ -179,11 +209,33 @@ fun SettingsScreen(
         item {
             SettingsSectionCard(title = "Sources") {
                 SettingsToggleRow(
+                    label = "Enable JioSaavn",
+                    subtitle = "Disable to test YouTube Music only",
+                    checked = saavnEnabled,
+                    onChecked = viewModel::setSaavnEnabled
+                )
+                HorizontalDivider(
+                    color = MaterialTheme.colorScheme.outlineVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                )
+                SettingsToggleRow(
                     label = "Enable YouTube Music",
                     subtitle = "Adds YT Music as a second search source",
                     checked = ytmusicEnabled,
                     onChecked = viewModel::setYtmusicEnabled
                 )
+                if (ytmusicEnabled) {
+                    HorizontalDivider(
+                        color = MaterialTheme.colorScheme.outlineVariant,
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
+                    SettingsToggleRow(
+                        label = "Prefer video over music",
+                        subtitle = "YouTube Music: return music-video versions when available",
+                        checked = preferVideo,
+                        onChecked = viewModel::setPreferVideo
+                    )
+                }
                 HorizontalDivider(
                     color = MaterialTheme.colorScheme.outlineVariant,
                     modifier = Modifier.padding(horizontal = 16.dp)
@@ -193,6 +245,18 @@ fun SettingsScreen(
                     subtitle = "Return the first source's results instead of merging",
                     checked = preferFast,
                     onChecked = viewModel::setPreferFast
+                )
+            }
+        }
+
+        // ─── Playback ───
+        item {
+            SettingsSectionCard(title = "Playback") {
+                SettingsToggleRow(
+                    label = "Stop music when app closes",
+                    subtitle = "When off, music continues in the background",
+                    checked = stopMusicOnClose,
+                    onChecked = viewModel::setStopMusicOnClose
                 )
             }
         }
@@ -379,7 +443,7 @@ private fun SettingsToggleRow(
                 checkedBorderColor = MaterialTheme.colorScheme.primary,
                 uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
                 uncheckedTrackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                uncheckedBorderColor = MaterialTheme.colorScheme.outline
+                uncheckedBorderColor = MaterialTheme.colorScheme.outlineVariant
             )
         )
     }
