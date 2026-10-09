@@ -183,7 +183,7 @@ private fun LyricsLines(
                 checkedBorderColor = MaterialTheme.colorScheme.primary,
                 uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
                 uncheckedTrackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                uncheckedBorderColor = MaterialTheme.colorScheme.outline
+                uncheckedBorderColor = MaterialTheme.colorScheme.outlineVariant
             )
         )
     }

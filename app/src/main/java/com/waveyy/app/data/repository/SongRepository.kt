@@ -60,11 +60,13 @@ class SongRepository @Inject constructor(
 
     private suspend fun raceSearch(query: String, limit: Int): List<Song> = coroutineScope {
         val prefs = userPrefs
+        val saavnEnabled = prefs?.let { runCatching { it.saavnEnabledFlow().first() }.getOrDefault(true) } ?: true
         val ytEnabled = prefs?.let { runCatching { it.ytmusicEnabledFlow().first() }.getOrDefault(true) } ?: true
         val preferFast = prefs?.let { runCatching { it.preferFastFlow().first() }.getOrDefault(true) } ?: true
         val ytClient = ytmusic
-        val jsOpen = System.currentTimeMillis() >= jsDisabledUntil
+        val jsOpen = saavnEnabled && System.currentTimeMillis() >= jsDisabledUntil
         val ytOpen = ytEnabled && ytClient != null && System.currentTimeMillis() >= ytDisabledUntil
+        if (!ytOpen && !jsOpen) return@coroutineScope emptyList()
         if (!ytOpen) return@coroutineScope jsSearch(query, limit)
         if (!jsOpen) {
             val yt = runCatching { ytClient?.searchSongs(query).orEmpty() }
@@ -146,6 +148,13 @@ class SongRepository @Inject constructor(
 
     /** Trending charts, mirroring `topChartsPublic()`. */
     fun topCharts(): Flow<List<Song>> = flow {
+        val saavnEnabled = userPrefs?.let {
+            runCatching { it.saavnEnabledFlow().first() }.getOrDefault(true)
+        } ?: true
+        if (!saavnEnabled) {
+            emit(emptyList())
+            return@flow
+        }
         val data = api.topCharts().data
         val dtos = data?.topCharts.orEmpty() + data?.charts.orEmpty() +
             data?.results.orEmpty() + (data?.trending?.songs.orEmpty())

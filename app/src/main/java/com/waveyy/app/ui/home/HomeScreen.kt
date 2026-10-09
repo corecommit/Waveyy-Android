@@ -79,7 +79,14 @@ fun HomeScreen(
     Scaffold(contentWindowInsets = WindowInsets(0)) { padding ->
         when (val current = state) {
             HomeUiState.Loading -> SkeletonHomeScreen(
-                modifier = Modifier.padding(padding)
+                modifier = Modifier.padding(padding),
+                header = {
+                    HomeHeader(
+                        onExplore = onDiscover,
+                        onSearch = onSearch,
+                        onSettings = onSettings
+                    )
+                }
             )
             is HomeUiState.Error -> HomeError(
                 onRetry = viewModel::refresh,

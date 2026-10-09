@@ -53,7 +53,6 @@ fun HomeHeader(
         modifier = modifier
             .fillMaxWidth()
             .statusBarsPadding()
-            .padding(horizontal = 20.dp)
             .padding(top = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {

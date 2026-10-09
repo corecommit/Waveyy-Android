@@ -6,6 +6,8 @@ import androidx.lifecycle.viewModelScope
 import com.waveyy.app.data.remote.dto.SongDto
 import com.waveyy.app.data.remote.mapper.SongMapper
 import com.waveyy.app.data.local.datastore.SearchHistoryStore
+import com.waveyy.app.data.lyrics.LyricsRaceRepository
+import com.waveyy.app.data.lyrics.LyricsResult
 import com.waveyy.app.data.repository.SongRepository
 import com.waveyy.app.domain.model.Album
 import com.waveyy.app.domain.model.Artist
@@ -52,6 +54,7 @@ sealed interface SearchUiState {
 class SearchViewModel @Inject constructor(
     private val repository: SongRepository,
     private val history: SearchHistoryStore,
+    private val lyricsRace: LyricsRaceRepository,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -86,10 +89,13 @@ class SearchViewModel @Inject constructor(
     }
 
     /** Submits a new query from the in-screen field (no navigation). */
-    fun submitQuery(newQuery: String) {
+    fun submitQuery(newQuery: String, addToHistory: Boolean = false) {
         mutableQuery.value = newQuery
+        pendingHistoryAdd = addToHistory
         refresh()
     }
+
+    private var pendingHistoryAdd: Boolean = false
 
     /** Removes one history entry. */
     fun removeHistoryEntry(entry: String) {
@@ -113,9 +119,13 @@ class SearchViewModel @Inject constructor(
             runCatching { load(mutableQuery.value) }
                 .onSuccess {
                     mutableState.value = it
-                    if (it.songs.isNotEmpty() && mutableQuery.value.isNotBlank()) {
+                    if (pendingHistoryAdd &&
+                        it.songs.isNotEmpty() &&
+                        mutableQuery.value.isNotBlank()
+                    ) {
                         history.add(mutableQuery.value)
                     }
+                    pendingHistoryAdd = false
                 }
                 .onFailure { mutableState.value = SearchUiState.Error(it.message ?: "Search failed") }
         }
@@ -158,7 +168,67 @@ class SearchViewModel @Inject constructor(
             // error (with Retry) instead of masquerading as "no results".
             throw java.io.IOException("Search unavailable. Check your connection and retry.")
         }
-        return SearchUiState.Success(songs, albums, artists, top)
+        // Fallback: if the query yielded nothing and looks like a lyric phrase,
+        // try a lyrics-content search.
+        val finalSongs: List<Song> = if (songDtos.isEmpty() && rawQuery.length >= 12) {
+            val byLyrics = searchByLyrics(rawQuery)
+            if (byLyrics.isNotEmpty()) {
+                Timber.tag("SearchVM").d("lyrics search matched %d songs", byLyrics.size)
+                byLyrics
+            } else {
+                emptyList()
+            }
+        } else {
+            songs
+        }
+        return SearchUiState.Success(finalSongs, albums, artists, top)
+    }
+
+    /**
+     * Best-effort lyrics search: the query looks like a phrase, so try
+     * searching for the first few words as a title, then fetch each candidate's
+     * lyrics and check whether the phrase appears. Returns at most 5 matches.
+     * Expensive (n network calls for lyrics) so only invoked when the normal
+     * search finds nothing.
+     */
+    private suspend fun searchByLyrics(phrase: String): List<Song> {
+        if (phrase.length < 12) return emptyList()
+        val words = phrase.trim().split(Regex("\\s+")).filter { it.isNotBlank() }
+        if (words.size < 3) return emptyList()
+        // Use the first 3-5 words as a search hint.
+        val hint = words.take(5).joinToString(" ")
+        val candidates = runCatching {
+            repository.searchSongDtos(hint, limit = 10).first()
+        }.getOrDefault(emptyList()).take(10)
+        if (candidates.isEmpty()) return emptyList()
+
+        val normalizedPhrase = SearchRanking.normalizeText(phrase)
+        val matches = mutableListOf<SongDto>()
+        for (dto in candidates) {
+            val artist = dto.artists?.primary?.firstOrNull()?.name.orEmpty()
+            val title = dto.name.orEmpty()
+            if (title.isBlank() || artist.isBlank()) continue
+            val lyrics = runCatching {
+                lyricsRace.getLyrics(
+                    songId = dto.id,
+                    artist = artist,
+                    title = title,
+                    duration = 0L,
+                    bypassCache = false,
+                )
+            }.getOrNull() ?: continue
+            val body = when (val r = lyrics.result) {
+                is LyricsResult.Plain -> r.text
+                is LyricsResult.Synced -> r.lrc
+                else -> continue
+            }
+            val normalizedBody = SearchRanking.normalizeText(body)
+            if (normalizedPhrase in normalizedBody) {
+                matches += dto
+                if (matches.size >= 5) break
+            }
+        }
+        return SongMapper.toDomainList(matches)
     }
 
     /**
