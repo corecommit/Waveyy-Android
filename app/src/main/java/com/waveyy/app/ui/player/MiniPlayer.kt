@@ -1,5 +1,8 @@
 package com.waveyy.app.ui.player
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -82,12 +85,34 @@ fun MiniPlayer(
     var rawDragX by remember(currentSong.id) { mutableFloatStateOf(0f) }
     var rawDragY by remember(currentSong.id) { mutableFloatStateOf(0f) }
     val thresholdPx = with(LocalDensity.current) { 80.dp.toPx() }
-    // Visual shift cap — how far the content actually slides inside the pill.
-    val maxVisual = with(LocalDensity.current) { 12.dp.toPx() }
+    val maxVisual = with(LocalDensity.current) { 6.dp.toPx() }
 
-    // Visible translation: clamped so the content only wiggles a little.
-    val offsetX = rawDragX.coerceIn(-maxVisual, maxVisual)
-    val offsetY = rawDragY.coerceIn(-maxVisual, maxVisual)
+    // Visual offsets spring back to 0 smoothly after release.
+    val visualX = remember(currentSong.id) { Animatable(0f) }
+    val visualY = remember(currentSong.id) { Animatable(0f) }
+
+    LaunchedEffect(rawDragX) {
+        val target = rawDragX.coerceIn(-maxVisual, maxVisual)
+        visualX.animateTo(
+            targetValue = target,
+            animationSpec = spring(
+                dampingRatio = Spring.DampingRatioMediumBouncy,
+                stiffness = Spring.StiffnessMediumLow
+            )
+        )
+    }
+    LaunchedEffect(rawDragY) {
+        val target = rawDragY.coerceIn(-maxVisual, maxVisual)
+        visualY.animateTo(
+            targetValue = target,
+            animationSpec = spring(
+                dampingRatio = Spring.DampingRatioMediumBouncy,
+                stiffness = Spring.StiffnessMediumLow
+            )
+        )
+    }
+
+    // Visible translation comes from visualX/visualY below.
     var hapticFired by remember(currentSong.id) { mutableStateOf(false) }
     val accent = rememberAlbumAccent(currentSong.imageUrl, currentSong.id)
 
@@ -108,6 +133,7 @@ fun MiniPlayer(
                             rawDragX < -thresholdPx -> scope.launch { connection.next() }
                             rawDragY > thresholdPx -> playerVm.stopAndHide()
                         }
+                        // Setting these to 0 triggers the LaunchedEffect spring-back above.
                         rawDragX = 0f
                         rawDragY = 0f
                     },
@@ -133,14 +159,14 @@ fun MiniPlayer(
                 .background(MaterialTheme.colorScheme.surfaceContainerHigh)
                 .background(accent.copy(alpha = 0.08f))
                 .graphicsLayer {
-                    translationX = offsetX
-                    translationY = offsetY
+                    translationX = visualX.value
+                    translationY = visualY.value
                     alpha = if (rawDragY > 0f) {
                         (1f - rawDragY / (thresholdPx * 1.5f)).coerceIn(0.4f, 1f)
                     } else {
                         1f
                     }
-                    val s = if (abs(offsetX) > 8f || abs(offsetY) > 8f) 1.02f else 1.0f
+                    val s = if (abs(visualX.value) > 2f || abs(visualY.value) > 2f) 1.02f else 1.0f
                     scaleX = s
                     scaleY = s
                 }
@@ -184,27 +210,27 @@ fun MiniPlayer(
             }
         }
         // Directional hints that fade in while dragging.
-        if (offsetX < -8f) {
+        if (visualX.value < -2f) {
             Icon(
                 imageVector = Icons.Filled.SkipNext,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary.copy(alpha = dragAlpha(offsetX)),
+                tint = MaterialTheme.colorScheme.primary.copy(alpha = dragAlpha(visualX.value)),
                 modifier = Modifier.align(Alignment.CenterEnd).padding(end = 20.dp)
             )
         }
-        if (offsetX > 8f) {
+        if (visualX.value > 2f) {
             Icon(
                 imageVector = Icons.Filled.SkipPrevious,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary.copy(alpha = dragAlpha(offsetX)),
+                tint = MaterialTheme.colorScheme.primary.copy(alpha = dragAlpha(visualX.value)),
                 modifier = Modifier.align(Alignment.CenterStart).padding(start = 20.dp)
             )
         }
-        if (offsetY > 8f) {
+        if (visualY.value > 2f) {
             Icon(
                 imageVector = Icons.Filled.KeyboardArrowDown,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary.copy(alpha = dragAlpha(offsetY)),
+                tint = MaterialTheme.colorScheme.primary.copy(alpha = dragAlpha(visualY.value)),
                 modifier = Modifier.align(Alignment.Center)
             )
         }
