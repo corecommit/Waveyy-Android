@@ -1,8 +1,7 @@
 package com.waveyy.app.ui.library
 
-import androidx.activity.ComponentActivity
+import androidx.activity.compose.LocalActivity
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -96,6 +95,6 @@ class MusicViewModel @Inject constructor(
  */
 @Composable
 fun sharedMusicViewModel(): MusicViewModel {
-    val activity = LocalContext.current as ComponentActivity
+    val activity = LocalActivity.current
     return hiltViewModel(activity)
 }

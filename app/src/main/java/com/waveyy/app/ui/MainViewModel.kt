@@ -1,8 +1,7 @@
 package com.waveyy.app.ui
 
-import androidx.activity.ComponentActivity
+import androidx.activity.compose.LocalActivity
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -38,6 +37,6 @@ class MainViewModel @Inject constructor() : ViewModel() {
  */
 @Composable
 fun sharedMainViewModel(): MainViewModel {
-    val activity = LocalContext.current as ComponentActivity
+    val activity = LocalActivity.current
     return hiltViewModel(activity)
 }
