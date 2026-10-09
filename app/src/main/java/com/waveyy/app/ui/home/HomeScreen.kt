@@ -50,6 +50,10 @@ import com.waveyy.app.ui.MainViewModel
 import com.waveyy.app.ui.sharedMainViewModel
 import com.waveyy.app.ui.navigation.Routes
 import com.waveyy.app.ui.player.rememberChromeBottomReserve
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.HazeStyle
+import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.hazeSource
 import com.waveyy.app.ui.components.AdaptiveImage
 import com.waveyy.app.ui.components.ArtistCard
 import com.waveyy.app.ui.components.SkeletonHomeScreen
@@ -145,6 +149,8 @@ private fun HomeContent(
     val hero = sections.trending.firstOrNull()
     val gridState = rememberLazyGridState()
     val chromeBottom = rememberChromeBottomReserve()
+    val hazeState = remember { HazeState() }
+
     LaunchedEffect(Unit) {
         mainVm.scrollToTop
             .filter { it == Routes.HOME }
@@ -154,30 +160,31 @@ private fun HomeContent(
                 }
             }
     }
-    LazyVerticalGrid(
-        columns = GridCells.Fixed(2),
-        modifier = modifier.fillMaxSize(),
-        state = gridState,
-        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 0.dp, bottom = chromeBottom),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        stickyHeader {
-            Column(modifier = Modifier.background(MaterialTheme.colorScheme.background)) {
-                HomeHeader(
-                    onExplore = onDiscover,
-                    onSearch = onSearch,
-                    onSettings = onSettings
-                )
-            }
-        }
+
+    Box(modifier = modifier.fillMaxSize()) {
+        // Content fills the whole screen, including behind the header.
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(2),
+            modifier = Modifier
+                .fillMaxSize()
+                .hazeSource(state = hazeState),
+            state = gridState,
+            contentPadding = PaddingValues(
+                start = 20.dp,
+                end = 20.dp,
+                top = 72.dp,        // room for the header above
+                bottom = chromeBottom
+            ),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
         if (hero != null) {
             item(span = { GridItemSpan(2) }) {
                 HeroCard(
                     song = hero,
                     songs = sections.trending,
                     onPlaySong = onPlaySong,
-                    modifier = Modifier.padding(top = 16.dp)
+                    modifier = Modifier.padding(top = 8.dp)
                 )
             }
         }
@@ -256,6 +263,25 @@ private fun HomeContent(
                 )
             }
         }
+
+        // Header sits on top of the grid with a haze effect.
+        HomeHeader(
+            onExplore = onDiscover,
+            onSearch = onSearch,
+            onSettings = onSettings,
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .hazeEffect(
+                    state = hazeState,
+                    style = HazeStyle(
+                        // 100% transparent surface; only the blur does the work.
+                        backgroundColor = Color.Transparent,
+                        blurRadius = 30.dp,
+                        noiseFactor = 0f
+                    )
+                )
+        )
     }
 }
 
