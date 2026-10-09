@@ -32,7 +32,7 @@ import com.waveyy.app.ui.components.AdaptiveImage
 import com.waveyy.app.ui.components.AlbumCard
 import com.waveyy.app.ui.components.HeroPlayButton
 import com.waveyy.app.ui.components.SongCard
-import com.waveyy.app.ui.components.SkeletonRows
+import com.waveyy.app.ui.components.SkeletonArtistScreen
 import com.waveyy.app.ui.player.rememberChromeBottomReserve
 import com.waveyy.app.ui.components.WaveyyErrorPanel
 import com.waveyy.app.util.HtmlDecoder
@@ -52,7 +52,7 @@ fun ArtistScreen(
     val state by viewModel.state.collectAsState()
     when (val current = state) {
         ArtistUiState.Loading -> {
-            SkeletonRows(count = 8)
+            SkeletonArtistScreen()
         }
         is ArtistUiState.Error -> {
             WaveyyErrorPanel(onRetry = viewModel::refresh)
@@ -205,11 +205,14 @@ private fun PodiumRow(songs: List<Song>, onPlaySong: (QueueSource, Int) -> Unit)
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                Text(
-                    text = PlayCountFormatter.format(song.playCount) + " streams",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                val streams = PlayCountFormatter.format(song.playCount)
+                if (streams.isNotEmpty()) {
+                    Text(
+                        text = "$streams streams",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
     }

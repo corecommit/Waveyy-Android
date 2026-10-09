@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -182,5 +183,125 @@ fun SkeletonLyrics(count: Int = 8, modifier: Modifier = Modifier) {
                 shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
             )
         }
+    }
+}
+
+/**
+ * Artist loading state: circular avatar + name/subtitle pills + hero
+ * play button pill + "Popular" label + 3-podium row + "Tracks" label +
+ * horizontal card rail.
+ */
+@Composable
+fun SkeletonArtistScreen(modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .statusBarsPadding()
+            .padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Spacer(Modifier.height(12.dp))
+
+        // Header: avatar + name + followers
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+        ) {
+            SkeletonBox(
+                width = 120.dp,
+                height = 120.dp,
+                shape = androidx.compose.foundation.shape.CircleShape
+            )
+            Column(modifier = Modifier.padding(start = 16.dp)) {
+                SkeletonBox(
+                    width = 160.dp,
+                    height = 28.dp,
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
+                )
+                SkeletonBox(
+                    width = 100.dp,
+                    height = 16.dp,
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+            }
+        }
+
+        // Latest Release section
+        SkeletonBox(
+            width = 120.dp,
+            height = 16.dp,
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
+        )
+        SkeletonBox(
+            width = 200.dp,
+            height = 24.dp,
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
+        )
+        SkeletonBox(
+            width = 100.dp,
+            height = 40.dp,
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(percent = 50)
+        )
+
+        // Popular section label + 3-podium circles
+        SkeletonBox(
+            width = 100.dp,
+            height = 20.dp,
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = androidx.compose.ui.Alignment.Bottom
+        ) {
+            listOf(72.dp, 96.dp, 72.dp).forEach { size ->
+                Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
+                    SkeletonBox(
+                        width = size,
+                        height = size,
+                        shape = androidx.compose.foundation.shape.CircleShape
+                    )
+                    SkeletonBox(
+                        width = 60.dp,
+                        height = 12.dp,
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(6.dp),
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                    SkeletonBox(
+                        width = 80.dp,
+                        height = 10.dp,
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(6.dp),
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                }
+            }
+        }
+
+        // Tracks section label + horizontal cards
+        SkeletonBox(
+            width = 80.dp,
+            height = 20.dp,
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            repeat(3) {
+                Column {
+                    SkeletonBox(
+                        width = 120.dp,
+                        height = 120.dp,
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+                    )
+                    SkeletonBox(
+                        width = 100.dp,
+                        height = 14.dp,
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(6.dp),
+                        modifier = Modifier.padding(top = 6.dp)
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.height(24.dp))
     }
 }

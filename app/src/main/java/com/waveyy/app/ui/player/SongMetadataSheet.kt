@@ -94,7 +94,7 @@ fun SongMetadataSheet(
             MetadataSection("Scale", "Unknown")
             MetadataSection("Extract Source", extractSourceOf(stream?.url))
 
-            MetadataSection("Play / View Count", PlayCountFormatter.format(song.playCount))
+            MetadataSection("Play / View Count", PlayCountFormatter.formatOr(song.playCount, "Unknown"))
             MetadataSection("ID", song.id)
 
             if (song.source == MusicSource.YTMUSIC) {
