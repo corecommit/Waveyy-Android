@@ -48,6 +48,7 @@ import com.waveyy.app.ui.library.PlaylistDetailScreen
 import com.waveyy.app.ui.library.PlaylistsScreen
 import com.waveyy.app.ui.placeholder.PlaceholderScreen
 import com.waveyy.app.ui.player.FullPlayerScreen
+import com.waveyy.app.ui.player.FullLyricsScreen
 import com.waveyy.app.ui.player.MiniPlayer
 import com.waveyy.app.ui.player.PlayerViewModel
 import com.waveyy.app.ui.components.FloatingNavPill
@@ -192,8 +193,16 @@ fun WaveyyNavHost(
                     FullPlayerScreen(
                     viewModel = playerVm,
                     onClose = { navController.popBackStack() },
-                    onArtist = { id -> navController.navigate(Routes.withId(Routes.ARTIST, id)) }
+                    onArtist = { id -> navController.navigate(Routes.withId(Routes.ARTIST, id)) },
+                    onFullLyrics = { id -> navController.navigate(Routes.withId(Routes.FULL_LYRICS, id)) }
                 )
+                }
+                composable(route = Routes.FULL_LYRICS) { entry ->
+                    FullLyricsScreen(
+                        songId = entry.arguments?.getString("id").orEmpty(),
+                        viewModel = playerVm,
+                        onClose = { navController.popBackStack() }
+                    )
                 }
             }
         }

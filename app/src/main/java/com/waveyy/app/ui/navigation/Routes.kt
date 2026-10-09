@@ -16,6 +16,7 @@ object Routes {
     const val LOGIN = "login"
     const val SIGNUP = "signup"
     const val PLAYER = "player/{id}"
+    const val FULL_LYRICS = "lyrics/{id}"
 
     /** Debug-only theme gallery (registered in debug builds only). */
     const val THEME_GALLERY = "debug/theme-gallery"
