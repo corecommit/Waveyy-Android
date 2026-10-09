@@ -1,5 +1,11 @@
 package com.waveyy.app.ui.player
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -30,6 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -65,16 +72,34 @@ fun FullLyricsScreen(
         if (lines.isNotEmpty()) listState.animateScrollToItem(idx)
     }
     val accent = rememberAlbumAccent(song?.imageUrl, song?.id)
+    val infiniteTransition = rememberInfiniteTransition(label = "lyricsBg")
+    val progress by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 8000, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "lyricsBgProgress"
+    )
+    // Diagonal gradient whose endpoints drift over time so the color bands
+    // appear to slide from top-left to bottom-right and back.
+    val driftY = progress * 800f
+    val driftX = progress * 400f
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(
-                Brush.verticalGradient(
-                    listOf(
-                        accent.copy(alpha = 0.5f),
-                        MaterialTheme.colorScheme.background
-                    )
+                Brush.linearGradient(
+                    colors = listOf(
+                        accent.copy(alpha = 0.85f),
+                        accent.copy(alpha = 0.35f),
+                        MaterialTheme.colorScheme.background,
+                        accent.copy(alpha = 0.25f)
+                    ),
+                    start = Offset(-200f + driftX, -400f + driftY),
+                    end = Offset(1400f, 2200f + driftY)
                 )
             )
     ) {
@@ -94,14 +119,14 @@ fun FullLyricsScreen(
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "Back",
-                        tint = Color.White
+                        tint = MaterialTheme.colorScheme.onBackground
                     )
                 }
                 Text(
                     text = song?.name ?: "Lyrics",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onBackground,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f)
@@ -110,7 +135,7 @@ fun FullLyricsScreen(
                     Icon(
                         imageVector = Icons.Filled.Share,
                         contentDescription = "Share",
-                        tint = Color.White
+                        tint = MaterialTheme.colorScheme.onBackground
                     )
                 }
             }

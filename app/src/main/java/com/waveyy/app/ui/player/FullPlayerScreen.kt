@@ -241,7 +241,13 @@ fun FullPlayerScreen(
         Slider(
             value = fraction,
             onValueChange = { scope.launch { connection.seekTo((it * state.durationMs).toLong()) } },
-            colors = SliderDefaults.colors(thumbColor = accent, activeTrackColor = accent)
+            colors = SliderDefaults.colors(
+                thumbColor = MaterialTheme.colorScheme.primary,
+                activeTrackColor = MaterialTheme.colorScheme.primary,
+                inactiveTrackColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                inactiveTickColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                activeTickColor = MaterialTheme.colorScheme.primary
+            )
         )
 
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -282,7 +288,10 @@ fun FullPlayerScreen(
                 onClick = { scope.launch { connection.togglePlayPause() } },
                 modifier = Modifier.width(160.dp).height(72.dp),
                 shape = RoundedCornerShape(50),
-                colors = ButtonDefaults.buttonColors(containerColor = accent)
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                )
             ) {
                 Icon(
                     imageVector = if (state.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
