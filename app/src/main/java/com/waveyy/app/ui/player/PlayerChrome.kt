@@ -33,8 +33,8 @@ fun rememberChromeBottomReserve(): Dp {
             .distinctUntilChanged()
     }
     val active by presence.collectAsState(initial = false)
-    if (!active) return 0.dp
     val density = LocalDensity.current
     val navBottom = with(density) { WindowInsets.navigationBars.getBottom(density).toDp() }
-    return MINI_PLAYER_RESERVE + NAV_PILL_RESERVE + navBottom
+    // Always reserve nav-pill space; add mini-player space only when playing.
+    return NAV_PILL_RESERVE + navBottom + if (active) MINI_PLAYER_RESERVE else 0.dp
 }
