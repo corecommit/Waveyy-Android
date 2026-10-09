@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import timber.log.Timber
 import javax.inject.Inject
 
 /** Top artist match shown above results. */
@@ -106,6 +107,7 @@ class SearchViewModel @Inject constructor(
     }
 
     private fun search() {
+        Timber.tag("SearchVM").d("search triggered for query='${mutableQuery.value}'")
         mutableState.value = SearchUiState.Loading
         viewModelScope.launch {
             runCatching { load(mutableQuery.value) }
