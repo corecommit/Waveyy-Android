@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -117,6 +118,7 @@ fun FullPlayerScreen(
     var speedValue by remember { mutableStateOf(1f) }
     val currentSong = queue.getOrNull(state.mediaIndex)
         ?: queue.firstOrNull { it.id == state.mediaId }
+    val lyricsState by viewModel.lyrics.collectAsState()
     val accent = rememberAlbumAccent(currentSong?.imageUrl, currentSong?.id)
     val vmError by viewModel.playerError.collectAsState()
     val snackbarHost = remember { SnackbarHostState() }
@@ -182,7 +184,7 @@ fun FullPlayerScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
-                .padding(vertical = 8.dp),
+                .padding(vertical = 4.dp),
             contentAlignment = Alignment.Center
         ) {
             AdaptiveImage(
@@ -197,7 +199,9 @@ fun FullPlayerScreen(
         }
 
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 12.dp),        // gap (i): album art → title
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
@@ -206,7 +210,11 @@ fun FullPlayerScreen(
                 fontWeight = FontWeight.Bold,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f)
+                // Reserve 2 lines of height always so the layout is stable on
+                // 1-line and 2-line titles alike.
+                modifier = Modifier
+                    .weight(1f)
+                    .heightIn(min = 72.dp, max = 72.dp)
             )
             if (currentSong != null) {
                 IconButton(onClick = { showPlaylistPicker = true }) {
@@ -219,7 +227,6 @@ fun FullPlayerScreen(
                 LikeSongButton(song = currentSong)
             }
         }
-        Spacer(Modifier.height(4.dp))
         val artistId = currentSong?.primaryArtistId.orEmpty()
         Text(
             text = currentSong?.artist ?: "",
@@ -232,11 +239,11 @@ fun FullPlayerScreen(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier
+                .padding(top = 2.dp)
                 .clickable(enabled = artistId.isNotBlank()) { onArtist(artistId) }
-                .padding(vertical = 4.dp)
         )
 
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(16.dp))
 
         Slider(
             value = fraction,
@@ -350,8 +357,22 @@ fun FullPlayerScreen(
             }) {
                 Icon(imageVector = Icons.Filled.PlaylistAdd, contentDescription = "Add to playlist")
             }
-            IconButton(onClick = { currentSong?.let { onFullLyrics(it.id) } }) {
-                Icon(imageVector = Icons.Filled.Lyrics, contentDescription = "Lyrics")
+            val lyricsReady = lyricsState is LyricsUiState.Ready ||
+                lyricsState is LyricsUiState.Plain ||
+                lyricsState is LyricsUiState.Instrumental
+            IconButton(
+                onClick = { currentSong?.let { onFullLyrics(it.id) } },
+                enabled = lyricsReady && currentSong != null
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Lyrics,
+                    contentDescription = "Lyrics",
+                    tint = if (lyricsReady && currentSong != null) {
+                        MaterialTheme.colorScheme.onSurface
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                    }
+                )
             }
         }
     }
