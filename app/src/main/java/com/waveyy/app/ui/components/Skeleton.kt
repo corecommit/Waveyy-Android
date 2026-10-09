@@ -25,6 +25,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
@@ -96,20 +97,21 @@ fun SkeletonHomeScreen(
     modifier: Modifier = Modifier,
     header: @Composable () -> Unit = {}
 ) {
-    LazyVerticalGrid(
-        columns = GridCells.Fixed(2),
-        modifier = modifier
-            .fillMaxWidth()
-            .statusBarsPadding()
-            .padding(horizontal = 20.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(2) }) {
-            Column(modifier = Modifier.padding(horizontal = 20.dp)) {
-                header()
+    Box(modifier = modifier.fillMaxSize()) {
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(2),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp),
+            contentPadding = PaddingValues(top = 72.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(2) }) {
+                Column(modifier = Modifier.padding(horizontal = 20.dp)) {
+                    header()
+                }
             }
-        }
         item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(2) }) {
             SkeletonBox(
                 width = null,
@@ -303,5 +305,15 @@ fun SkeletonArtistScreen(modifier: Modifier = Modifier) {
         }
 
         Spacer(Modifier.height(24.dp))
+        }
+
+        // Header overlay, positioned identically to the loaded state.
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+        ) {
+            header()
+        }
     }
 }
