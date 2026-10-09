@@ -37,6 +37,6 @@ class MainViewModel @Inject constructor() : ViewModel() {
  */
 @Composable
 fun sharedMainViewModel(): MainViewModel {
-    val activity = LocalActivity.current
+    val activity = LocalActivity.current ?: error("MainViewModel requires an Activity host")
     return hiltViewModel(activity)
 }

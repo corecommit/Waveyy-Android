@@ -13,6 +13,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
  */
 @Composable
 fun sharedPlayerViewModel(): PlayerViewModel {
-    val activity = LocalActivity.current
+    val activity = LocalActivity.current ?: error("PlayerViewModel requires an Activity host")
     return hiltViewModel(activity)
 }

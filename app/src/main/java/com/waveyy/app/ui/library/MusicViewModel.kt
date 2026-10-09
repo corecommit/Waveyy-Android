@@ -95,6 +95,6 @@ class MusicViewModel @Inject constructor(
  */
 @Composable
 fun sharedMusicViewModel(): MusicViewModel {
-    val activity = LocalActivity.current
+    val activity = LocalActivity.current ?: error("MusicViewModel requires an Activity host")
     return hiltViewModel(activity)
 }
