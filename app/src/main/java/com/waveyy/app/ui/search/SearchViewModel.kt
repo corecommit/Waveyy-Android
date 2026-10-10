@@ -140,13 +140,22 @@ class SearchViewModel @Inject constructor(
                 .getOrDefault(emptyList())
         }
         val songDtos = rawDtos
-            // First dedupe exact duplicates by id.
+            // Rank by combined title + artist relevance to the ORIGINAL query,
+            // so exact matches rise above fuzzy partial matches regardless of
+            // which variant returned them.
+            .sortedByDescending { dto ->
+                SearchRanking.songRelevance(
+                    name = dto.name,
+                    artist = firstArtistName(dto),
+                    query = rawQuery
+                )
+            }
+            // Dedupe exact duplicates by id (keeps highest-scored variant).
             .distinctBy { it.id.ifBlank { null } ?: (it.name to firstArtistName(it)) }
-            // Then dedupe by normalized title, keeping the first occurrence
-            // (the highest-ranked one from the API).
+            // Dedupe by normalized title (keeps highest-scored variant).
             .distinctBy { SearchRanking.titleKey(it.name) }
         Timber.tag("SearchVM").d(
-            "title dedupe: raw=%d, after id=%d, after title=%d",
+            "title dedupe: raw=%d, after id=%d, after title=%d (ranked by songRelevance)",
             rawDtos.size,
             rawDtos.distinctBy { it.id }.size,
             songDtos.size

@@ -143,4 +143,39 @@ object SearchRanking {
         if (intersection > 0 || fuzzyTokenMatches > 0) return 40.0 + overlapBoost
         return 0.0
     }
+
+    /**
+     * Combined relevance score for a song against a search query. Higher is
+     * better. Exact title match is 100, prefix 85, contains 65, with a
+     * fuzzy-similarity falloff below. Adds a small token-overlap boost and
+     * a small artist-match boost so titles that repeat the query words and
+     * carry the queried artist rank above generic matches.
+     */
+    fun songRelevance(name: String?, artist: String?, query: String?): Double {
+        if (name.isNullOrBlank() || query.isNullOrBlank()) return 0.0
+        val n = normalizeText(name)
+        val q = normalizeText(query)
+        if (n.isEmpty() || q.isEmpty()) return 0.0
+        val titleScore = when {
+            n == q -> 100.0
+            n.startsWith("$q ") -> 85.0
+            n.contains(q) -> 65.0
+            q.contains(n) && n.length >= 4 -> 55.0
+            else -> {
+                val sim = similarity(n, q)
+                if (sim >= 0.72) sim * 60.0 else sim * 30.0
+            }
+        }
+        val qWords = q.split(" ").filter { it.length > 1 }
+        val nWords = n.split(" ").filter { it.length > 1 }
+        val overlap = qWords.count { it in nWords }
+        val overlapBoost = if (qWords.isNotEmpty()) {
+            overlap.toDouble() / qWords.size * 10.0
+        } else {
+            0.0
+        }
+        val a = normalizeText(artist.orEmpty())
+        val artistBoost = if (a.isNotEmpty() && (a.contains(q) || q.contains(a))) 8.0 else 0.0
+        return titleScore + overlapBoost + artistBoost
+    }
 }
