@@ -70,6 +70,10 @@ class HomeViewModel @Inject constructor(
     /** Screen state. */
     val state: StateFlow<HomeUiState> = mutableState.asStateFlow()
 
+    private val mutableRefreshing = MutableStateFlow(false)
+    /** True while a soft pull-to-refresh is in flight (state stays Success). */
+    val isRefreshing: StateFlow<Boolean> = mutableRefreshing.asStateFlow()
+
     /** Signed-in display name, or null for guests. */
     val userName: StateFlow<String?> = authRepository.sessionFlow
         .map { it?.displayName }
@@ -273,6 +277,28 @@ class HomeViewModel @Inject constructor(
             add(runCatching { repository.searchSongs(query).first() }.getOrDefault(emptyList()))
         }
         return Recommended(collected, emptyList())
+    }
+
+    /**
+     * Pull-to-refresh variant of [refresh]: does not flip state to Loading,
+     * so the grid stays visible while the network re-fetches. On success
+     * the new data replaces the current state silently; on failure the
+     * previous Success is retained (so the user doesn't lose their view
+     * over a transient error).
+     */
+    fun refreshQuiet() {
+        if (mutableRefreshing.value) return
+        viewModelScope.launch {
+            mutableRefreshing.value = true
+            runCatching { load() }
+                .onSuccess { mutableState.value = HomeUiState.Success(it) }
+                .onFailure {
+                    if (mutableState.value !is HomeUiState.Success) {
+                        mutableState.value = HomeUiState.Error(it.message ?: "Home failed")
+                    }
+                }
+            mutableRefreshing.value = false
+        }
     }
 
     companion object {

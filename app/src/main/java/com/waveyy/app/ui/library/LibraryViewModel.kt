@@ -37,6 +37,10 @@ class LibraryViewModel @Inject constructor(
     /** Screen state. */
     val state: StateFlow<LibraryState> = mutableState.asStateFlow()
 
+    private val mutableRefreshing = MutableStateFlow(false)
+    /** True while a soft pull-to-refresh is in flight (grid stays visible). */
+    val isRefreshing: StateFlow<Boolean> = mutableRefreshing.asStateFlow()
+
     init {
         refresh()
     }
@@ -63,6 +67,37 @@ class LibraryViewModel @Inject constructor(
                         userId = userId
                     )
                 }
+        }
+    }
+
+    /**
+     * Pull-to-refresh variant of [refresh]: reloads playlists without
+     * flipping the `loading` flag, so the grid stays visible while the
+     * network re-fetches.
+     */
+    fun refreshQuiet() {
+        if (mutableRefreshing.value) return
+        val userId = auth.currentUser()?.id
+        viewModelScope.launch {
+            mutableRefreshing.value = true
+            playlists.getPlaylists(userId)
+                .onSuccess { loaded ->
+                    mutableState.value = LibraryState(
+                        playlists = loaded,
+                        likedPlaylistId = if (userId.isNullOrBlank()) "local_liked"
+                                          else PlaylistRepository.likedPlaylistId(userId),
+                        loading = false,
+                        userId = userId
+                    )
+                }
+                .onFailure { error ->
+                    mutableState.value = mutableState.value.copy(
+                        loading = false,
+                        backendMissing = playlists.isBackendMissing(error),
+                        userId = userId
+                    )
+                }
+            mutableRefreshing.value = false
         }
     }
 

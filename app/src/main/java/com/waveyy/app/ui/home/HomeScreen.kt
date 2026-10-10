@@ -23,9 +23,11 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -80,6 +82,7 @@ fun HomeScreen(
     onDiscover: () -> Unit = {}
 ) {
     val state by viewModel.state.collectAsState()
+    val refreshing by viewModel.isRefreshing.collectAsState()
     LaunchedEffect(Unit) {
         Timber.tag(MainActivity.WAVEYY_TIMING).d("HomeScreen first composition")
     }
@@ -130,6 +133,8 @@ fun HomeScreen(
                         onSearch = onSearch,
                         onSettings = onSettings,
                         onDiscover = onDiscover,
+                        isRefreshing = refreshing,
+                        onRefresh = viewModel::refreshQuiet,
                         modifier = Modifier.padding(padding)
                     )
                 }
@@ -161,7 +166,7 @@ private fun HomeError(onRetry: () -> Unit, modifier: Modifier = Modifier) {
 }
 
 /** Loaded home: fixed header, greeting, hero, grids, artists rail. */
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 private fun HomeContent(
     sections: HomeSections,
@@ -171,6 +176,8 @@ private fun HomeContent(
     onSearch: () -> Unit,
     onSettings: () -> Unit,
     onDiscover: () -> Unit,
+    isRefreshing: Boolean,
+    onRefresh: () -> Unit,
     modifier: Modifier = Modifier,
     mainVm: MainViewModel = sharedMainViewModel()
 ) {
@@ -194,106 +201,112 @@ private fun HomeContent(
 
     Box(modifier = modifier.fillMaxSize()) {
         // Content fills the whole screen, including behind the header.
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(2),
-            modifier = Modifier
-                .fillMaxSize()
-                .hazeSource(state = hazeState),
-            state = gridState,
-            contentPadding = PaddingValues(
-                start = 20.dp,
-                end = 20.dp,
-                top = gridTopPadding,
-                bottom = chromeBottom
-            ),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh = onRefresh,
+            modifier = Modifier.fillMaxSize()
         ) {
-        if (hero != null) {
-            item(span = { GridItemSpan(2) }) {
-                HeroCard(
-                    song = hero,
-                    songs = sections.trending,
-                    onPlaySong = onPlaySong,
-                    modifier = Modifier.padding(top = 8.dp)
-                )
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(2),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .hazeSource(state = hazeState),
+                state = gridState,
+                contentPadding = PaddingValues(
+                    start = 20.dp,
+                    end = 20.dp,
+                    top = gridTopPadding,
+                    bottom = chromeBottom
+                ),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+            if (hero != null) {
+                item(span = { GridItemSpan(2) }) {
+                    HeroCard(
+                        song = hero,
+                        songs = sections.trending,
+                        onPlaySong = onPlaySong,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                }
             }
-        }
-        if (sections.recent.isNotEmpty()) {
-            item(span = { GridItemSpan(2) }) {
-                GridSectionTitle("Continue")
+            if (sections.recent.isNotEmpty()) {
+                item(span = { GridItemSpan(2) }) {
+                    GridSectionTitle("Continue")
+                }
+                items(sections.recent, key = { it.id }) { song ->
+                    val index = sections.recent.indexOf(song)
+                    GridSongCard(
+                        song = song,
+                        onPlay = { onPlaySong(QueueSource.HomeFeed(sections.recent), index) }
+                    )
+                }
             }
-            items(sections.recent, key = { it.id }) { song ->
-                val index = sections.recent.indexOf(song)
-                GridSongCard(
-                    song = song,
-                    onPlay = { onPlaySong(QueueSource.HomeFeed(sections.recent), index) }
-                )
+            if (sections.recommended.isNotEmpty()) {
+                item(span = { GridItemSpan(2) }) {
+                    GridSectionTitle("Made for You")
+                }
+                items(sections.recommended, key = { it.id }) { song ->
+                    val index = sections.recommended.indexOf(song)
+                    GridSongCard(
+                        song = song,
+                        onPlay = { onPlaySong(QueueSource.HomeFeed(sections.recommended), index) }
+                    )
+                }
             }
-        }
-        if (sections.recommended.isNotEmpty()) {
-            item(span = { GridItemSpan(2) }) {
-                GridSectionTitle("Made for You")
-            }
-            items(sections.recommended, key = { it.id }) { song ->
-                val index = sections.recommended.indexOf(song)
-                GridSongCard(
-                    song = song,
-                    onPlay = { onPlaySong(QueueSource.HomeFeed(sections.recommended), index) }
-                )
-            }
-        }
-        if (sections.popularArtists.isNotEmpty()) {
-            item(span = { GridItemSpan(2) }) {
-                GridSectionTitle("Popular Artists")
-            }
-            item(span = { GridItemSpan(2) }) {
-                androidx.compose.foundation.lazy.LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(sections.popularArtists, key = { it.id }) { artist ->
-                        ArtistCard(
-                            name = artist.name,
-                            imageUrl = artist.imageUrl,
-                            artistId = artist.id,
-                            onOpen = onArtist
-                        )
+            if (sections.popularArtists.isNotEmpty()) {
+                item(span = { GridItemSpan(2) }) {
+                    GridSectionTitle("Popular Artists")
+                }
+                item(span = { GridItemSpan(2) }) {
+                    androidx.compose.foundation.lazy.LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(sections.popularArtists, key = { it.id }) { artist ->
+                            ArtistCard(
+                                name = artist.name,
+                                imageUrl = artist.imageUrl,
+                                artistId = artist.id,
+                                onOpen = onArtist
+                            )
+                        }
                     }
                 }
             }
-        }
-        if (sections.popularAlbums.isNotEmpty()) {
-            item(span = { GridItemSpan(2) }) {
-                GridSectionTitle("Popular Albums")
+            if (sections.popularAlbums.isNotEmpty()) {
+                item(span = { GridItemSpan(2) }) {
+                    GridSectionTitle("Popular Albums")
+                }
+                items(sections.popularAlbums, key = { it.id }) { album ->
+                    GridAlbumCard(album = album, onOpen = { onAlbum(album.id) })
+                }
             }
-            items(sections.popularAlbums, key = { it.id }) { album ->
-                GridAlbumCard(album = album, onOpen = { onAlbum(album.id) })
+            if (sections.trending.isNotEmpty()) {
+                item(span = { GridItemSpan(2) }) {
+                    GridSectionTitle("Trending Now")
+                }
+                items(sections.trending, key = { it.id }) { song ->
+                    val index = sections.trending.indexOf(song)
+                    GridSongCard(
+                        song = song,
+                        onPlay = { onPlaySong(QueueSource.HomeFeed(sections.trending), index) }
+                    )
+                }
             }
-        }
-        if (sections.trending.isNotEmpty()) {
-            item(span = { GridItemSpan(2) }) {
-                GridSectionTitle("Trending Now")
+            if (sections.newReleases.isNotEmpty()) {
+                item(span = { GridItemSpan(2) }) {
+                    GridSectionTitle("New Releases")
+                }
+                items(sections.newReleases, key = { it.id }) { song ->
+                    val index = sections.newReleases.indexOf(song)
+                    GridSongCard(
+                        song = song,
+                        onPlay = { onPlaySong(QueueSource.HomeFeed(sections.newReleases), index) }
+                    )
+                }
+                }
             }
-            items(sections.trending, key = { it.id }) { song ->
-                val index = sections.trending.indexOf(song)
-                GridSongCard(
-                    song = song,
-                    onPlay = { onPlaySong(QueueSource.HomeFeed(sections.trending), index) }
-                )
-            }
-        }
-        if (sections.newReleases.isNotEmpty()) {
-            item(span = { GridItemSpan(2) }) {
-                GridSectionTitle("New Releases")
-            }
-            items(sections.newReleases, key = { it.id }) { song ->
-                val index = sections.newReleases.indexOf(song)
-                GridSongCard(
-                    song = song,
-                    onPlay = { onPlaySong(QueueSource.HomeFeed(sections.newReleases), index) }
-                )
-            }
-        }
         }
 
         HomeHeader(

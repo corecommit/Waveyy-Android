@@ -39,6 +39,10 @@ class DiscoverViewModel @Inject constructor(
     /** Screen state. */
     val state: StateFlow<DiscoverUiState> = mutableState.asStateFlow()
 
+    private val mutableRefreshing = MutableStateFlow(false)
+    /** True while a soft pull-to-refresh is in flight (state stays Success). */
+    val isRefreshing: StateFlow<Boolean> = mutableRefreshing.asStateFlow()
+
     init {
         refresh()
     }
@@ -60,6 +64,36 @@ class DiscoverViewModel @Inject constructor(
                 SongMapper.toDomainList(selected)
             }.onSuccess { mutableState.value = DiscoverUiState.Success(it) }
                 .onFailure { mutableState.value = DiscoverUiState.Error(it.message ?: "Discover failed") }
+        }
+    }
+
+    /**
+     * Pull-to-refresh variant of [refresh]: does not flip state to Loading,
+     * so the grid stays visible while the network re-fetches. On failure
+     * the previous Success is retained.
+     */
+    fun refreshQuiet() {
+        if (mutableRefreshing.value) return
+        viewModelScope.launch {
+            mutableRefreshing.value = true
+            runCatching {
+                val charts = repository.topCharts().first()
+                val dtos = charts.map { song ->
+                    com.waveyy.app.data.remote.dto.SongDto(
+                        id = song.id,
+                        name = song.name,
+                        playCount = song.playCount
+                    )
+                }
+                val (selected, _) = TrendingCurator.curate(dtos, 50)
+                SongMapper.toDomainList(selected)
+            }.onSuccess { mutableState.value = DiscoverUiState.Success(it) }
+                .onFailure {
+                    if (mutableState.value !is DiscoverUiState.Success) {
+                        mutableState.value = DiscoverUiState.Error(it.message ?: "Discover failed")
+                    }
+                }
+            mutableRefreshing.value = false
         }
     }
 }

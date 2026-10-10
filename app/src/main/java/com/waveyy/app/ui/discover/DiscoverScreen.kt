@@ -10,8 +10,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -31,6 +33,7 @@ import com.waveyy.app.ui.player.rememberChromeBottomReserve
  *
  * @param onPlaySong queue playback handler.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DiscoverScreen(
     viewModel: DiscoverViewModel = hiltViewModel(),
@@ -38,6 +41,7 @@ fun DiscoverScreen(
     onBack: () -> Unit = {}
 ) {
     val state by viewModel.state.collectAsState()
+    val refreshing by viewModel.isRefreshing.collectAsState()
     when (val current = state) {
         DiscoverUiState.Loading -> {
             SkeletonRows(count = 8)
@@ -47,42 +51,48 @@ fun DiscoverScreen(
         }
         is DiscoverUiState.Success -> {
             val chromeBottom = rememberChromeBottomReserve()
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
-                modifier = Modifier
-                    .fillMaxSize()
-                    .statusBarsPadding(),
-                contentPadding = PaddingValues(bottom = chromeBottom),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+            PullToRefreshBox(
+                isRefreshing = refreshing,
+                onRefresh = viewModel::refreshQuiet,
+                modifier = Modifier.fillMaxSize()
             ) {
-                item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(2) }) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        WaveyyBackButton(onClick = onBack)
-                        Text(
-                            text = "Discover",
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-                items(current.songs, key = { it.id }) { song ->
-                    DiscoverTile(
-                        song = song,
-                        onPlay = {
-                            val index = current.songs.indexOf(song)
-                            onPlaySong(
-                                com.waveyy.app.playback.QueueSource.Recommendations(current.songs),
-                                index
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .statusBarsPadding(),
+                    contentPadding = PaddingValues(bottom = chromeBottom),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(2) }) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            WaveyyBackButton(onClick = onBack)
+                            Text(
+                                text = "Discover",
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.Bold
                             )
                         }
-                    )
+                    }
+                    items(current.songs, key = { it.id }) { song ->
+                        DiscoverTile(
+                            song = song,
+                            onPlay = {
+                                val index = current.songs.indexOf(song)
+                                onPlaySong(
+                                    com.waveyy.app.playback.QueueSource.Recommendations(current.songs),
+                                    index
+                                )
+                            }
+                        )
+                    }
                 }
             }
         }
