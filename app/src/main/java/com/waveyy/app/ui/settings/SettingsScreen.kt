@@ -83,10 +83,11 @@ fun SettingsScreen(
     Scaffold(
         contentWindowInsets = WindowInsets(0),
         snackbarHost = { SnackbarHost(snackbarHostState) }
-    ) { _ ->
+    ) { scaffoldPadding ->
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
+                .padding(scaffoldPadding)
                 .background(MaterialTheme.colorScheme.background)
                 .statusBarsPadding(),
             contentPadding = PaddingValues(bottom = chromeBottom)
