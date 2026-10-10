@@ -119,6 +119,9 @@ fun FullPlayerScreen(
     val currentSong = queue.getOrNull(state.mediaIndex)
         ?: queue.firstOrNull { it.id == state.mediaId }
     val lyricsState by viewModel.lyrics.collectAsState()
+    LaunchedEffect(currentSong?.id) {
+        currentSong?.let { viewModel.loadLyrics(it) }
+    }
     val accent = rememberAlbumAccent(currentSong?.imageUrl, currentSong?.id)
     val vmError by viewModel.playerError.collectAsState()
     val snackbarHost = remember { SnackbarHostState() }

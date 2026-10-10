@@ -17,11 +17,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
@@ -34,10 +32,6 @@ import androidx.navigation.compose.navigation
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.navigation.navDeepLink
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.HazeStyle
-import dev.chrisbanes.haze.hazeEffect
-import dev.chrisbanes.haze.hazeSource
 import com.waveyy.app.BuildConfig
 import com.waveyy.app.playback.QueueSource
 import com.waveyy.app.ui.album.AlbumScreen
@@ -87,15 +81,12 @@ fun WaveyyNavHost(
         scope.launch { playerVm.playSource(source, index) }
     }
 
-    val hazeState = remember { HazeState() }
-
     Box(modifier = Modifier.fillMaxSize()) {
         NavHost(
             navController = navController,
             startDestination = Graph.ROOT,
             modifier = Modifier
-                .fillMaxSize()
-                .hazeSource(state = hazeState),
+                .fillMaxSize(),
             enterTransition = {
                 fadeIn(animationSpec = tween(TRANSITION_MILLIS)) +
                     slideInHorizontally(animationSpec = tween(TRANSITION_MILLIS)) { it / 3 }
@@ -223,15 +214,6 @@ fun WaveyyNavHost(
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
                     .navigationBarsPadding()
-                    .hazeEffect(
-                        state = hazeState,
-                    style = HazeStyle(
-                        backgroundColor = Color.Transparent,
-                        tint = null,
-                        blurRadius = 30.dp,
-                        noiseFactor = 0f
-                    )
-                    )
                     .padding(bottom = 16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {

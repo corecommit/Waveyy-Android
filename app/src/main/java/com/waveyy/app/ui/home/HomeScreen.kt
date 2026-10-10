@@ -302,9 +302,9 @@ private fun HomeContent(
                     state = hazeState,
                     style = HazeStyle(
                         // 100% transparent surface; only the blur does the work.
-                        backgroundColor = Color.Transparent,
+                        backgroundColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.55f),
                         tint = null,
-                        blurRadius = 30.dp,
+                        blurRadius = 40.dp,
                         noiseFactor = 0f
                     )
                 )
