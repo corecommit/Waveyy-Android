@@ -249,7 +249,7 @@ fun WaveyyNavHost(
                     onDestination = { route ->
                         val currentBase = currentRoute?.substringBefore("?")
                         Timber.tag("WaveyyNav").d(
-                            "pill tap: route=$route current=$currentBase hideChrome=$hideChrome backstack=${navController.currentBackStack.value.map { it.destination.route }}"
+                            "pill tap: route=$route current=$currentBase hideChrome=$hideChrome"
                         )
                         if (currentBase == route) {
                             mainVm.requestScrollToTop(route)
