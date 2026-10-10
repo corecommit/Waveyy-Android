@@ -70,6 +70,7 @@ class PlaybackConnection @Inject constructor(
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var controller: MediaController? = null
     private var tickerStarted = false
+    private var playbackGeneration: Long = 0L
 
     init {
         // Reconnect at startup so a running PlaybackService (e.g. after a
@@ -141,6 +142,34 @@ class PlaybackConnection @Inject constructor(
         controller.prepare()
         controller.play()
     }
+
+    /**
+     * Starts playback of exactly one song. Clears any existing queue first, so
+     * the controller's mediaItemCount and the caller's domain queue can be
+     * rebuilt in lockstep from this point forward.
+     *
+     * This is the only method that should be used to START playback. Queue
+     * growth after this happens exclusively through [appendItems] — the queue
+     * is never replaced mid-session, which is what keeps the controller's
+     * currentMediaItemIndex aligned with the domain queue's index.
+     */
+    suspend fun playSingleItem(item: MediaItem) {
+        connect()
+        val controller = controllerFuture?.await() ?: return
+        playbackGeneration++
+        controller.clearMediaItems()
+        controller.setMediaItem(item)
+        controller.prepare()
+        controller.play()
+    }
+
+    /**
+     * Current playback generation. Increments every time playSingleItem runs.
+     * Callers doing background backfill should capture this before the async
+     * work starts and check it is unchanged before appending — a changed
+     * generation means a new tap superseded the in-flight queue.
+     */
+    fun currentGeneration(): Long = playbackGeneration
 
     /**
      * Appends [items] to the controller queue without touching the current
