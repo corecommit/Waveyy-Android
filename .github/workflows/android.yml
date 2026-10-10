@@ -13,6 +13,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Decode debug keystore
+        run: |
+          mkdir -p app
+          echo "${{ secrets.DEBUG_KEYSTORE_BASE64 }}" | base64 -d > app/debug.keystore
+          ls -la app/debug.keystore
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
