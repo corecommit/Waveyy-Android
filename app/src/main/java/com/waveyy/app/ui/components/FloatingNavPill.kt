@@ -56,8 +56,8 @@ fun FloatingNavPill(
     Surface(
         modifier = modifier.height(64.dp),
         shape = RoundedCornerShape(percent = 50),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        shadowElevation = 6.dp
+        color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.35f),
+        shadowElevation = 0.dp
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 12.dp),
