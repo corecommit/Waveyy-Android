@@ -240,6 +240,9 @@ fun WaveyyNavHost(
                         onExpand = {
                             val id = playback.mediaId ?: "current"
                             navController.navigate(Routes.withId(Routes.PLAYER, id))
+                        },
+                        onOpenLyrics = { songId ->
+                            navController.navigate(Routes.withId(Routes.FULL_LYRICS, songId))
                         }
                     )
                     Spacer(Modifier.height(12.dp))

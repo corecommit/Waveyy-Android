@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Delete
@@ -16,6 +17,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -45,7 +47,16 @@ fun QueueSheet(
         )
         return
     }
-    LazyColumn(modifier = modifier) {
+    val listState = rememberLazyListState()
+    LaunchedEffect(currentId) {
+        val idx = queue.indexOfFirst { it.id == currentId }
+        if (idx >= 0) {
+            // Header row occupies LazyColumn index 0; song at queue[idx]
+            // sits at LazyColumn index idx+1.
+            listState.animateScrollToItem(idx + 1)
+        }
+    }
+    LazyColumn(modifier = modifier, state = listState) {
         item {
             Row(
                 modifier = Modifier
