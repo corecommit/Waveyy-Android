@@ -74,7 +74,10 @@ fun WaveyyNavHost(
         ?: queue.firstOrNull { it.id == playback.mediaId }
     val backStack by navController.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route
-    val isPlayer = currentRoute?.startsWith("player") == true
+    // Chrome (mini-player + nav pill) is hidden on both the full player
+    // and the full-lyrics route, which supplies its own transport bar.
+    val hideChrome = currentRoute?.startsWith("player") == true ||
+        currentRoute?.startsWith("lyrics") == true
     val scope = rememberCoroutineScope()
 
     fun playSource(source: QueueSource, index: Int) {
@@ -207,7 +210,7 @@ fun WaveyyNavHost(
                 }
             }
         }
-        if (!isPlayer) {
+        if (!hideChrome) {
             // Bottom chrome as a glass overlay column pinned to the bottom.
             Column(
                 modifier = Modifier
