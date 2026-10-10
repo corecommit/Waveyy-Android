@@ -190,7 +190,7 @@ fun MiniPlayer(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(32.dp))
+                .clip(RoundedCornerShape(28.dp))
                 .background(MaterialTheme.colorScheme.surfaceContainerHigh)
                 .background(Color.Black.copy(alpha = 0.5f))
                 .graphicsLayer {
@@ -214,12 +214,12 @@ fun MiniPlayer(
                     scaleY = s
                 }
                 .clickable(onClick = onExpand)
-                .height(72.dp)
+                .height(64.dp)
                 .padding(horizontal = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
-                modifier = Modifier.size(56.dp),
+                modifier = Modifier.size(48.dp),
                 contentAlignment = Alignment.Center
             ) {
                 val fraction = if (state.durationMs > 0L) {
@@ -227,7 +227,7 @@ fun MiniPlayer(
                 } else {
                     0f
                 }
-                val strokeWidthPx = with(LocalDensity.current) { 3.dp.toPx() }
+                val strokeWidthPx = with(LocalDensity.current) { 2.dp.toPx() }
                 val trackColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.25f)
                 Canvas(modifier = Modifier.fillMaxSize()) {
                     val inset = strokeWidthPx / 2f
@@ -262,7 +262,7 @@ fun MiniPlayer(
                     imageUrl = currentSong.imageUrl,
                     contentDescription = currentSong.name,
                     modifier = Modifier
-                        .size(46.dp)
+                        .size(40.dp)
                         .clip(CircleShape)
                 )
             }
@@ -273,7 +273,7 @@ fun MiniPlayer(
             ) {
                 Text(
                     text = currentSong.name,
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -288,19 +288,19 @@ fun MiniPlayer(
             }
             Box(
                 modifier = Modifier
-                    .size(44.dp)
+                    .size(38.dp)
                     .clip(CircleShape)
                     .background(MaterialTheme.colorScheme.surfaceContainerHighest),
                 contentAlignment = Alignment.Center
             ) {
                 LikeSongButton(
                     song = currentSong,
-                    modifier = Modifier.size(32.dp)
+                    modifier = Modifier.size(26.dp)
                 )
             }
             Box(
                 modifier = Modifier
-                    .size(52.dp)
+                    .size(46.dp)
                     .clip(CircleShape)
                     .background(accent)
                     .clickable(
@@ -313,7 +313,7 @@ fun MiniPlayer(
                     imageVector = if (state.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
                     contentDescription = if (state.isPlaying) "Pause" else "Play",
                     tint = MaterialTheme.colorScheme.onPrimary,
-                    modifier = Modifier.size(28.dp)
+                    modifier = Modifier.size(24.dp)
                 )
             }
         }
