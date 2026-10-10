@@ -30,11 +30,11 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
@@ -284,8 +284,8 @@ fun FullLyricsScreen(
  * Inline transport bar for the full-lyrics route: seek slider with
  * elapsed/remaining labels and prev / play-pause / next controls.
  */
-@Composable
 @OptIn(ExperimentalMaterial3Api::class)
+@Composable
 private fun PlayerTransportBar(
     state: PlaybackState,
     onSeek: (Long) -> Unit,
