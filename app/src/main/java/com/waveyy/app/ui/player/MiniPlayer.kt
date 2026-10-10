@@ -122,7 +122,6 @@ fun MiniPlayer(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 12.dp)
-            .padding(bottom = 8.dp)
             .pointerInput(currentSong.id) {
                 detectDragGestures(
                     onDragStart = { hapticFired = false },
@@ -156,7 +155,7 @@ fun MiniPlayer(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(28.dp))
-                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.35f))
                 .background(accent.copy(alpha = 0.08f))
                 .graphicsLayer {
                     translationX = visualX.value
