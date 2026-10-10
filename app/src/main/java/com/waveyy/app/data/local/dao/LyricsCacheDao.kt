@@ -14,6 +14,17 @@ interface LyricsCacheDao {
     @Query("SELECT * FROM lyrics_race_cache WHERE songId = :songId AND ts >= :minTs LIMIT 1")
     suspend fun get(songId: String, minTs: Long): LyricsCacheEntity?
 
+    /**
+     * Fallback lookup by normalized title + artist. Used when the song id
+     * drifted (refresh / different source returned the same track under a
+     * new id) so the cache still hits.
+     */
+    @Query(
+        "SELECT * FROM lyrics_race_cache " +
+        "WHERE title = :title AND artist = :artist AND ts >= :minTs LIMIT 1"
+    )
+    suspend fun getByTitleArtist(title: String, artist: String, minTs: Long): LyricsCacheEntity?
+
     /** Inserts or replaces a winner entry. */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(entity: LyricsCacheEntity)

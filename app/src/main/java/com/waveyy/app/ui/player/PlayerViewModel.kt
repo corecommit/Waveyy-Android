@@ -469,8 +469,6 @@ class PlayerViewModel @Inject constructor(
      * (Retry button).
      */
     fun loadLyrics(song: Song, bypassCache: Boolean = false) {
-        mutableLyrics.value = LyricsUiState.Loading
-        mutableWinner.value = null
         viewModelScope.launch {
             val auto = userPrefs.lyricsModeFlow().first() != UserPrefs.LYRICS_MODE_PREFERRED
             val preferred = userPrefs.lyricsProviderFlow().first()
@@ -478,6 +476,26 @@ class PlayerViewModel @Inject constructor(
                 mutableLyrics.value = LyricsUiState.Empty
                 return@launch
             }
+
+            // Cache-first: when fresh lyrics are already stored, render them
+            // immediately without flashing Loading. Cuts the lyrics-panel
+            // open time on repeat visits to ~0.
+            if (!bypassCache) {
+                val cached = lyricsRace.getCachedFast(
+                    songId = song.id,
+                    title = song.name,
+                    artist = song.artist
+                )
+                if (cached != null) {
+                    mutableWinner.value = cached
+                    mutableLyrics.value = raceStateOf(cached.result)
+                    return@launch
+                }
+            }
+
+            // Cache miss — show Loading and race.
+            mutableLyrics.value = LyricsUiState.Loading
+            mutableWinner.value = null
             val raced = lyricsRace.getLyrics(
                 songId = song.id,
                 artist = song.artist,

@@ -316,7 +316,7 @@ private fun PlayerTransportBar(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(3.dp)
+                        .height(6.dp)
                         .clip(RoundedCornerShape(50))
                         .background(MaterialTheme.colorScheme.surfaceContainerHigh)
                 ) {

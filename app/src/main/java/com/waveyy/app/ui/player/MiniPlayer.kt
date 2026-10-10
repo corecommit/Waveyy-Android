@@ -11,6 +11,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -65,8 +66,10 @@ import kotlin.math.abs
 /**
  * Floating pill mini-player: rounded thumb, title/artist, like + play
  * controls. Sits 8.dp above the bottom bar with 12.dp side margins.
- * Tap (outside buttons) opens the full player. Four-way swipe:
- * left = next, right = previous, down = pause + hide, up = full player.
+ * Tap opens the full player. Axis-locked swipe:
+ * left = next, right = previous, down = pause + hide. Upward drags do
+ * nothing. The heart/play controls stay fixed on screen while the pill
+ * slides.
  * Ports `components/player/mini-player.jsx`.
  *
  * @param connection playback connection.
@@ -94,6 +97,7 @@ fun MiniPlayer(
     var rawDragX by remember(currentSong.id) { mutableFloatStateOf(0f) }
     var rawDragY by remember(currentSong.id) { mutableFloatStateOf(0f) }
     var isDragging by remember(currentSong.id) { mutableStateOf(false) }
+    var dragAxis by remember(currentSong.id) { mutableStateOf<DragAxis?>(null) }
     val thresholdPx = with(LocalDensity.current) { 80.dp.toPx() }
     val maxVisualPx = with(LocalDensity.current) { 150.dp.toPx() }
 
@@ -108,7 +112,8 @@ fun MiniPlayer(
         settledX.value
     }
     val visualY: Float = if (isDragging) {
-        rawDragY.coerceIn(-maxVisualPx, maxVisualPx)
+        // No upward motion: clamp to [0, maxVisualPx].
+        rawDragY.coerceIn(0f, maxVisualPx)
     } else {
         settledY.value
     }
@@ -128,24 +133,28 @@ fun MiniPlayer(
                 detectDragGestures(
                     onDragStart = {
                         hapticFired = false
-                        // Continue from wherever the spring currently is (handles
-                        // re-grabbing mid-animation).
+                        dragAxis = null
                         rawDragX = settledX.value
                         rawDragY = settledY.value
                         isDragging = true
                     },
                     onDragEnd = {
-                        Timber.tag("MiniPlayer").d("drag end: x=$rawDragX y=$rawDragY")
-                        when {
-                            rawDragX > thresholdPx -> scope.launch { connection.previous() }
-                            rawDragX < -thresholdPx -> scope.launch { connection.next() }
-                            rawDragY > thresholdPx -> playerVm.stopAndHide()
+                        Timber.tag("MiniPlayer").d(
+                            "drag end: axis=$dragAxis x=$rawDragX y=$rawDragY"
+                        )
+                        when (dragAxis) {
+                            DragAxis.Horizontal -> when {
+                                rawDragX > thresholdPx -> scope.launch { connection.previous() }
+                                rawDragX < -thresholdPx -> scope.launch { connection.next() }
+                            }
+                            DragAxis.Vertical -> {
+                                if (rawDragY > thresholdPx) playerVm.stopAndHide()
+                            }
+                            null -> Unit
                         }
-                        // Capture release position, hand off to spring-back. Order matters:
-                        // snapTo fires first so the first composition after isDragging=false
-                        // reads the release position, then the spring animates to 0.
+                        // Spring back to center.
                         val releaseX = rawDragX.coerceIn(-maxVisualPx, maxVisualPx)
-                        val releaseY = rawDragY.coerceIn(-maxVisualPx, maxVisualPx)
+                        val releaseY = rawDragY.coerceIn(0f, maxVisualPx)
                         scope.launch {
                             settledX.snapTo(releaseX)
                             settledY.snapTo(releaseY)
@@ -169,15 +178,30 @@ fun MiniPlayer(
                                 )
                             }
                         }
-                        // rawDragX/rawDragY are intentionally NOT reset here. They are
-                        // re-seeded on next onDragStart from settledX/settledY.value.
+                        dragAxis = null
                     },
                     onDrag = { change, drag ->
                         change.consume()
-                        // Raw drag: unbounded, drives the action threshold.
-                        rawDragX += drag.x
-                        rawDragY += drag.y
-                        val crossed = abs(rawDragX) > thresholdPx || abs(rawDragY) > thresholdPx
+                        // Lock to one axis on the first significant movement
+                        // so a mostly-horizontal drag never picks up Y motion
+                        // (and vice-versa). 3px dead zone avoids noise.
+                        if (dragAxis == null) {
+                            val ax = abs(drag.x)
+                            val ay = abs(drag.y)
+                            if (ax > 3f || ay > 3f) {
+                                dragAxis = if (ax >= ay) DragAxis.Horizontal else DragAxis.Vertical
+                            }
+                        }
+                        when (dragAxis) {
+                            DragAxis.Horizontal -> rawDragX += drag.x
+                            // Down-only: coerce to [0, maxVisualPx] so upward
+                            // drags don't move the pill at all.
+                            DragAxis.Vertical -> {
+                                rawDragY = (rawDragY + drag.y).coerceIn(0f, maxVisualPx)
+                            }
+                            null -> Unit
+                        }
+                        val crossed = abs(rawDragX) > thresholdPx || rawDragY > thresholdPx
                         if (crossed && !hapticFired) {
                             hapticFired = true
                             haptics.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -286,21 +310,27 @@ fun MiniPlayer(
                     overflow = TextOverflow.Ellipsis
                 )
             }
+            // Counter-translate the buttons so they stay anchored on screen
+            // while the pill slides. The outer Row's graphicsLayer moves
+            // everything by (+visualX, +visualY); the -visualX/-visualY here
+            // cancels that out for the controls only.
+            LikeSongButton(
+                song = currentSong,
+                modifier = Modifier
+                    .size(40.dp)
+                    .graphicsLayer {
+                        translationX = -visualX
+                        translationY = -visualY
+                    }
+            )
+            Spacer(Modifier.size(12.dp))
             Box(
                 modifier = Modifier
-                    .size(38.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surfaceContainerHighest),
-                contentAlignment = Alignment.Center
-            ) {
-                LikeSongButton(
-                    song = currentSong,
-                    modifier = Modifier.size(26.dp)
-                )
-            }
-            Box(
-                modifier = Modifier
-                    .size(46.dp)
+                    .size(40.dp)
+                    .graphicsLayer {
+                        translationX = -visualX
+                        translationY = -visualY
+                    }
                     .clip(CircleShape)
                     .background(accent)
                     .clickable(
@@ -313,7 +343,7 @@ fun MiniPlayer(
                     imageVector = if (state.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
                     contentDescription = if (state.isPlaying) "Pause" else "Play",
                     tint = MaterialTheme.colorScheme.onPrimary,
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(20.dp)
                 )
             }
         }
@@ -344,3 +374,6 @@ fun MiniPlayer(
         }
     }
 }
+
+/** Axis chosen at drag start; locked for the rest of the gesture. */
+private enum class DragAxis { Horizontal, Vertical }

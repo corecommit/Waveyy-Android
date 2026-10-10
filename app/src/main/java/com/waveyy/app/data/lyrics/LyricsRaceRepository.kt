@@ -49,6 +49,22 @@ class LyricsRaceRepository @Inject constructor(
         return winner
     }
 
+    /**
+     * Fast cache-only lookup: returns cached lyrics for [songId] when fresh,
+     * else a fallback hit keyed on (title, artist) to survive id drift,
+     * else null. Never races.
+     */
+    suspend fun getCachedFast(
+        songId: String,
+        title: String,
+        artist: String
+    ): LyricsRaceOrchestrator.Scored? {
+        val cutoff = System.currentTimeMillis() - CACHE_TTL_MILLIS
+        dao.get(songId, cutoff)?.let { return it.toScored() }
+        dao.getByTitleArtist(title, artist, cutoff)?.let { return it.toScored() }
+        return null
+    }
+
     /** Clears the race cache (Settings button). */
     suspend fun clearCache() {
         dao.clearAll()
@@ -86,7 +102,7 @@ class LyricsRaceRepository @Inject constructor(
     }
 
     companion object {
-        /** 7-day winner TTL. */
-        const val CACHE_TTL_MILLIS = 7L * 24L * 3600_000L
+        /** 30-day winner TTL. */
+        const val CACHE_TTL_MILLIS = 30L * 24L * 3600_000L
     }
 }
