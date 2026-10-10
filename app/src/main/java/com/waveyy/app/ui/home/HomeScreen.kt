@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
@@ -37,6 +38,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -176,6 +178,9 @@ private fun HomeContent(
     val gridState = rememberLazyGridState()
     val chromeBottom = rememberChromeBottomReserve()
     val hazeState = remember { HazeState() }
+    val density = LocalDensity.current
+    val statusTop = with(density) { WindowInsets.statusBars.getTop(density).toDp() }
+    val gridTopPadding = statusTop + 64.dp
 
     LaunchedEffect(Unit) {
         mainVm.scrollToTop
@@ -198,7 +203,7 @@ private fun HomeContent(
             contentPadding = PaddingValues(
                 start = 20.dp,
                 end = 20.dp,
-                top = 72.dp,        // room for the header above
+                top = gridTopPadding,
                 bottom = chromeBottom
             ),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -301,8 +306,9 @@ private fun HomeContent(
                 .hazeEffect(
                     state = hazeState,
                     style = HazeStyle(
-                        // 100% transparent surface; only the blur does the work.
-                        backgroundColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.55f),
+                        // Dark glass: 85%-opaque near-black so artwork behind reads as
+                        // blur, not colour bleed.
+                        backgroundColor = MaterialTheme.colorScheme.background.copy(alpha = 0.85f),
                         tint = null,
                         blurRadius = 40.dp,
                         noiseFactor = 0f

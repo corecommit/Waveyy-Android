@@ -23,6 +23,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 
@@ -56,7 +57,7 @@ fun FloatingNavPill(
     Surface(
         modifier = modifier.height(64.dp),
         shape = RoundedCornerShape(percent = 50),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.35f),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
         shadowElevation = 0.dp
     ) {
         Row(
@@ -70,7 +71,7 @@ fun FloatingNavPill(
                     targetValue = if (selected) {
                         MaterialTheme.colorScheme.primary
                     } else {
-                        MaterialTheme.colorScheme.surfaceContainerHigh
+                        Color.Transparent
                     },
                     animationSpec = tween(200),
                     label = "pillBg"
