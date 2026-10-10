@@ -13,6 +13,21 @@ object WaveyyPalette {
     /** --background, --card, --popover: near-black blue. */
     val Background = Color(0xFF09090B)
 
+    /** Bright emerald — the app's primary accent. */
+    val Emerald = Color(0xFF10B981)
+
+    /** Lighter emerald for emphasis / hover states. */
+    val EmeraldBright = Color(0xFF34D399)
+
+    /** Dark emerald — containers (chip backgrounds, tonal surfaces). */
+    val DeepGreen = Color(0xFF065F46)
+
+    /** Deepest emerald — primary container surfaces. */
+    val DeepGreenDark = Color(0xFF064E3B)
+
+    /** Near-black text on emerald surfaces (matches background). */
+    val OnEmerald = Color(0xFF09090B)
+
     /** --foreground and most --*-foreground roles: near-white. */
     val Foreground = Color(0xFFFAFAFA)
 
@@ -46,14 +61,14 @@ object WaveyyChartColors {
 
 /** Dark scheme: direct port of the web app's forced-dark theme. */
 val WaveyyDarkColorScheme = darkColorScheme(
-    primary = WaveyyPalette.Foreground,
-    onPrimary = WaveyyPalette.PrimaryForeground,
-    primaryContainer = WaveyyPalette.Secondary,
-    onPrimaryContainer = WaveyyPalette.Foreground,
-    secondary = WaveyyPalette.Secondary,
+    primary = WaveyyPalette.Emerald,
+    onPrimary = WaveyyPalette.OnEmerald,
+    primaryContainer = WaveyyPalette.DeepGreenDark,
+    onPrimaryContainer = WaveyyPalette.EmeraldBright,
+    secondary = WaveyyPalette.DeepGreen,
     onSecondary = WaveyyPalette.Foreground,
-    secondaryContainer = WaveyyPalette.Secondary,
-    onSecondaryContainer = WaveyyPalette.Foreground,
+    secondaryContainer = WaveyyPalette.DeepGreen,
+    onSecondaryContainer = WaveyyPalette.EmeraldBright,
     tertiary = WaveyyPalette.MutedForeground,
     onTertiary = WaveyyPalette.Background,
     tertiaryContainer = WaveyyPalette.Secondary,
