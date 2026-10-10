@@ -3,6 +3,7 @@ package com.waveyy.app.ui.player
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -10,6 +11,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -37,11 +39,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -155,8 +163,9 @@ fun MiniPlayer(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(28.dp))
+                .clip(RoundedCornerShape(32.dp))
                 .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                .background(Color.Black.copy(alpha = 0.5f))
                 .graphicsLayer {
                     translationX = visualX.value
                     translationY = visualY.value
@@ -170,17 +179,58 @@ fun MiniPlayer(
                     scaleY = s
                 }
                 .clickable(onClick = onExpand)
-                .height(64.dp)
-                .padding(horizontal = 8.dp),
+                .height(72.dp)
+                .padding(horizontal = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            AdaptiveImage(
-                imageUrl = currentSong.imageUrl,
-                contentDescription = currentSong.name,
-                modifier = Modifier
-                    .size(44.dp)
-                    .clip(RoundedCornerShape(12.dp))
-            )
+            Box(
+                modifier = Modifier.size(56.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                val fraction = if (state.durationMs > 0L) {
+                    (state.positionMs.toFloat() / state.durationMs).coerceIn(0f, 1f)
+                } else {
+                    0f
+                }
+                val strokeWidthPx = with(LocalDensity.current) { 3.dp.toPx() }
+                val trackColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.25f)
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    val inset = strokeWidthPx / 2f
+                    val arcSize = Size(
+                        width = size.width - strokeWidthPx,
+                        height = size.height - strokeWidthPx
+                    )
+                    // Dim track: full circle.
+                    drawArc(
+                        color = trackColor,
+                        startAngle = -90f,
+                        sweepAngle = 360f,
+                        useCenter = false,
+                        topLeft = Offset(inset, inset),
+                        size = arcSize,
+                        style = Stroke(width = strokeWidthPx, cap = StrokeCap.Round)
+                    )
+                    // Progress arc in accent, fills clockwise from 12 o'clock.
+                    if (fraction > 0f) {
+                        drawArc(
+                            color = accent,
+                            startAngle = -90f,
+                            sweepAngle = 360f * fraction,
+                            useCenter = false,
+                            topLeft = Offset(inset, inset),
+                            size = arcSize,
+                            style = Stroke(width = strokeWidthPx, cap = StrokeCap.Round)
+                        )
+                    }
+                }
+                AdaptiveImage(
+                    imageUrl = currentSong.imageUrl,
+                    contentDescription = currentSong.name,
+                    modifier = Modifier
+                        .size(46.dp)
+                        .clip(CircleShape)
+                )
+            }
             Column(
                 modifier = Modifier
                     .weight(1f)
@@ -188,7 +238,8 @@ fun MiniPlayer(
             ) {
                 Text(
                     text = currentSong.name,
-                    style = MaterialTheme.typography.titleSmall,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -202,7 +253,7 @@ fun MiniPlayer(
             }
             Box(
                 modifier = Modifier
-                    .size(40.dp)
+                    .size(44.dp)
                     .clip(CircleShape)
                     .background(MaterialTheme.colorScheme.surfaceContainerHighest),
                 contentAlignment = Alignment.Center
@@ -214,7 +265,7 @@ fun MiniPlayer(
             }
             Box(
                 modifier = Modifier
-                    .size(44.dp)
+                    .size(52.dp)
                     .clip(CircleShape)
                     .background(accent)
                     .clickable(
@@ -226,7 +277,8 @@ fun MiniPlayer(
                 Icon(
                     imageVector = if (state.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
                     contentDescription = if (state.isPlaying) "Pause" else "Play",
-                    tint = MaterialTheme.colorScheme.onPrimary
+                    tint = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.size(28.dp)
                 )
             }
         }
