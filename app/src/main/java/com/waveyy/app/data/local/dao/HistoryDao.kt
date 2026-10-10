@@ -24,4 +24,12 @@ interface HistoryDao {
             "(SELECT songId FROM history ORDER BY playedAt DESC LIMIT :size)"
     )
     suspend fun trimTo(size: Int)
+
+    /** All history rows (newest first, no cap). */
+    @Query("SELECT * FROM history ORDER BY playedAt DESC")
+    suspend fun all(): List<HistoryEntity>
+
+    /** Deletes all history rows. */
+    @Query("DELETE FROM history")
+    suspend fun clearAll()
 }

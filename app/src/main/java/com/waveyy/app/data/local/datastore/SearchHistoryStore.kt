@@ -50,6 +50,11 @@ class SearchHistoryStore @Inject constructor(
         save(emptyList())
     }
 
+    /** Restores a previously captured list (used for undo). */
+    suspend fun restore(queries: List<String>) {
+        save(queries.take(MAX_SIZE))
+    }
+
     private suspend fun save(queries: List<String>) {
         context.searchHistory.edit { prefs ->
             prefs[key] = Json.encodeToString(queries)
