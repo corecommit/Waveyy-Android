@@ -45,7 +45,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -185,10 +184,12 @@ fun PlaylistsScreen(
                 }
             }
 
-            items(state.playlists, key = { it.id }) { playlist ->
+            val gridPlaylists = state.playlists.filterNot {
+                it.id == state.likedPlaylistId
+            }
+            items(gridPlaylists, key = { it.id }) { playlist ->
                 PlaylistGridCard(
                     playlist = playlist,
-                    isLiked = playlist.id == state.likedPlaylistId,
                     onClick = { onOpen(playlist.id) }
                 )
             }
@@ -238,7 +239,6 @@ fun PlaylistsScreen(
 @Composable
 private fun PlaylistGridCard(
     playlist: Playlist,
-    isLiked: Boolean,
     onClick: () -> Unit
 ) {
     Column(
@@ -254,16 +254,7 @@ private fun PlaylistGridCard(
                 .clip(RoundedCornerShape(16.dp))
                 .background(MaterialTheme.colorScheme.surfaceContainerHigh)
         ) {
-            if (isLiked) {
-                Icon(
-                    imageVector = Icons.Filled.Favorite,
-                    contentDescription = null,
-                    tint = Color(0xFFE53E3E),
-                    modifier = Modifier
-                        .align(Alignment.Center)
-                        .size(48.dp)
-                )
-            } else if (playlist.songs.isNotEmpty()) {
+            if (playlist.songs.isNotEmpty()) {
                 AdaptiveImage(
                     imageUrl = playlist.songs.first().imageUrl,
                     contentDescription = playlist.name,

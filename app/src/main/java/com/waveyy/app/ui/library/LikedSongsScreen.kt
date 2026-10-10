@@ -139,8 +139,11 @@ fun LikedSongsScreen(
             Column(modifier = Modifier.weight(1f).padding(start = 4.dp)) {
                 Text(
                     text = "Liked Songs",
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    softWrap = false,
+                    overflow = TextOverflow.Ellipsis
                 )
                 val count = (state as? LikedSongsUiState.Ready)?.songs?.size ?: 0
                 Text(

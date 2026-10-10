@@ -28,8 +28,15 @@ android {
         applicationId = "com.waveyy.app"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
-        versionCode = libs.versions.versionCode.get().toInt()
-        versionName = libs.versions.versionName.get()
+        // CI passes -PciVersionName=1.0.1 and -PciVersionCode=<commit count>
+        // when building from a tag or a dev branch. Local builds fall back
+        // to libs.versions.toml. This keeps `libs.versions.toml` as a
+        // local-dev default and makes git tags the source of truth for
+        // released versions.
+        versionCode = (findProperty("ciVersionCode") as String?)?.toIntOrNull()
+            ?: libs.versions.versionCode.get().toInt()
+        versionName = (findProperty("ciVersionName") as String?)
+            ?: libs.versions.versionName.get()
 
         buildConfigField("String", "API_BASE_URL", "\"${localProperty("API_BASE_URL", "https://example.com/api/")}\"")
         buildConfigField("String", "SOCKET_URL", "\"${localProperty("SOCKET_URL", "https://example.com")}\"")
@@ -151,7 +158,6 @@ dependencies {
     implementation(libs.socketio.client)
 
     implementation(libs.timber)
-    debugImplementation(libs.leakcanary)
 
     testImplementation(libs.junit)
     testImplementation(libs.turbine)

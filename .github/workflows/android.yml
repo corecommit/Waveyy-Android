@@ -4,20 +4,43 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
+    tags: ['v*']
   pull_request:
     branches: [main]
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      version_name: ${{ steps.version.outputs.name }}
+      version_code: ${{ steps.version.outputs.code }}
+      is_release: ${{ steps.version.outputs.is_release }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Decode debug keystore
         run: |
           mkdir -p app
           echo "${{ secrets.DEBUG_KEYSTORE_BASE64 }}" | base64 -d > app/debug.keystore
           ls -la app/debug.keystore
+
+      - name: Compute version
+        id: version
+        run: |
+          COMMIT_COUNT=$(git rev-list --count HEAD)
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            VERSION_NAME="${GITHUB_REF#refs/tags/v}"
+            IS_RELEASE=true
+          else
+            VERSION_NAME="1.0.${COMMIT_COUNT}-dev"
+            IS_RELEASE=false
+          fi
+          echo "name=${VERSION_NAME}" >> "$GITHUB_OUTPUT"
+          echo "code=${COMMIT_COUNT}" >> "$GITHUB_OUTPUT"
+          echo "is_release=${IS_RELEASE}" >> "$GITHUB_OUTPUT"
+          echo "Version: ${VERSION_NAME} (code=${COMMIT_COUNT}, release=${IS_RELEASE})"
 
       - uses: actions/setup-java@v4
         with:
@@ -53,42 +76,82 @@ jobs:
         run: gradle :app:testDebugUnitTest --no-daemon --console=plain
 
       - name: Assemble debug
-        run: gradle :app:assembleDebug --no-daemon --console=plain
+        run: |
+          gradle :app:assembleDebug \
+            -PciVersionName=${{ steps.version.outputs.name }} \
+            -PciVersionCode=${{ steps.version.outputs.code }} \
+            --no-daemon --console=plain
 
-      - name: Upload APK
+      - name: Rename APK
+        run: |
+          mkdir -p dist
+          cp app/build/outputs/apk/debug/*.apk dist/waveyy.apk
+          ls -la dist/
+
+      - name: Upload APK (workflow artifact)
         uses: actions/upload-artifact@v4
         with:
           name: waveyy-debug-apk
-          path: app/build/outputs/apk/debug/*.apk
+          path: dist/waveyy.apk
           retention-days: 14
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/waveyy.apk
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+          name: "Waveyy ${{ steps.version.outputs.name }}"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Notify Discord — APK ready
         if: success()
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_RELEASES }}
+          VERSION_NAME: ${{ steps.version.outputs.name }}
+          IS_RELEASE: ${{ steps.version.outputs.is_release }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           COMMIT_URL: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
           SHA_SHORT: ${{ github.sha }}
           BRANCH: ${{ github.ref_name }}
           ACTOR: ${{ github.actor }}
           REPO: ${{ github.repository }}
+          DOWNLOAD_URL: "https://github.com/${{ github.repository }}/releases/latest/download/waveyy.apk"
         run: |
           SHA_SHORT="${SHA_SHORT:0:7}"
+          if [[ "${IS_RELEASE}" == "true" ]]; then
+            TITLE="🚀 **Waveyy ${VERSION_NAME} released**"
+            URL="${DOWNLOAD_URL}"
+            URL_LABEL="Direct download →"
+            COLOR=3066993
+          else
+            TITLE="✅ **New debug build** — \`${VERSION_NAME}\`"
+            URL="${RUN_URL}"
+            URL_LABEL="Grab the APK from Artifacts →"
+            COLOR=9807270
+          fi
           jq -n \
-            --arg run_url "$RUN_URL" \
+            --arg title "$TITLE" \
+            --arg url "$URL" \
+            --arg url_label "$URL_LABEL" \
+            --arg color "$COLOR" \
             --arg commit_url "$COMMIT_URL" \
             --arg sha "$SHA_SHORT" \
             --arg branch "$BRANCH" \
             --arg actor "$ACTOR" \
             --arg repo "$REPO" \
+            --arg version "$VERSION_NAME" \
             '{
-              content: "✅ **New debug APK ready** — \($repo)",
+              content: $title,
               embeds: [{
-                title: "Download waveyy-debug-apk →",
-                url: $run_url,
-                description: "Open the run page and grab the APK from the **Artifacts** section.",
-                color: 3066993,
+                title: $url_label,
+                url: $url,
+                color: ($color | tonumber),
                 fields: [
+                  {name: "Version", value: $version, inline: true},
                   {name: "Branch", value: "`\($branch)`", inline: true},
                   {name: "Commit", value: "[`\($sha)`](\($commit_url))", inline: true},
                   {name: "Triggered by", value: $actor, inline: true}
@@ -129,131 +192,6 @@ jobs:
             --arg repo "$REPO" \
             '{
               content: "❌ **Build failed** — \($repo)",
-              embeds: [{
-                title: "View failed run →",
-                url: $run_url,
-                color: 15158332,
-                fields: [
-                  {name: "Branch", value: "`\($branch)`", inline: true},
-                  {name: "Commit", value: "[`\($sha)`](\($commit_url))", inline: true},
-                  {name: "Triggered by", value: $actor, inline: true}
-                ],
-                timestamp: (now | todate)
-              }]
-            }' | curl -sf -X POST -H "Content-Type: application/json" -d @- "$DISCORD_WEBHOOK"
-
-  # Optional signed release bundle. The gate lives in shell (not in a
-  # job-level `if`), so an unconfigured keystore can never invalidate the
-  # workflow: the job simply skips the bundle step.
-  release:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-
-      - uses: android-actions/setup-android@v3
-        with:
-          packages: ''
-
-      - uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.11.1'
-
-      - name: Write local.properties
-        run: |
-          cat > local.properties <<EOF
-          sdk.dir=$ANDROID_SDK_ROOT
-          API_BASE_URL=${{ secrets.API_BASE_URL }}
-          SOCKET_URL=${{ secrets.SOCKET_URL }}
-          SUPABASE_URL=${{ secrets.SUPABASE_URL }}
-          SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
-          SAAVN_API_URL=${{ secrets.SAAVN_API_URL }}
-          RELEASE_KEYSTORE_PATH=$GITHUB_WORKSPACE/release.keystore
-          RELEASE_KEYSTORE_PASSWORD=${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
-          RELEASE_KEY_ALIAS=${{ secrets.RELEASE_KEY_ALIAS }}
-          RELEASE_KEY_PASSWORD=${{ secrets.RELEASE_KEY_PASSWORD }}
-          EOF
-
-      - name: Decode keystore or skip release
-        run: |
-          if [ -z "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" ]; then
-            echo "SKIP_RELEASE=true" >> "$GITHUB_ENV"
-            echo "No keystore secret; bundle step will skip."
-          else
-            echo "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" | base64 -d > release.keystore
-          fi
-
-      - name: Bundle release
-        if: env.SKIP_RELEASE != 'true'
-        run: gradle :app:bundleRelease --no-daemon --console=plain
-
-      - name: Upload AAB
-        if: env.SKIP_RELEASE != 'true'
-        uses: actions/upload-artifact@v4
-        with:
-          name: waveyy-release-aab
-          path: app/build/outputs/bundle/release/*.aab
-          retention-days: 30
-
-      - name: Notify Discord — release AAB ready
-        if: success() && env.SKIP_RELEASE != 'true'
-        env:
-          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_RELEASES }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          COMMIT_URL: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
-          SHA_SHORT: ${{ github.sha }}
-          BRANCH: ${{ github.ref_name }}
-          ACTOR: ${{ github.actor }}
-          REPO: ${{ github.repository }}
-        run: |
-          SHA_SHORT="${SHA_SHORT:0:7}"
-          jq -n \
-            --arg run_url "$RUN_URL" \
-            --arg commit_url "$COMMIT_URL" \
-            --arg sha "$SHA_SHORT" \
-            --arg branch "$BRANCH" \
-            --arg actor "$ACTOR" \
-            --arg repo "$REPO" \
-            '{
-              content: "📦 **New release AAB ready** — \($repo)",
-              embeds: [{
-                title: "Download waveyy-release-aab →",
-                url: $run_url,
-                color: 3447003,
-                fields: [
-                  {name: "Branch", value: "`\($branch)`", inline: true},
-                  {name: "Commit", value: "[`\($sha)`](\($commit_url))", inline: true},
-                  {name: "Triggered by", value: $actor, inline: true}
-                ],
-                timestamp: (now | todate)
-              }]
-            }' | curl -sf -X POST -H "Content-Type: application/json" -d @- "$DISCORD_WEBHOOK"
-
-      - name: Notify Discord — release failed
-        if: failure() || cancelled()
-        env:
-          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_WORKFLOWS }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          COMMIT_URL: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
-          SHA_SHORT: ${{ github.sha }}
-          BRANCH: ${{ github.ref_name }}
-          ACTOR: ${{ github.actor }}
-          REPO: ${{ github.repository }}
-        run: |
-          SHA_SHORT="${SHA_SHORT:0:7}"
-          jq -n \
-            --arg run_url "$RUN_URL" \
-            --arg commit_url "$COMMIT_URL" \
-            --arg sha "$SHA_SHORT" \
-            --arg branch "$BRANCH" \
-            --arg actor "$ACTOR" \
-            --arg repo "$REPO" \
-            '{
-              content: "❌ **Release job failed** — \($repo)",
               embeds: [{
                 title: "View failed run →",
                 url: $run_url,

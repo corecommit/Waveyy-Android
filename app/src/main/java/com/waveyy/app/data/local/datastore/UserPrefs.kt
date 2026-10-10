@@ -113,6 +113,12 @@ class UserPrefs @Inject constructor(
         /** Last-played position in millis. */
         const val LAST_PLAYED_POSITION_MS_KEY = "last-played-position-ms"
 
+        /** Tag of the newest release the user has already seen (popup gate). */
+        const val LAST_SEEN_UPDATE_TAG_KEY = "last-seen-update-tag"
+
+        /** Epoch millis of the last successful update check. */
+        const val LAST_UPDATE_CHECK_MS_KEY = "last-update-check-ms"
+
         /** Haptic feedback enabled. */
         const val HAPTICS_ENABLED_KEY = "haptics-enabled"
     }
@@ -281,6 +287,8 @@ class UserPrefs @Inject constructor(
     private val lyricsDebugKey = booleanPreferencesKey(LYRICS_DEBUG_KEY)
     private val lastPlayedSongIdKey = stringPreferencesKey(LAST_PLAYED_SONG_ID_KEY)
     private val lastPlayedPositionMsKey = longPreferencesKey(LAST_PLAYED_POSITION_MS_KEY)
+    private val lastSeenUpdateTagKey = stringPreferencesKey(LAST_SEEN_UPDATE_TAG_KEY)
+    private val lastUpdateCheckMsKey = longPreferencesKey(LAST_UPDATE_CHECK_MS_KEY)
     private val hapticsEnabledKey = booleanPreferencesKey(HAPTICS_ENABLED_KEY)
 
     /** Audio quality preference as a flow. */
@@ -317,5 +325,25 @@ class UserPrefs @Inject constructor(
     /** Persists the haptics toggle. */
     suspend fun setHapticsEnabled(enabled: Boolean) {
         context.userPrefs.edit { prefs -> prefs[hapticsEnabledKey] = enabled }
+    }
+
+    /** Tag of the newest release already shown to the user (dismissal gate). */
+    suspend fun lastSeenUpdateTag(): String? {
+        return context.userPrefs.data.map { it[lastSeenUpdateTagKey] }.first()
+    }
+
+    /** Records the tag of a release whose update popup has been dismissed. */
+    suspend fun setLastSeenUpdateTag(tag: String) {
+        context.userPrefs.edit { prefs -> prefs[lastSeenUpdateTagKey] = tag }
+    }
+
+    /** Epoch millis of the last successful check (0 when never). */
+    suspend fun lastUpdateCheckMs(): Long {
+        return context.userPrefs.data.map { it[lastUpdateCheckMsKey] ?: 0L }.first()
+    }
+
+    /** Records when the last successful check happened. */
+    suspend fun setLastUpdateCheckMs(ms: Long) {
+        context.userPrefs.edit { prefs -> prefs[lastUpdateCheckMsKey] = ms }
     }
 }

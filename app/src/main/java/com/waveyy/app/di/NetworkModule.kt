@@ -80,6 +80,25 @@ object NetworkModule {
     fun provideSpotifyRecApi(retrofit: Retrofit): SpotifyRecApi =
         retrofit.create(SpotifyRecApi::class.java)
 
+    /** GitHub REST API (releases endpoint). Uses a dedicated base URL. */
+    @Provides
+    @Singleton
+    @Named("github")
+    fun provideGitHubRetrofit(json: Json, client: OkHttpClient): Retrofit {
+        val contentType = "application/json".toMediaType()
+        return Retrofit.Builder()
+            .baseUrl("https://api.github.com/")
+            .client(client)
+            .addConverterFactory(json.asConverterFactory(contentType))
+            .build()
+    }
+
+    /** GitHub release API surface. */
+    @Provides
+    @Singleton
+    fun provideGitHubReleaseApi(@Named("github") retrofit: Retrofit): com.waveyy.app.data.remote.GitHubReleaseApi =
+        retrofit.create(com.waveyy.app.data.remote.GitHubReleaseApi::class.java)
+
     /**
      * Direct-deployment Retrofit, or null when `SAAVN_API_URL` is blank.
      * Covers the two calls with no proxy equivalent (song fetch, album

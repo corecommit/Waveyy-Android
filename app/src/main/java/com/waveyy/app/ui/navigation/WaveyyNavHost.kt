@@ -66,6 +66,9 @@ import com.waveyy.app.ui.MainViewModel
 import com.waveyy.app.ui.search.SearchScreen
 import com.waveyy.app.ui.settings.SettingsScreen
 import com.waveyy.app.ui.together.TogetherScreen
+import com.waveyy.app.ui.update.UpdateDialog
+import com.waveyy.app.ui.update.UpdateViewModel
+import com.waveyy.app.ui.update.sharedUpdateViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import timber.log.Timber
@@ -360,6 +363,24 @@ fun WaveyyNavHost(
                     )
                 }
             }
+        }
+
+        // ─── Global update popup ───
+        val updateVm: UpdateViewModel = sharedUpdateViewModel()
+        val updateState by updateVm.state.collectAsState()
+        val update = updateState.latest
+        if (update != null && updateState.showPopup) {
+            UpdateDialog(
+                update = update,
+                downloading = updateState.downloading,
+                progress = updateState.progress,
+                error = updateState.error,
+                onDismiss = {
+                    updateVm.clearError()
+                    updateVm.dismiss()
+                },
+                onDownload = { updateVm.downloadAndInstall() }
+            )
         }
     }
 }
