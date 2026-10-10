@@ -73,6 +73,7 @@ fun WaveyyNavHost(
     val queue by playerVm.queue.collectAsState()
     val currentSong = queue.getOrNull(playback.mediaIndex)
         ?: queue.firstOrNull { it.id == playback.mediaId }
+        ?: queue.firstOrNull()
     val backStack by navController.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route
     // Chrome (mini-player + nav pill) is hidden on both the full player

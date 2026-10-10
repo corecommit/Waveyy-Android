@@ -76,24 +76,39 @@ class DiscoverViewModel @Inject constructor(
         if (mutableRefreshing.value) return
         viewModelScope.launch {
             mutableRefreshing.value = true
-            runCatching {
-                val charts = repository.topCharts().first()
-                val dtos = charts.map { song ->
-                    com.waveyy.app.data.remote.dto.SongDto(
-                        id = song.id,
-                        name = song.name,
-                        playCount = song.playCount
-                    )
-                }
-                val (selected, _) = TrendingCurator.curate(dtos, 50)
-                SongMapper.toDomainList(selected)
-            }.onSuccess { mutableState.value = DiscoverUiState.Success(it) }
-                .onFailure {
-                    if (mutableState.value !is DiscoverUiState.Success) {
-                        mutableState.value = DiscoverUiState.Error(it.message ?: "Discover failed")
+            val started = System.currentTimeMillis()
+            val loaded = kotlinx.coroutines.withTimeoutOrNull(REFRESH_TIMEOUT_MS) {
+                runCatching {
+                    val charts = repository.topCharts().first()
+                    val dtos = charts.map { song ->
+                        com.waveyy.app.data.remote.dto.SongDto(
+                            id = song.id,
+                            name = song.name,
+                            playCount = song.playCount
+                        )
                     }
-                }
+                    val (selected, _) = TrendingCurator.curate(dtos, 50)
+                    SongMapper.toDomainList(selected)
+                }.getOrNull()
+            }
+            if (loaded != null) {
+                mutableState.value = DiscoverUiState.Success(loaded)
+            } else if (mutableState.value !is DiscoverUiState.Success) {
+                mutableState.value = DiscoverUiState.Error("Refresh timed out")
+            }
+            val elapsed = System.currentTimeMillis() - started
+            if (elapsed < MIN_REFRESH_SPINNER_MS) {
+                kotlinx.coroutines.delay(MIN_REFRESH_SPINNER_MS - elapsed)
+            }
             mutableRefreshing.value = false
         }
+    }
+
+    private companion object {
+        /** Hard cap on quiet refresh. */
+        const val REFRESH_TIMEOUT_MS = 15_000L
+
+        /** Minimum spinner duration. */
+        const val MIN_REFRESH_SPINNER_MS = 600L
     }
 }

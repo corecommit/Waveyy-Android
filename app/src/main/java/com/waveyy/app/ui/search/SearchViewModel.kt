@@ -308,21 +308,31 @@ class SearchViewModel @Inject constructor(
         if (mutableQuery.value.isBlank()) return
         viewModelScope.launch {
             mutableRefreshing.value = true
-            runCatching { load(mutableQuery.value) }
-                .onSuccess {
-                    mutableState.value = it
-                    pendingHistoryAdd = false
-                }
-                .onFailure {
-                    if (mutableState.value !is SearchUiState.Success) {
-                        mutableState.value = SearchUiState.Error(it.message ?: "Search failed")
-                    }
-                }
+            val started = System.currentTimeMillis()
+            val loaded = kotlinx.coroutines.withTimeoutOrNull(REFRESH_TIMEOUT_MS) {
+                runCatching { load(mutableQuery.value) }.getOrNull()
+            }
+            if (loaded != null) {
+                mutableState.value = loaded
+                pendingHistoryAdd = false
+            } else if (mutableState.value !is SearchUiState.Success) {
+                mutableState.value = SearchUiState.Error("Refresh timed out")
+            }
+            val elapsed = System.currentTimeMillis() - started
+            if (elapsed < MIN_REFRESH_SPINNER_MS) {
+                kotlinx.coroutines.delay(MIN_REFRESH_SPINNER_MS - elapsed)
+            }
             mutableRefreshing.value = false
         }
     }
 
     companion object {
+        /** Hard cap on quiet refresh so the spinner can never hang. */
+        private const val REFRESH_TIMEOUT_MS = 15_000L
+
+        /** Minimum time the pull-to-refresh spinner stays visible. */
+        private const val MIN_REFRESH_SPINNER_MS = 600L
+
         private const val TOP_ARTIST_THRESHOLD = 50.0
         private const val MAX_SUGGESTIONS = 6
         private val GENERIC_SUFFIXES = listOf("song", "remix", "live")

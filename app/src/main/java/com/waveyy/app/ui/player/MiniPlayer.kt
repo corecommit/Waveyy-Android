@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -102,6 +103,8 @@ fun MiniPlayer(
 ) {
     val state by connection.state.collectAsState()
     val hidden by playerVm.miniPlayerHidden.collectAsStateWithLifecycle()
+    val isPreparing by playerVm.isPreparing.collectAsStateWithLifecycle()
+    val showSpinner = isPreparing || state.isBuffering
     val scope = rememberCoroutineScope()
     val haptics = LocalHapticFeedback.current
     val waveyyHaptics = rememberWaveyyHaptics()
@@ -115,7 +118,12 @@ fun MiniPlayer(
     var isDragging by remember(currentSong.id) { mutableStateOf(false) }
     var dragAxis by remember(currentSong.id) { mutableStateOf<DragAxis?>(null) }
     val thresholdPx = with(LocalDensity.current) { 80.dp.toPx() }
+    // Horizontal pill slide caps at the action threshold (80dp) so the
+    // anchored heart/play controls can never be clipped by the pill's
+    // own rounded edge. Vertical still travels further so hide feels
+    // deliberate.
     val maxVisualPx = with(LocalDensity.current) { 150.dp.toPx() }
+    val maxHorizontalPx = with(LocalDensity.current) { 80.dp.toPx() }
 
     // Release animation: snap back to center.
     val settledX = remember(currentSong.id) { Animatable(0f) }
@@ -123,7 +131,7 @@ fun MiniPlayer(
 
     // Rendered translation: raw while dragging, animated otherwise.
     val visualX: Float = if (isDragging) {
-        rawDragX.coerceIn(-maxVisualPx, maxVisualPx)
+        rawDragX.coerceIn(-maxHorizontalPx, maxHorizontalPx)
     } else {
         settledX.value
     }
@@ -173,7 +181,7 @@ fun MiniPlayer(
                             null -> Unit
                         }
                         // Spring back to center.
-                        val releaseX = rawDragX.coerceIn(-maxVisualPx, maxVisualPx)
+                        val releaseX = rawDragX.coerceIn(-maxHorizontalPx, maxHorizontalPx)
                         val releaseY = rawDragY.coerceIn(0f, maxVisualPx)
                         scope.launch {
                             settledX.snapTo(releaseX)
@@ -356,17 +364,15 @@ fun MiniPlayer(
                     overflow = TextOverflow.Ellipsis
                 )
             }
-            // Counter-translate the buttons so they stay anchored on screen
-            // while the pill slides. The outer Row's graphicsLayer moves
-            // everything by (+visualX, +visualY); the -visualX/-visualY here
-            // cancels that out for the controls only.
+            // Counter-translate on X only. Vertical drags move the whole
+            // pill (buttons included) — counter-translating Y would leave
+            // them floating while the rest of the pill slid down.
             LikeSongButton(
                 song = currentSong,
                 modifier = Modifier
                     .size(40.dp)
                     .graphicsLayer {
                         translationX = -visualX
-                        translationY = -visualY
                     }
             )
             Spacer(Modifier.size(12.dp))
@@ -375,7 +381,6 @@ fun MiniPlayer(
                     .size(40.dp)
                     .graphicsLayer {
                         translationX = -visualX
-                        translationY = -visualY
                     }
                     .clip(CircleShape)
                     .background(accent)
@@ -388,12 +393,20 @@ fun MiniPlayer(
                     },
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = if (state.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                    contentDescription = if (state.isPlaying) "Pause" else "Play",
-                    tint = MaterialTheme.colorScheme.onPrimary,
-                    modifier = Modifier.size(20.dp)
-                )
+                if (showSpinner) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Icon(
+                        imageVector = if (state.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                        contentDescription = if (state.isPlaying) "Pause" else "Play",
+                        tint = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
             }
         }
         // Directional hints that fade in while dragging.

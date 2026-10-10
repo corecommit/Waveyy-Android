@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.items
@@ -14,11 +16,13 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -51,10 +55,23 @@ fun DiscoverScreen(
         }
         is DiscoverUiState.Success -> {
             val chromeBottom = rememberChromeBottomReserve()
+            val density = LocalDensity.current
+            val indicatorTop = with(density) {
+                WindowInsets.statusBars.getTop(density).toDp()
+            } + 64.dp
             PullToRefreshBox(
                 isRefreshing = refreshing,
                 onRefresh = viewModel::refreshQuiet,
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize(),
+                indicator = {
+                    PullToRefreshDefaults.Indicator(
+                        state = it,
+                        isRefreshing = refreshing,
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .padding(top = indicatorTop)
+                    )
+                }
             ) {
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(2),

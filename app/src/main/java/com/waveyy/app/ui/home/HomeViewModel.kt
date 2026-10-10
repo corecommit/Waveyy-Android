@@ -93,8 +93,7 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private suspend fun load(): HomeSections {
-        val trending = loadTrending()
+    private suspend fun load(): HomeSections = coroutineScope {
         val recent = historyDao.recent(HISTORY_LIMIT).map { row ->
             Song(
                 id = row.songId,
@@ -107,15 +106,23 @@ class HomeViewModel @Inject constructor(
                 streams = emptyList()
             )
         }
-        val recommended = loadRecommended(recent)
-        return HomeSections(
+        // Rails are independent — run them in parallel. Cut refresh time
+        // from (trending → recommended → newReleases) sequential to the
+        // slowest single rail.
+        val trendingDeferred = async { loadTrending() }
+        val recommendedDeferred = async { loadRecommended(recent) }
+        val newReleasesDeferred = async { loadNewReleases() }
+        val trending = trendingDeferred.await()
+        val recommended = recommendedDeferred.await()
+        val newReleases = newReleasesDeferred.await()
+        HomeSections(
             trending = trending,
             popularArtists = popularArtistsOf(trending),
             popularAlbums = popularAlbumsOf(trending),
             recent = recent,
             recommended = recommended.songs,
             recommendedGenres = recommended.genres,
-            newReleases = loadNewReleases()
+            newReleases = newReleases
         )
     }
 
@@ -290,18 +297,32 @@ class HomeViewModel @Inject constructor(
         if (mutableRefreshing.value) return
         viewModelScope.launch {
             mutableRefreshing.value = true
-            runCatching { load() }
-                .onSuccess { mutableState.value = HomeUiState.Success(it) }
-                .onFailure {
-                    if (mutableState.value !is HomeUiState.Success) {
-                        mutableState.value = HomeUiState.Error(it.message ?: "Home failed")
-                    }
-                }
+            val started = System.currentTimeMillis()
+            val loaded = kotlinx.coroutines.withTimeoutOrNull(REFRESH_TIMEOUT_MS) {
+                runCatching { load() }.getOrNull()
+            }
+            if (loaded != null) {
+                mutableState.value = HomeUiState.Success(loaded)
+            } else if (mutableState.value !is HomeUiState.Success) {
+                mutableState.value = HomeUiState.Error("Refresh timed out")
+            }
+            // Minimum spinner duration so a fast refresh still gives
+            // visual feedback (otherwise the gesture feels unacknowledged).
+            val elapsed = System.currentTimeMillis() - started
+            if (elapsed < MIN_REFRESH_SPINNER_MS) {
+                kotlinx.coroutines.delay(MIN_REFRESH_SPINNER_MS - elapsed)
+            }
             mutableRefreshing.value = false
         }
     }
 
     companion object {
+        /** Hard cap on quiet refresh so the spinner can never hang. */
+        private const val REFRESH_TIMEOUT_MS = 15_000L
+
+        /** Minimum time the pull-to-refresh spinner stays visible. */
+        private const val MIN_REFRESH_SPINNER_MS = 600L
+
         private const val TRENDING_LIMIT = 20
         private const val NEW_RELEASE_LIMIT = 10
         private const val POPULAR_LIMIT = 12
