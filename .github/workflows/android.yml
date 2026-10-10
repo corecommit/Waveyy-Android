@@ -62,6 +62,41 @@ jobs:
           path: app/build/outputs/apk/debug/*.apk
           retention-days: 14
 
+      - name: Notify Discord — APK ready
+        if: success()
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_RELEASES }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          COMMIT_URL: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+          SHA_SHORT: ${{ github.sha }}
+          BRANCH: ${{ github.ref_name }}
+          ACTOR: ${{ github.actor }}
+          REPO: ${{ github.repository }}
+        run: |
+          SHA_SHORT="${SHA_SHORT:0:7}"
+          jq -n \
+            --arg run_url "$RUN_URL" \
+            --arg commit_url "$COMMIT_URL" \
+            --arg sha "$SHA_SHORT" \
+            --arg branch "$BRANCH" \
+            --arg actor "$ACTOR" \
+            --arg repo "$REPO" \
+            '{
+              content: "✅ **New debug APK ready** — \($repo)",
+              embeds: [{
+                title: "Download waveyy-debug-apk →",
+                url: $run_url,
+                description: "Open the run page and grab the APK from the **Artifacts** section.",
+                color: 3066993,
+                fields: [
+                  {name: "Branch", value: "`\($branch)`", inline: true},
+                  {name: "Commit", value: "[`\($sha)`](\($commit_url))", inline: true},
+                  {name: "Triggered by", value: $actor, inline: true}
+                ],
+                timestamp: (now | todate)
+              }]
+            }' | curl -sf -X POST -H "Content-Type: application/json" -d @- "$DISCORD_WEBHOOK"
+
       - name: Upload reports
         if: always()
         uses: actions/upload-artifact@v4
@@ -72,6 +107,40 @@ jobs:
             app/build/reports/lint-results-debug.html
             app/build/reports/detekt/
           retention-days: 14
+
+      - name: Notify Discord — build failed
+        if: failure() || cancelled()
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_WORKFLOWS }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          COMMIT_URL: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+          SHA_SHORT: ${{ github.sha }}
+          BRANCH: ${{ github.ref_name }}
+          ACTOR: ${{ github.actor }}
+          REPO: ${{ github.repository }}
+        run: |
+          SHA_SHORT="${SHA_SHORT:0:7}"
+          jq -n \
+            --arg run_url "$RUN_URL" \
+            --arg commit_url "$COMMIT_URL" \
+            --arg sha "$SHA_SHORT" \
+            --arg branch "$BRANCH" \
+            --arg actor "$ACTOR" \
+            --arg repo "$REPO" \
+            '{
+              content: "❌ **Build failed** — \($repo)",
+              embeds: [{
+                title: "View failed run →",
+                url: $run_url,
+                color: 15158332,
+                fields: [
+                  {name: "Branch", value: "`\($branch)`", inline: true},
+                  {name: "Commit", value: "[`\($sha)`](\($commit_url))", inline: true},
+                  {name: "Triggered by", value: $actor, inline: true}
+                ],
+                timestamp: (now | todate)
+              }]
+            }' | curl -sf -X POST -H "Content-Type: application/json" -d @- "$DISCORD_WEBHOOK"
 
   # Optional signed release bundle. The gate lives in shell (not in a
   # job-level `if`), so an unconfigured keystore can never invalidate the
@@ -129,3 +198,71 @@ jobs:
           name: waveyy-release-aab
           path: app/build/outputs/bundle/release/*.aab
           retention-days: 30
+
+      - name: Notify Discord — release AAB ready
+        if: success() && env.SKIP_RELEASE != 'true'
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_RELEASES }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          COMMIT_URL: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+          SHA_SHORT: ${{ github.sha }}
+          BRANCH: ${{ github.ref_name }}
+          ACTOR: ${{ github.actor }}
+          REPO: ${{ github.repository }}
+        run: |
+          SHA_SHORT="${SHA_SHORT:0:7}"
+          jq -n \
+            --arg run_url "$RUN_URL" \
+            --arg commit_url "$COMMIT_URL" \
+            --arg sha "$SHA_SHORT" \
+            --arg branch "$BRANCH" \
+            --arg actor "$ACTOR" \
+            --arg repo "$REPO" \
+            '{
+              content: "📦 **New release AAB ready** — \($repo)",
+              embeds: [{
+                title: "Download waveyy-release-aab →",
+                url: $run_url,
+                color: 3447003,
+                fields: [
+                  {name: "Branch", value: "`\($branch)`", inline: true},
+                  {name: "Commit", value: "[`\($sha)`](\($commit_url))", inline: true},
+                  {name: "Triggered by", value: $actor, inline: true}
+                ],
+                timestamp: (now | todate)
+              }]
+            }' | curl -sf -X POST -H "Content-Type: application/json" -d @- "$DISCORD_WEBHOOK"
+
+      - name: Notify Discord — release failed
+        if: failure() || cancelled()
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_WORKFLOWS }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          COMMIT_URL: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+          SHA_SHORT: ${{ github.sha }}
+          BRANCH: ${{ github.ref_name }}
+          ACTOR: ${{ github.actor }}
+          REPO: ${{ github.repository }}
+        run: |
+          SHA_SHORT="${SHA_SHORT:0:7}"
+          jq -n \
+            --arg run_url "$RUN_URL" \
+            --arg commit_url "$COMMIT_URL" \
+            --arg sha "$SHA_SHORT" \
+            --arg branch "$BRANCH" \
+            --arg actor "$ACTOR" \
+            --arg repo "$REPO" \
+            '{
+              content: "❌ **Release job failed** — \($repo)",
+              embeds: [{
+                title: "View failed run →",
+                url: $run_url,
+                color: 15158332,
+                fields: [
+                  {name: "Branch", value: "`\($branch)`", inline: true},
+                  {name: "Commit", value: "[`\($sha)`](\($commit_url))", inline: true},
+                  {name: "Triggered by", value: $actor, inline: true}
+                ],
+                timestamp: (now | todate)
+              }]
+            }' | curl -sf -X POST -H "Content-Type: application/json" -d @- "$DISCORD_WEBHOOK"
