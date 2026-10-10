@@ -17,9 +17,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
@@ -59,13 +61,15 @@ fun DiscoverScreen(
             val indicatorTop = with(density) {
                 WindowInsets.statusBars.getTop(density).toDp()
             } + 64.dp
+            val pullRefreshState = rememberPullToRefreshState()
             PullToRefreshBox(
                 isRefreshing = refreshing,
                 onRefresh = viewModel::refreshQuiet,
                 modifier = Modifier.fillMaxSize(),
+                state = pullRefreshState,
                 indicator = {
                     PullToRefreshDefaults.Indicator(
-                        state = it,
+                        state = pullRefreshState,
                         isRefreshing = refreshing,
                         modifier = Modifier
                             .align(Alignment.TopCenter)
