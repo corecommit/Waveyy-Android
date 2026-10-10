@@ -40,6 +40,7 @@ import androidx.compose.material.icons.outlined.SearchOff
 import androidx.compose.material.icons.outlined.WifiOff
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
@@ -49,6 +50,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -92,7 +94,7 @@ enum class SearchFilter(val label: String) {
  * Loading shows skeleton rows (never a spinner, never stale results);
  * blank+focused shows history; blank+unfocused shows trending suggestions.
  */
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun SearchScreen(
     viewModel: SearchViewModel = hiltViewModel(),
@@ -102,6 +104,7 @@ fun SearchScreen(
     onBack: () -> Unit = {}
 ) {
     val state by viewModel.state.collectAsState()
+    val refreshing by viewModel.isRefreshing.collectAsState()
     val suggestions by viewModel.suggestions.collectAsState()
     val history by viewModel.searchHistory.collectAsState()
     val activeQuery by viewModel.query.collectAsState()
@@ -235,53 +238,59 @@ fun SearchScreen(
         }
 
         // Scrollable body.
-        LazyColumn(
+        PullToRefreshBox(
+            isRefreshing = refreshing,
+            onRefresh = viewModel::refreshQuiet,
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(1f),
-            contentPadding = PaddingValues(bottom = chromeBottom),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+                .weight(1f)
         ) {
-            if (showHistory) {
-                item {
-                    HistoryList(
-                        history = history,
-                        onPick = { submit(it) },
-                        onRemove = viewModel::removeHistoryEntry,
-                        onClear = viewModel::clearHistory
-                    )
-                }
-                item {
-                    GenreChipsSection(
-                        onPick = { genre -> submit(genre) }
-                    )
-                }
-            } else {
-                item {
-                    Crossfade(
-                        targetState = state is SearchUiState.Loading,
-                        animationSpec = tween(200),
-                        label = "searchCrossfade"
-                    ) { loading ->
-                        if (loading) {
-                            SkeletonRows(count = 8)
-                        } else {
-                            ResultsBody(
-                                state = state,
-                                text = text,
-                                showSongs = showSongs,
-                                showAlbums = showAlbums,
-                                showArtists = showArtists,
-                                showPlaylists = showPlaylists,
-                                suggestions = suggestions,
-                                onPlaySong = onPlaySong,
-                                onAlbum = onAlbum,
-                                onArtist = onArtist,
-                                onPickSuggestion = { submit(it) },
-                                onRetry = viewModel::refresh
-                            )
-                        }
-                }
+            LazyColumn(
+                modifier = Modifier.fillMaxWidth(),
+                contentPadding = PaddingValues(bottom = chromeBottom),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                if (showHistory) {
+                    item {
+                        HistoryList(
+                            history = history,
+                            onPick = { submit(it) },
+                            onRemove = viewModel::removeHistoryEntry,
+                            onClear = viewModel::clearHistory
+                        )
+                    }
+                    item {
+                        GenreChipsSection(
+                            onPick = { genre -> submit(genre) }
+                        )
+                    }
+                } else {
+                    item {
+                        Crossfade(
+                            targetState = state is SearchUiState.Loading,
+                            animationSpec = tween(200),
+                            label = "searchCrossfade"
+                        ) { loading ->
+                            if (loading) {
+                                SkeletonRows(count = 8)
+                            } else {
+                                ResultsBody(
+                                    state = state,
+                                    text = text,
+                                    showSongs = showSongs,
+                                    showAlbums = showAlbums,
+                                    showArtists = showArtists,
+                                    showPlaylists = showPlaylists,
+                                    suggestions = suggestions,
+                                    onPlaySong = onPlaySong,
+                                    onAlbum = onAlbum,
+                                    onArtist = onArtist,
+                                    onPickSuggestion = { submit(it) },
+                                    onRetry = viewModel::refresh
+                                )
+                            }
+                    }
+                    }
                 }
             }
         }

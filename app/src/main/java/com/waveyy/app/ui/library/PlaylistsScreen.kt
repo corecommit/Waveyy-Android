@@ -24,10 +24,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.QueueMusic
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -60,6 +62,7 @@ import kotlinx.coroutines.flow.filter
  * backend-missing card when `supabase/playlists.sql` was never applied.
  * Guests get local-only DataStore playlists.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlaylistsScreen(
     viewModel: LibraryViewModel = hiltViewModel(),
@@ -67,6 +70,7 @@ fun PlaylistsScreen(
     mainVm: MainViewModel = sharedMainViewModel()
 ) {
     val state by viewModel.state.collectAsState()
+    val refreshing by viewModel.isRefreshing.collectAsState()
     var creating by remember { mutableStateOf(false) }
     var name by remember { mutableStateOf("") }
     val gridState = rememberLazyGridState()
@@ -86,108 +90,114 @@ fun PlaylistsScreen(
         return
     }
 
-    LazyVerticalGrid(
-        columns = GridCells.Fixed(2),
-        modifier = Modifier
-            .fillMaxSize()
-            .statusBarsPadding(),
-        state = gridState,
-        contentPadding = PaddingValues(
-            start = 16.dp,
-            end = 16.dp,
-            top = 8.dp,
-            bottom = chromeBottom
-        ),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+    PullToRefreshBox(
+        isRefreshing = refreshing,
+        onRefresh = viewModel::refreshQuiet,
+        modifier = Modifier.fillMaxSize()
     ) {
-        item(span = { GridItemSpan(2) }) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = stringResource(R.string.library_title),
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.weight(1f)
-                )
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                        .clickable { creating = true },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Add,
-                        contentDescription = stringResource(R.string.playlist_create),
-                        tint = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-            }
-        }
-
-        if (state.backendMissing) {
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(2),
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding(),
+            state = gridState,
+            contentPadding = PaddingValues(
+                start = 16.dp,
+                end = 16.dp,
+                top = 8.dp,
+                bottom = chromeBottom
+            ),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
             item(span = { GridItemSpan(2) }) {
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    color = MaterialTheme.colorScheme.surfaceContainerHigh
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = stringResource(R.string.playlist_backend_missing),
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(16.dp)
+                        text = stringResource(R.string.library_title),
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.weight(1f)
                     )
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                            .clickable { creating = true },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Add,
+                            contentDescription = stringResource(R.string.playlist_create),
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
                 }
             }
-        }
 
-        items(state.playlists, key = { it.id }) { playlist ->
-            PlaylistGridCard(
-                playlist = playlist,
-                isLiked = playlist.id == state.likedPlaylistId,
-                onClick = { onOpen(playlist.id) }
-            )
-        }
-
-        if (creating) {
-            item(span = { GridItemSpan(2) }) {
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    color = MaterialTheme.colorScheme.surfaceContainerHigh
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        WaveyyInput(
-                            value = name,
-                            onValueChange = { name = it },
-                            label = stringResource(R.string.playlist_name_hint),
-                            modifier = Modifier.fillMaxWidth()
+            if (state.backendMissing) {
+                item(span = { GridItemSpan(2) }) {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        color = MaterialTheme.colorScheme.surfaceContainerHigh
+                    ) {
+                        Text(
+                            text = stringResource(R.string.playlist_backend_missing),
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.padding(16.dp)
                         )
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 8.dp),
-                            horizontalArrangement = Arrangement.End
-                        ) {
-                            WaveyyButton(
-                                text = stringResource(R.string.action_cancel),
-                                onClick = { creating = false }
+                    }
+                }
+            }
+
+            items(state.playlists, key = { it.id }) { playlist ->
+                PlaylistGridCard(
+                    playlist = playlist,
+                    isLiked = playlist.id == state.likedPlaylistId,
+                    onClick = { onOpen(playlist.id) }
+                )
+            }
+
+            if (creating) {
+                item(span = { GridItemSpan(2) }) {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        color = MaterialTheme.colorScheme.surfaceContainerHigh
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            WaveyyInput(
+                                value = name,
+                                onValueChange = { name = it },
+                                label = stringResource(R.string.playlist_name_hint),
+                                modifier = Modifier.fillMaxWidth()
                             )
-                            WaveyyButton(
-                                text = stringResource(R.string.action_create),
-                                onClick = {
-                                    viewModel.createPlaylist(name)
-                                    name = ""
-                                    creating = false
-                                },
-                                modifier = Modifier.padding(start = 8.dp)
-                            )
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 8.dp),
+                                horizontalArrangement = Arrangement.End
+                            ) {
+                                WaveyyButton(
+                                    text = stringResource(R.string.action_cancel),
+                                    onClick = { creating = false }
+                                )
+                                WaveyyButton(
+                                    text = stringResource(R.string.action_create),
+                                    onClick = {
+                                        viewModel.createPlaylist(name)
+                                        name = ""
+                                        creating = false
+                                    },
+                                    modifier = Modifier.padding(start = 8.dp)
+                                )
+                            }
                         }
                     }
                 }

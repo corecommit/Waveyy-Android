@@ -68,6 +68,10 @@ class SearchViewModel @Inject constructor(
     /** Screen state. */
     val state: StateFlow<SearchUiState> = mutableState.asStateFlow()
 
+    private val mutableRefreshing = MutableStateFlow(false)
+    /** True while a soft pull-to-refresh is in flight. */
+    val isRefreshing: StateFlow<Boolean> = mutableRefreshing.asStateFlow()
+
     private val mutableSuggestions = MutableStateFlow<List<String>>(emptyList())
     /**
      * Generated suggestions for the current results (query + top artist /
@@ -292,6 +296,29 @@ class SearchViewModel @Inject constructor(
                 topSongs = emptyList(),
                 topAlbums = emptyList()
             )
+        }
+    }
+
+    /**
+     * Pull-to-refresh variant of [refresh]: keeps the current results
+     * visible while re-running the search. Does not flip state to Loading.
+     */
+    fun refreshQuiet() {
+        if (mutableRefreshing.value) return
+        if (mutableQuery.value.isBlank()) return
+        viewModelScope.launch {
+            mutableRefreshing.value = true
+            runCatching { load(mutableQuery.value) }
+                .onSuccess {
+                    mutableState.value = it
+                    pendingHistoryAdd = false
+                }
+                .onFailure {
+                    if (mutableState.value !is SearchUiState.Success) {
+                        mutableState.value = SearchUiState.Error(it.message ?: "Search failed")
+                    }
+                }
+            mutableRefreshing.value = false
         }
     }
 
