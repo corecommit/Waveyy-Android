@@ -144,9 +144,8 @@ class PlayerViewModel @Inject constructor(
     val lyricsMode: StateFlow<String> = userPrefs.lyricsModeFlow()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000L), UserPrefs.LYRICS_MODE_AUTO)
 
-    /** Race-winner caption toggle (debug builds only). */
-    val lyricsDebug: StateFlow<Boolean> = userPrefs.lyricsDebugFlow()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000L), false)
+    /** Race-winner caption toggle (always-on after phase 68). */
+    val lyricsDebug: StateFlow<Boolean> = MutableStateFlow(true).asStateFlow()
 
     private val mutableWinner = MutableStateFlow<LyricsRaceOrchestrator.Scored?>(null)
     /** Latest race winner (provider + score, for the debug caption). */
@@ -261,6 +260,11 @@ class PlayerViewModel @Inject constructor(
             userPrefs.setMiniPlayerHidden(false)
             val myPreparingId = tappedSong.id
             mutablePreparingFor.value = myPreparingId
+            // Stop the previous song immediately. Without this, the old
+            // track plays for 2-10s while the new one resolves. User-
+            // reported: "previous song keeps playing until the new song
+            // starts."
+            connection.pause()
 
             val originalTappedId = tappedSong.id
             var resolvedTapped: Song? = null

@@ -324,7 +324,7 @@ private fun PlayerTransportBar(
                         modifier = Modifier
                             .fillMaxWidth(sliderState.value)
                             .fillMaxHeight()
-                            .background(MaterialTheme.colorScheme.primary)
+                            .background(Color.White)
                     )
                 }
             }

@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.matchParentSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -70,7 +71,6 @@ import com.waveyy.app.playback.PlaybackConnection
 import com.waveyy.app.ui.components.AdaptiveImage
 import com.waveyy.app.ui.library.LikeSongButton
 import com.waveyy.app.ui.library.sharedMusicViewModel
-import com.waveyy.app.ui.theme.rememberAlbumAccent
 import com.waveyy.app.util.rememberWaveyyHaptics
 import kotlinx.coroutines.launch
 import timber.log.Timber
@@ -145,7 +145,6 @@ fun MiniPlayer(
     // Visible translation comes from visualX/visualY below (raw while
     // dragging, settled spring value otherwise).
     var hapticFired by remember(currentSong.id) { mutableStateOf(false) }
-    val accent = rememberAlbumAccent(currentSong.imageUrl, currentSong.id)
     var showQuickSheet by remember { mutableStateOf(false) }
     var quickSheetShowQueue by remember { mutableStateOf(false) }
     var showSleepDialog by remember { mutableStateOf(false) }
@@ -239,29 +238,28 @@ fun MiniPlayer(
             },
         contentAlignment = Alignment.Center
     ) {
-        Row(
+        // Layer 1: pill background. Fades out during drag, does NOT translate.
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
+                .matchParentSize()
                 .clip(RoundedCornerShape(28.dp))
                 .background(MaterialTheme.colorScheme.surfaceContainerHigh)
                 .background(Color.Black.copy(alpha = 0.5f))
                 .graphicsLayer {
+                    val dragMag = maxOf(abs(visualX), abs(visualY))
+                    alpha = (1f - dragMag / (thresholdPx * 1.2f)).coerceIn(0f, 1f)
+                }
+        )
+
+        // Layer 2: content — translates freely, no clipping.
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .graphicsLayer {
                     translationX = visualX
                     translationY = visualY
-                    // Alpha and scale driven by the *visual* offsets so they recover
-                    // during spring-back. Reading rawDragX/rawDragY here would keep
-                    // the pill faded after release, because those are not reset.
-                    val horizontalAlpha = (1f - abs(visualX) / (thresholdPx * 1.4f))
-                        .coerceIn(0.35f, 1f)
-                    val verticalAlpha = if (visualY > 0f) {
-                        (1f - visualY / (thresholdPx * 1.2f)).coerceIn(0.2f, 1f)
-                    } else {
-                        1f
-                    }
-                    alpha = minOf(horizontalAlpha, verticalAlpha)
-                    // Scale: 1.0 at rest, up to 1.03 mid-drag for a subtle "lift".
-                    val dragMagnitude = maxOf(abs(visualX), abs(visualY))
-                    val s = (1f + (dragMagnitude / thresholdPx) * 0.03f).coerceIn(1f, 1.03f)
+                    val s = (1f + maxOf(abs(visualX), abs(visualY)) / thresholdPx * 0.03f)
+                        .coerceIn(1f, 1.03f)
                     scaleX = s
                     scaleY = s
                 }
@@ -323,10 +321,10 @@ fun MiniPlayer(
                         size = arcSize,
                         style = Stroke(width = strokeWidthPx, cap = StrokeCap.Round)
                     )
-                    // Progress arc in accent, fills clockwise from 12 o'clock.
+                    // Progress arc, fills clockwise from 12 o'clock.
                     if (fraction > 0f) {
                         drawArc(
-                            color = accent,
+                            color = com.waveyy.app.ui.theme.WaveyyPalette.Emerald,
                             startAngle = -90f,
                             sweepAngle = 360f * fraction,
                             useCenter = false,
@@ -364,26 +362,16 @@ fun MiniPlayer(
                     overflow = TextOverflow.Ellipsis
                 )
             }
-            // Counter-translate on X only. Vertical drags move the whole
-            // pill (buttons included) — counter-translating Y would leave
-            // them floating while the rest of the pill slid down.
             LikeSongButton(
                 song = currentSong,
-                modifier = Modifier
-                    .size(40.dp)
-                    .graphicsLayer {
-                        translationX = -visualX
-                    }
+                modifier = Modifier.size(40.dp)
             )
             Spacer(Modifier.size(12.dp))
             Box(
                 modifier = Modifier
                     .size(40.dp)
-                    .graphicsLayer {
-                        translationX = -visualX
-                    }
                     .clip(CircleShape)
-                    .background(accent)
+                    .background(com.waveyy.app.ui.theme.WaveyyPalette.Emerald)
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null
@@ -396,14 +384,14 @@ fun MiniPlayer(
                 if (showSpinner) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(20.dp),
-                        color = MaterialTheme.colorScheme.onPrimary,
+                        color = com.waveyy.app.ui.theme.WaveyyPalette.DeepGreen,
                         strokeWidth = 2.dp
                     )
                 } else {
                     Icon(
                         imageVector = if (state.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
                         contentDescription = if (state.isPlaying) "Pause" else "Play",
-                        tint = MaterialTheme.colorScheme.onPrimary,
+                        tint = Color.Black,
                         modifier = Modifier.size(20.dp)
                     )
                 }
