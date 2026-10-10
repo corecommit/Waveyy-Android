@@ -90,38 +90,31 @@ fun MiniPlayer(
     if (state.mediaId == null || currentSong == null || hidden) return
     LaunchedEffect(currentSong.id) { playerVm.clearMiniPlayerHidden() }
 
-    // Raw drag amounts — unbounded, drive action thresholds.
+    // Raw drag amounts — instant during drag, spring back on release.
     var rawDragX by remember(currentSong.id) { mutableFloatStateOf(0f) }
     var rawDragY by remember(currentSong.id) { mutableFloatStateOf(0f) }
+    var isDragging by remember(currentSong.id) { mutableStateOf(false) }
     val thresholdPx = with(LocalDensity.current) { 80.dp.toPx() }
-    val maxVisual = with(LocalDensity.current) { 6.dp.toPx() }
+    val maxVisualPx = with(LocalDensity.current) { 150.dp.toPx() }
 
-    // Visual offsets spring back to 0 smoothly after release.
-    val visualX = remember(currentSong.id) { Animatable(0f) }
-    val visualY = remember(currentSong.id) { Animatable(0f) }
+    // Release animation: snap back to center.
+    val settledX = remember(currentSong.id) { Animatable(0f) }
+    val settledY = remember(currentSong.id) { Animatable(0f) }
 
-    LaunchedEffect(rawDragX) {
-        val target = rawDragX.coerceIn(-maxVisual, maxVisual)
-        visualX.animateTo(
-            targetValue = target,
-            animationSpec = spring(
-                dampingRatio = Spring.DampingRatioMediumBouncy,
-                stiffness = Spring.StiffnessMediumLow
-            )
-        )
+    // Rendered translation: raw while dragging, animated otherwise.
+    val visualX: Float = if (isDragging) {
+        rawDragX.coerceIn(-maxVisualPx, maxVisualPx)
+    } else {
+        settledX.value
     }
-    LaunchedEffect(rawDragY) {
-        val target = rawDragY.coerceIn(-maxVisual, maxVisual)
-        visualY.animateTo(
-            targetValue = target,
-            animationSpec = spring(
-                dampingRatio = Spring.DampingRatioMediumBouncy,
-                stiffness = Spring.StiffnessMediumLow
-            )
-        )
+    val visualY: Float = if (isDragging) {
+        rawDragY.coerceIn(-maxVisualPx, maxVisualPx)
+    } else {
+        settledY.value
     }
 
-    // Visible translation comes from visualX/visualY below.
+    // Visible translation comes from visualX/visualY below (raw while
+    // dragging, settled spring value otherwise).
     var hapticFired by remember(currentSong.id) { mutableStateOf(false) }
     val accent = rememberAlbumAccent(currentSong.imageUrl, currentSong.id)
 
@@ -133,7 +126,14 @@ fun MiniPlayer(
             .padding(horizontal = 12.dp)
             .pointerInput(currentSong.id) {
                 detectDragGestures(
-                    onDragStart = { hapticFired = false },
+                    onDragStart = {
+                        hapticFired = false
+                        // Continue from wherever the spring currently is (handles
+                        // re-grabbing mid-animation).
+                        rawDragX = settledX.value
+                        rawDragY = settledY.value
+                        isDragging = true
+                    },
                     onDragEnd = {
                         Timber.tag("MiniPlayer").d("drag end: x=$rawDragX y=$rawDragY")
                         when {
@@ -141,9 +141,36 @@ fun MiniPlayer(
                             rawDragX < -thresholdPx -> scope.launch { connection.next() }
                             rawDragY > thresholdPx -> playerVm.stopAndHide()
                         }
-                        // Setting these to 0 triggers the LaunchedEffect spring-back above.
-                        rawDragX = 0f
-                        rawDragY = 0f
+                        // Capture release position, hand off to spring-back. Order matters:
+                        // snapTo fires first so the first composition after isDragging=false
+                        // reads the release position, then the spring animates to 0.
+                        val releaseX = rawDragX.coerceIn(-maxVisualPx, maxVisualPx)
+                        val releaseY = rawDragY.coerceIn(-maxVisualPx, maxVisualPx)
+                        scope.launch {
+                            settledX.snapTo(releaseX)
+                            settledY.snapTo(releaseY)
+                            isDragging = false
+                            launch {
+                                settledX.animateTo(
+                                    0f,
+                                    spring(
+                                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                                        stiffness = Spring.StiffnessMediumLow
+                                    )
+                                )
+                            }
+                            launch {
+                                settledY.animateTo(
+                                    0f,
+                                    spring(
+                                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                                        stiffness = Spring.StiffnessMediumLow
+                                    )
+                                )
+                            }
+                        }
+                        // rawDragX/rawDragY are intentionally NOT reset here. They are
+                        // re-seeded on next onDragStart from settledX/settledY.value.
                     },
                     onDrag = { change, drag ->
                         change.consume()
@@ -167,14 +194,22 @@ fun MiniPlayer(
                 .background(MaterialTheme.colorScheme.surfaceContainerHigh)
                 .background(Color.Black.copy(alpha = 0.5f))
                 .graphicsLayer {
-                    translationX = visualX.value
-                    translationY = visualY.value
-                    alpha = if (rawDragY > 0f) {
-                        (1f - rawDragY / (thresholdPx * 1.5f)).coerceIn(0.4f, 1f)
+                    translationX = visualX
+                    translationY = visualY
+                    // Alpha and scale driven by the *visual* offsets so they recover
+                    // during spring-back. Reading rawDragX/rawDragY here would keep
+                    // the pill faded after release, because those are not reset.
+                    val horizontalAlpha = (1f - abs(visualX) / (thresholdPx * 1.4f))
+                        .coerceIn(0.35f, 1f)
+                    val verticalAlpha = if (visualY > 0f) {
+                        (1f - visualY / (thresholdPx * 1.2f)).coerceIn(0.2f, 1f)
                     } else {
                         1f
                     }
-                    val s = if (abs(visualX.value) > 2f || abs(visualY.value) > 2f) 1.02f else 1.0f
+                    alpha = minOf(horizontalAlpha, verticalAlpha)
+                    // Scale: 1.0 at rest, up to 1.03 mid-drag for a subtle "lift".
+                    val dragMagnitude = maxOf(abs(visualX), abs(visualY))
+                    val s = (1f + (dragMagnitude / thresholdPx) * 0.03f).coerceIn(1f, 1.03f)
                     scaleX = s
                     scaleY = s
                 }
@@ -283,27 +318,27 @@ fun MiniPlayer(
             }
         }
         // Directional hints that fade in while dragging.
-        if (visualX.value < -2f) {
+        if (visualX < -2f) {
             Icon(
                 imageVector = Icons.Filled.SkipNext,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary.copy(alpha = dragAlpha(visualX.value)),
+                tint = MaterialTheme.colorScheme.primary.copy(alpha = dragAlpha(visualX)),
                 modifier = Modifier.align(Alignment.CenterEnd).padding(end = 20.dp)
             )
         }
-        if (visualX.value > 2f) {
+        if (visualX > 2f) {
             Icon(
                 imageVector = Icons.Filled.SkipPrevious,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary.copy(alpha = dragAlpha(visualX.value)),
+                tint = MaterialTheme.colorScheme.primary.copy(alpha = dragAlpha(visualX)),
                 modifier = Modifier.align(Alignment.CenterStart).padding(start = 20.dp)
             )
         }
-        if (visualY.value > 2f) {
+        if (visualY > 2f) {
             Icon(
                 imageVector = Icons.Filled.KeyboardArrowDown,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary.copy(alpha = dragAlpha(visualY.value)),
+                tint = MaterialTheme.colorScheme.primary.copy(alpha = dragAlpha(visualY)),
                 modifier = Modifier.align(Alignment.Center)
             )
         }
