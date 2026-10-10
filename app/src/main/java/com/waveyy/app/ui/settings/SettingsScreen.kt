@@ -49,6 +49,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.waveyy.app.data.local.datastore.UserPrefs
 import com.waveyy.app.ui.components.WaveyyBackButton
 import com.waveyy.app.ui.player.rememberChromeBottomReserve
+import com.waveyy.app.ui.update.sharedUpdateViewModel
 import kotlinx.coroutines.launch
 
 /**
@@ -73,6 +74,9 @@ fun SettingsScreen(
     val lyricsMode by viewModel.lyricsMode.collectAsState()
     val preferredProvider by viewModel.preferredLyricsProvider.collectAsState()
     val hapticsEnabled by viewModel.hapticsEnabled.collectAsState()
+    val updateVm = sharedUpdateViewModel()
+    val updateState by updateVm.state.collectAsState()
+    val updateAvailable = updateState.latest
     val context = LocalContext.current
     val chromeBottom = rememberChromeBottomReserve()
     val scope = rememberCoroutineScope()
@@ -296,12 +300,16 @@ fun SettingsScreen(
 
             // ─── About ───
             item {
-                SettingsSectionCard(title = "About") {
-                    SettingsClickRow(
-                        label = "Waveyy",
-                        value = "v${viewModel.versionName}",
-                        onClick = { }
-                    )
+            SettingsSectionCard(title = "About") {
+                SettingsClickRow(
+                    label = "Waveyy",
+                    value = if (updateAvailable != null) {
+                        "Update available · v${updateAvailable.version}"
+                    } else {
+                        "v${viewModel.versionName}"
+                    },
+                    onClick = { if (updateAvailable != null) updateVm.showPopup() }
+                )
                     HorizontalDivider(
                         color = MaterialTheme.colorScheme.outlineVariant,
                         modifier = Modifier.padding(horizontal = 16.dp)
@@ -461,7 +469,7 @@ private fun SettingsToggleRow(
             checked = checked,
             onCheckedChange = onChecked,
             colors = SwitchDefaults.colors(
-                checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                checkedThumbColor = com.waveyy.app.ui.theme.WaveyyPalette.DeepGreen,
                 checkedTrackColor = MaterialTheme.colorScheme.primary,
                 uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
                 uncheckedTrackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
