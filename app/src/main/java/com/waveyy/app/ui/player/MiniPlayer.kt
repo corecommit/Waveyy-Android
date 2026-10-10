@@ -258,7 +258,6 @@ fun MiniPlayer(
                     scaleY = s
                 }
                 .combinedClickable(
-                    onDoubleTap = {},
                     onLongClick = {
                         waveyyHaptics.tick()
                         quickSheetShowQueue = false
@@ -278,6 +277,13 @@ fun MiniPlayer(
                     .size(48.dp)
                     .pointerInput(currentSong.id) {
                         detectTapGestures(
+                            onTap = {
+                                // Single tap on the art expands. The parent
+                                // Row's onClick would not fire because
+                                // detectTapGestures consumes the event.
+                                waveyyHaptics.tick()
+                                onExpand()
+                            },
                             onDoubleTap = {
                                 waveyyHaptics.tick()
                                 musicVm.toggleLike(currentSong)
