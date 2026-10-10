@@ -147,35 +147,68 @@ object SearchRanking {
     /**
      * Combined relevance score for a song against a search query. Higher is
      * better. Exact title match is 100, prefix 85, contains 65, with a
-     * fuzzy-similarity falloff below. Adds a small token-overlap boost and
-     * a small artist-match boost so titles that repeat the query words and
-     * carry the queried artist rank above generic matches.
+     * fuzzy-similarity falloff below.
+     *
+     * Adds a token-based artist boost (fuzzy-matched so "marshmellow" scores
+     * against "marshmello") and a small log-scaled popularity bonus so the
+     * original track outranks covers / karaoke / tribute uploads that happen
+     * to match the query literally.
+     *
+     * @param name song title.
+     * @param artist display artist string.
+     * @param query the raw query as typed by the user.
+     * @param playCount optional play count for the popularity tiebreak
+     *   (0 to skip). Pass 0 for tests or when unknown.
      */
-    fun songRelevance(name: String?, artist: String?, query: String?): Double {
+    fun songRelevance(
+        name: String?,
+        artist: String?,
+        query: String?,
+        playCount: Long = 0L
+    ): Double {
         if (name.isNullOrBlank() || query.isNullOrBlank()) return 0.0
         val n = normalizeText(name)
         val q = normalizeText(query)
         if (n.isEmpty() || q.isEmpty()) return 0.0
+
         val titleScore = when {
-            n == q -> 100.0
-            n.startsWith("$q ") -> 85.0
-            n.contains(q) -> 65.0
+            n == q -> 110.0
+            n.startsWith("$q ") -> 90.0
+            n.contains(q) -> 70.0
             q.contains(n) && n.length >= 4 -> 55.0
             else -> {
                 val sim = similarity(n, q)
                 if (sim >= 0.72) sim * 60.0 else sim * 30.0
             }
         }
+
         val qWords = q.split(" ").filter { it.length > 1 }
         val nWords = n.split(" ").filter { it.length > 1 }
-        val overlap = qWords.count { it in nWords }
-        val overlapBoost = if (qWords.isNotEmpty()) {
-            overlap.toDouble() / qWords.size * 10.0
+        val titleOverlap = qWords.count { qw -> nWords.any { it == qw } }
+        val titleOverlapBoost = if (qWords.isNotEmpty()) {
+            titleOverlap.toDouble() / qWords.size * 10.0
         } else {
             0.0
         }
+
+        // Token-based, fuzzy artist boost: each query token that matches an
+        // artist token (exact or >= 0.80 similarity) adds 6 points, capped
+        // so it can't dominate title relevance.
         val a = normalizeText(artist.orEmpty())
-        val artistBoost = if (a.isNotEmpty() && (a.contains(q) || q.contains(a))) 8.0 else 0.0
-        return titleScore + overlapBoost + artistBoost
+        val aWords = a.split(" ").filter { it.length > 1 }
+        val artistTokenMatches = qWords.count { qw ->
+            aWords.any { aw -> aw == qw || similarity(aw, qw) >= 0.80 }
+        }
+        val artistBoost = (artistTokenMatches * 6.0).coerceAtMost(18.0)
+
+        // Small popularity tiebreak: log10(playCount + 1) * 2.5, capped at
+        // 15 points. Real tracks tend to have 10^6-10^9 plays; covers 10^3-10^5.
+        val popularityBonus = if (playCount > 0L) {
+            (kotlin.math.log10(playCount.toDouble() + 1.0) * 2.5).coerceAtMost(15.0)
+        } else {
+            0.0
+        }
+
+        return titleScore + titleOverlapBoost + artistBoost + popularityBonus
     }
 }

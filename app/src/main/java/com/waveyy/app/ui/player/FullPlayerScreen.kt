@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -43,7 +44,6 @@ import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
@@ -204,7 +204,7 @@ fun FullPlayerScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 12.dp),        // gap (i): album art → title
+                .padding(top = 28.dp),        // gap (i): album art → title, generous so the title reads as a hero
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
@@ -251,13 +251,26 @@ fun FullPlayerScreen(
         Slider(
             value = fraction,
             onValueChange = { scope.launch { connection.seekTo((it * state.durationMs).toLong()) } },
-            colors = SliderDefaults.colors(
-                thumbColor = MaterialTheme.colorScheme.primary,
-                activeTrackColor = MaterialTheme.colorScheme.primary,
-                inactiveTrackColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                inactiveTickColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                activeTickColor = MaterialTheme.colorScheme.primary
-            )
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(20.dp),
+            thumb = { },
+            track = { sliderState ->
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(3.dp)
+                        .clip(RoundedCornerShape(50))
+                        .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(sliderState.value)
+                            .fillMaxHeight()
+                            .background(MaterialTheme.colorScheme.primary)
+                    )
+                }
+            }
         )
 
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {

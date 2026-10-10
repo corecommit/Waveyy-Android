@@ -142,12 +142,14 @@ class SearchViewModel @Inject constructor(
         val songDtos = rawDtos
             // Rank by combined title + artist relevance to the ORIGINAL query,
             // so exact matches rise above fuzzy partial matches regardless of
-            // which variant returned them.
+            // which variant returned them. Popularity is a small tiebreak so
+            // the original track beats covers on misspelled queries.
             .sortedByDescending { dto ->
                 SearchRanking.songRelevance(
                     name = dto.name,
                     artist = firstArtistName(dto),
-                    query = rawQuery
+                    query = rawQuery,
+                    playCount = maxOf(dto.playCount, dto.playCountSnake)
                 )
             }
             // Dedupe exact duplicates by id (keeps highest-scored variant).
