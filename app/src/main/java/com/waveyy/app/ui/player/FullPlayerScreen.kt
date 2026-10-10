@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -201,24 +200,37 @@ fun FullPlayerScreen(
             )
         }
 
+        val artistId = currentSong?.primaryArtistId.orEmpty()
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 28.dp),        // gap (i): album art → title, generous so the title reads as a hero
+                .padding(top = 28.dp),        // gap (i): album art → title
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = currentSong?.name ?: "Nothing playing",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                // Reserve 2 lines of height always so the layout is stable on
-                // 1-line and 2-line titles alike.
+            Column(
                 modifier = Modifier
                     .weight(1f)
-                    .heightIn(min = 72.dp, max = 72.dp)
-            )
+                    .padding(end = 8.dp)
+            ) {
+                Text(
+                    text = currentSong?.name ?: "Nothing playing",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = currentSong?.artist ?: "",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Normal,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier
+                        .padding(top = 2.dp)
+                        .clickable(enabled = artistId.isNotBlank()) { onArtist(artistId) }
+                )
+            }
             if (currentSong != null) {
                 IconButton(onClick = { showPlaylistPicker = true }) {
                     Icon(
@@ -230,21 +242,6 @@ fun FullPlayerScreen(
                 LikeSongButton(song = currentSong)
             }
         }
-        val artistId = currentSong?.primaryArtistId.orEmpty()
-        Text(
-            text = currentSong?.artist ?: "",
-            style = MaterialTheme.typography.titleMedium,
-            color = if (artistId.isNotBlank()) {
-                MaterialTheme.colorScheme.primary
-            } else {
-                MaterialTheme.colorScheme.onSurfaceVariant
-            },
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier
-                .padding(top = 2.dp)
-                .clickable(enabled = artistId.isNotBlank()) { onArtist(artistId) }
-        )
 
         Spacer(Modifier.height(16.dp))
 
@@ -259,7 +256,7 @@ fun FullPlayerScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(3.dp)
+                        .height(6.dp)
                         .clip(RoundedCornerShape(50))
                         .background(MaterialTheme.colorScheme.surfaceContainerHigh)
                 ) {
