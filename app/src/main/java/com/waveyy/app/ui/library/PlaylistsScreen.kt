@@ -33,6 +33,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -98,13 +99,15 @@ fun PlaylistsScreen(
     val indicatorTop = with(density) {
         WindowInsets.statusBars.getTop(density).toDp()
     } + 64.dp
+    val pullRefreshState = rememberPullToRefreshState()
     PullToRefreshBox(
         isRefreshing = refreshing,
         onRefresh = viewModel::refreshQuiet,
         modifier = Modifier.fillMaxSize(),
+        state = pullRefreshState,
         indicator = {
             PullToRefreshDefaults.Indicator(
-                state = it,
+                state = pullRefreshState,
                 isRefreshing = refreshing,
                 modifier = Modifier
                     .align(Alignment.TopCenter)
