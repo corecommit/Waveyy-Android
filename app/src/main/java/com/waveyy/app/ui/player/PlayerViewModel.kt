@@ -106,12 +106,29 @@ class PlayerViewModel @Inject constructor(
         // Reconnects the UI to an already-playing session (swipe-away
         // reopen): the activity-scoped queue is gone but the singleton
         // controller still holds the items, so rebuild from its metadata.
+        // Also resumes the last-played position once, if the same song
+        // is still loaded and the saved position is past the floor.
         viewModelScope.launch {
             connection.refreshState()
+            val saved = userPrefs.lastPlayed()
+            var didSeek = false
             connection.state.collect { state ->
                 if (state.mediaId != null && mutableQueue.value.isEmpty()) {
                     val restored = connection.currentQueueSongs()
                     if (restored.isNotEmpty()) mutableQueue.value = restored
+                }
+                if (!didSeek && saved != null && state.mediaId != null) {
+                    val (savedId, savedPos) = saved
+                    if (state.mediaId == savedId &&
+                        savedPos >= RESUME_MIN_POSITION_MS &&
+                        state.positionMs < 1_000L
+                    ) {
+                        connection.seekTo(savedPos)
+                        Timber.tag("PlayerVM").d(
+                            "resumed %s at %dms", savedId, savedPos
+                        )
+                    }
+                    didSeek = true
                 }
             }
         }
@@ -653,7 +670,7 @@ class PlayerViewModel @Inject constructor(
     suspend fun downloadSong(song: Song): Uri? {
         val url = com.waveyy.app.util.AudioQualitySelector.selectBestUrl(song.streams)
         if (url.isBlank()) return null
-        return withContext(Dispatchers.IO) {
+        val result = withContext(Dispatchers.IO) {
             runCatching {
                 val resolver = context.contentResolver
                 val values = ContentValues().apply {
@@ -670,11 +687,23 @@ class PlayerViewModel @Inject constructor(
                 uri
             }.getOrNull()
         }
+        withContext(Dispatchers.Main) {
+            val msg = if (result != null) {
+                "Downloaded: ${song.name}"
+            } else {
+                "Download failed: ${song.name}"
+            }
+            android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_SHORT).show()
+        }
+        return result
     }
 
     companion object {
         private const val HISTORY_CAP = 50
         private const val PLAY_LOG_CAP = 300
+
+        /** Minimum saved position for a resume checkpoint. */
+        private const val RESUME_MIN_POSITION_MS = 5_000L
 
         /** Stream freshness TTL (re-resolve URLs older than this). */
         private const val STREAM_TTL_MS = 30L * 60L * 1000L

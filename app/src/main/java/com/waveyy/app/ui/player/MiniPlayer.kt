@@ -4,9 +4,12 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,14 +23,21 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Lyrics
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -58,7 +68,9 @@ import com.waveyy.app.domain.model.Song
 import com.waveyy.app.playback.PlaybackConnection
 import com.waveyy.app.ui.components.AdaptiveImage
 import com.waveyy.app.ui.library.LikeSongButton
+import com.waveyy.app.ui.library.sharedMusicViewModel
 import com.waveyy.app.ui.theme.rememberAlbumAccent
+import com.waveyy.app.util.rememberWaveyyHaptics
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import kotlin.math.abs
@@ -78,11 +90,13 @@ import kotlin.math.abs
  * @param modifier layout modifier.
  * @param playerVm shared player logic (hidden flag).
  */
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun MiniPlayer(
     connection: PlaybackConnection,
     currentSong: Song?,
     onExpand: () -> Unit,
+    onOpenLyrics: (String) -> Unit = {},
     modifier: Modifier = Modifier,
     playerVm: PlayerViewModel = sharedPlayerViewModel()
 ) {
@@ -90,6 +104,8 @@ fun MiniPlayer(
     val hidden by playerVm.miniPlayerHidden.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     val haptics = LocalHapticFeedback.current
+    val waveyyHaptics = rememberWaveyyHaptics()
+    val musicVm = sharedMusicViewModel()
     if (state.mediaId == null || currentSong == null || hidden) return
     LaunchedEffect(currentSong.id) { playerVm.clearMiniPlayerHidden() }
 
@@ -122,6 +138,10 @@ fun MiniPlayer(
     // dragging, settled spring value otherwise).
     var hapticFired by remember(currentSong.id) { mutableStateOf(false) }
     val accent = rememberAlbumAccent(currentSong.imageUrl, currentSong.id)
+    var showQuickSheet by remember { mutableStateOf(false) }
+    var quickSheetShowQueue by remember { mutableStateOf(false) }
+    var showSleepDialog by remember { mutableStateOf(false) }
+    var showSpeedDialog by remember { mutableStateOf(false) }
 
     val dragAlpha = { value: Float -> (abs(value) / thresholdPx).coerceIn(0f, 1f) }
 
@@ -237,13 +257,33 @@ fun MiniPlayer(
                     scaleX = s
                     scaleY = s
                 }
-                .clickable(onClick = onExpand)
+                .combinedClickable(
+                    onDoubleTap = {},
+                    onLongClick = {
+                        waveyyHaptics.tick()
+                        quickSheetShowQueue = false
+                        showQuickSheet = true
+                    },
+                    onClick = {
+                        waveyyHaptics.tick()
+                        onExpand()
+                    }
+                )
                 .height(64.dp)
                 .padding(horizontal = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
-                modifier = Modifier.size(48.dp),
+                modifier = Modifier
+                    .size(48.dp)
+                    .pointerInput(currentSong.id) {
+                        detectTapGestures(
+                            onDoubleTap = {
+                                waveyyHaptics.tick()
+                                musicVm.toggleLike(currentSong)
+                            }
+                        )
+                    },
                 contentAlignment = Alignment.Center
             ) {
                 val fraction = if (state.durationMs > 0L) {
@@ -336,7 +376,10 @@ fun MiniPlayer(
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null
-                    ) { scope.launch { connection.togglePlayPause() } },
+                    ) {
+                        waveyyHaptics.tick()
+                        scope.launch { connection.togglePlayPause() }
+                    },
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -373,7 +416,137 @@ fun MiniPlayer(
             )
         }
     }
+
+    if (showQuickSheet) {
+        ModalBottomSheet(
+            onDismissRequest = {
+                showQuickSheet = false
+                quickSheetShowQueue = false
+            },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ) {
+            if (quickSheetShowQueue) {
+                QueueSheet(
+                    queue = playerVm.queue.collectAsState().value,
+                    currentId = state.mediaId,
+                    onMove = playerVm::moveQueueItem,
+                    onRemove = playerVm::removeQueueItem,
+                    onClear = playerVm::clearQueue,
+                    onPlay = { index ->
+                        scope.launch {
+                            connection.playSongs(playerVm.queue.value, index)
+                        }
+                        showQuickSheet = false
+                        quickSheetShowQueue = false
+                    }
+                )
+            } else {
+                QuickActionsMenu(
+                    onLyrics = {
+                        showQuickSheet = false
+                        currentSong?.let { onOpenLyrics(it.id) }
+                    },
+                    onQueue = { quickSheetShowQueue = true },
+                    onSleepTimer = {
+                        showQuickSheet = false
+                        showSleepDialog = true
+                    },
+                    onPlaybackSpeed = {
+                        showQuickSheet = false
+                        showSpeedDialog = true
+                    }
+                )
+            }
+        }
+    }
+
+    if (showSleepDialog) {
+        SleepTimerDialog(
+            onDismiss = { showSleepDialog = false },
+            onSelect = { minutes ->
+                showSleepDialog = false
+                if (minutes == null) {
+                    playerVm.setSleepEndOfSong()
+                } else {
+                    playerVm.setSleepTimer(minutes)
+                }
+            }
+        )
+    }
+
+    if (showSpeedDialog) {
+        SpeedDialog(
+            initial = 1f,
+            onDismiss = { showSpeedDialog = false },
+            onSelect = { speed ->
+                showSpeedDialog = false
+                playerVm.setPlaybackSpeed(speed)
+            }
+        )
+    }
 }
 
 /** Axis chosen at drag start; locked for the rest of the gesture. */
 private enum class DragAxis { Horizontal, Vertical }
+
+/**
+ * Quick-actions menu shown when the mini player pill is long-pressed:
+ * four rows that route to lyrics, the queue, sleep timer, or speed.
+ */
+@Composable
+private fun QuickActionsMenu(
+    onLyrics: () -> Unit,
+    onQueue: () -> Unit,
+    onSleepTimer: () -> Unit,
+    onPlaybackSpeed: () -> Unit
+) {
+    Column(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
+        QuickActionRow(
+            icon = Icons.Filled.Lyrics,
+            label = "Lyrics",
+            onClick = onLyrics
+        )
+        QuickActionRow(
+            icon = Icons.AutoMirrored.Filled.QueueMusic,
+            label = "Queue",
+            onClick = onQueue
+        )
+        QuickActionRow(
+            icon = Icons.Filled.Schedule,
+            label = "Sleep timer",
+            onClick = onSleepTimer
+        )
+        QuickActionRow(
+            icon = Icons.Filled.Speed,
+            label = "Playback speed",
+            onClick = onPlaybackSpeed
+        )
+    }
+}
+
+/** One row inside [QuickActionsMenu]. */
+@Composable
+private fun QuickActionRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 24.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier.padding(start = 20.dp)
+        )
+    }
+}

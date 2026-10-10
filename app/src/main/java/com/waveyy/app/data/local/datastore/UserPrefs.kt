@@ -3,6 +3,7 @@ package com.waveyy.app.data.local.datastore
 import android.content.Context
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.waveyy.app.domain.model.Playlist
@@ -105,6 +106,15 @@ class UserPrefs @Inject constructor(
 
         /** Lyrics race-winner debug caption toggle key. */
         const val LYRICS_DEBUG_KEY = "lyrics-debug"
+
+        /** Last-played song id (restored on app reopen). */
+        const val LAST_PLAYED_SONG_ID_KEY = "last-played-song-id"
+
+        /** Last-played position in millis. */
+        const val LAST_PLAYED_POSITION_MS_KEY = "last-played-position-ms"
+
+        /** Haptic feedback enabled. */
+        const val HAPTICS_ENABLED_KEY = "haptics-enabled"
     }
 
     /** Lyrics provider id (`lrclib` or `none`). */
@@ -269,6 +279,9 @@ class UserPrefs @Inject constructor(
     private val miniPlayerHiddenKey = booleanPreferencesKey(MINI_PLAYER_HIDDEN_KEY)
     private val lyricsModeKey = stringPreferencesKey(LYRICS_MODE_KEY)
     private val lyricsDebugKey = booleanPreferencesKey(LYRICS_DEBUG_KEY)
+    private val lastPlayedSongIdKey = stringPreferencesKey(LAST_PLAYED_SONG_ID_KEY)
+    private val lastPlayedPositionMsKey = longPreferencesKey(LAST_PLAYED_POSITION_MS_KEY)
+    private val hapticsEnabledKey = booleanPreferencesKey(HAPTICS_ENABLED_KEY)
 
     /** Audio quality preference as a flow. */
     fun audioQualityFlow(): Flow<String> {
@@ -278,5 +291,31 @@ class UserPrefs @Inject constructor(
     /** Persists the audio quality choice. */
     suspend fun setAudioQuality(option: String) {
         context.userPrefs.edit { prefs -> prefs[audioQualityKey] = option }
+    }
+
+    /** Persists the currently playing song id + position. */
+    suspend fun setLastPlayed(songId: String, positionMs: Long) {
+        context.userPrefs.edit { prefs ->
+            prefs[lastPlayedSongIdKey] = songId
+            prefs[lastPlayedPositionMsKey] = positionMs
+        }
+    }
+
+    /** Reads the stored last-played pair, or null when never written. */
+    suspend fun lastPlayed(): Pair<String, Long>? {
+        val prefs = context.userPrefs.data.first()
+        val id = prefs[lastPlayedSongIdKey] ?: return null
+        val pos = prefs[lastPlayedPositionMsKey] ?: 0L
+        return id to pos
+    }
+
+    /** Whether haptic feedback is enabled (default on). */
+    fun hapticsEnabledFlow(): Flow<Boolean> {
+        return context.userPrefs.data.map { it[hapticsEnabledKey] ?: true }
+    }
+
+    /** Persists the haptics toggle. */
+    suspend fun setHapticsEnabled(enabled: Boolean) {
+        context.userPrefs.edit { prefs -> prefs[hapticsEnabledKey] = enabled }
     }
 }

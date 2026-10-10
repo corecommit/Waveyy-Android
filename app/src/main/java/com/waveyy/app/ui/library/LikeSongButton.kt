@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.waveyy.app.domain.model.Song
+import com.waveyy.app.util.rememberWaveyyHaptics
 
 /**
  * Heart toggle backed by the shared [MusicViewModel.likedSongIds] set, so
@@ -31,8 +32,12 @@ fun LikeSongButton(
 ) {
     val liked by viewModel.likedSongIds.collectAsStateWithLifecycle()
     val isLiked = song.id in liked
+    val haptics = rememberWaveyyHaptics()
     IconButton(
-        onClick = { viewModel.toggleLike(song) },
+        onClick = {
+            haptics.tick()
+            viewModel.toggleLike(song)
+        },
         modifier = modifier
     ) {
         Icon(
