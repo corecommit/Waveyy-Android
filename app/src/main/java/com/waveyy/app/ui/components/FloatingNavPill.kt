@@ -26,6 +26,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import com.waveyy.app.util.rememberWaveyyHaptics
 
 /** Floating pill destinations (Home / Playlists / Together, per web nav). */
 enum class PillDestination(
@@ -54,6 +55,7 @@ fun FloatingNavPill(
     onDestination: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val haptics = rememberWaveyyHaptics()
     Surface(
         modifier = modifier.height(64.dp),
         shape = RoundedCornerShape(percent = 50),
@@ -89,7 +91,10 @@ fun FloatingNavPill(
                     modifier = Modifier
                         .clip(RoundedCornerShape(percent = 50))
                         .background(background)
-                        .clickable { onDestination(destination.route) }
+                        .clickable {
+                            haptics.tick()
+                            onDestination(destination.route)
+                        }
                         .padding(horizontal = 16.dp, vertical = 10.dp)
                         .animateContentSize(),
                     verticalAlignment = Alignment.CenterVertically,

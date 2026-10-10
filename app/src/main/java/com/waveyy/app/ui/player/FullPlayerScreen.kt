@@ -3,6 +3,7 @@ package com.waveyy.app.ui.player
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -61,6 +62,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -77,6 +79,7 @@ import com.waveyy.app.ui.library.LikeSongButton
 import com.waveyy.app.ui.library.MusicViewModel
 import com.waveyy.app.ui.library.sharedMusicViewModel
 import com.waveyy.app.ui.theme.rememberAlbumAccent
+import com.waveyy.app.util.rememberWaveyyHaptics
 import kotlinx.coroutines.launch
 
 /**
@@ -102,6 +105,7 @@ fun FullPlayerScreen(
     val state by connection.state.collectAsState()
     val queue by viewModel.queue.collectAsState()
     val scope = rememberCoroutineScope()
+    val waveyyHaptics = rememberWaveyyHaptics()
     val context = LocalContext.current
     val libraryVm: LibraryViewModel = hiltViewModel()
     val libraryState by libraryVm.state.collectAsState()
@@ -161,7 +165,7 @@ fun FullPlayerScreen(
                 .padding(vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = onClose) {
+            IconButton(onClick = { waveyyHaptics.tick(); onClose() }) {
                 Icon(imageVector = Icons.Filled.KeyboardArrowDown, contentDescription = "Minimize")
             }
             Spacer(Modifier.weight(1f))
@@ -195,7 +199,16 @@ fun FullPlayerScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .aspectRatio(1f)
-                    .clip(RoundedCornerShape(28.dp)),
+                    .clip(RoundedCornerShape(28.dp))
+                    .pointerInput(currentSong?.id) {
+                        detectTapGestures(
+                            onDoubleTap = {
+                                val song = currentSong ?: return@detectTapGestures
+                                waveyyHaptics.tick()
+                                musicVm.toggleLike(song)
+                            }
+                        )
+                    },
                 contentScale = ContentScale.Crop
             )
         }
@@ -290,7 +303,7 @@ fun FullPlayerScreen(
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = { scope.launch { connection.toggleShuffle() } }) {
+            IconButton(onClick = { waveyyHaptics.tick(); scope.launch { connection.toggleShuffle() } }) {
                 Icon(
                     imageVector = Icons.Filled.Shuffle,
                     contentDescription = "Shuffle",
@@ -299,7 +312,7 @@ fun FullPlayerScreen(
                 )
             }
             IconButton(
-                onClick = { viewModel.rewind() },
+                onClick = { waveyyHaptics.tick(); viewModel.rewind() },
                 modifier = Modifier.size(56.dp)
             ) {
                 Icon(
@@ -309,7 +322,7 @@ fun FullPlayerScreen(
                 )
             }
             FilledIconButton(
-                onClick = { scope.launch { connection.togglePlayPause() } },
+                onClick = { waveyyHaptics.tick(); scope.launch { connection.togglePlayPause() } },
                 modifier = Modifier.size(72.dp),
                 colors = IconButtonDefaults.filledIconButtonColors(
                     containerColor = MaterialTheme.colorScheme.primary,
@@ -324,7 +337,7 @@ fun FullPlayerScreen(
                 )
             }
             IconButton(
-                onClick = { viewModel.advance() },
+                onClick = { waveyyHaptics.tick(); viewModel.advance() },
                 modifier = Modifier.size(56.dp)
             ) {
                 Icon(
@@ -333,7 +346,7 @@ fun FullPlayerScreen(
                     modifier = Modifier.size(36.dp)
                 )
             }
-            IconButton(onClick = { scope.launch { connection.cycleRepeatMode() } }) {
+            IconButton(onClick = { waveyyHaptics.tick(); scope.launch { connection.cycleRepeatMode() } }) {
                 Icon(
                     imageVector = if (state.repeatMode == Player.REPEAT_MODE_ONE) {
                         Icons.Filled.RepeatOne

@@ -1,5 +1,7 @@
 package com.waveyy.app.ui.settings
 
+import android.content.Intent
+import android.provider.Settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -29,6 +31,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -102,6 +105,15 @@ class SettingsViewModel @Inject constructor(
     /** Toggles the YouTube Music source. */
     fun setYtmusicEnabled(enabled: Boolean) {
         viewModelScope.launch { userPrefs.setYtmusicEnabled(enabled) }
+    }
+
+    /** Whether haptic feedback is enabled (default on). */
+    val hapticsEnabled = userPrefs.hapticsEnabledFlow()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000L), true)
+
+    /** Persists the haptics toggle. */
+    fun setHapticsEnabled(enabled: Boolean) {
+        viewModelScope.launch { userPrefs.setHapticsEnabled(enabled) }
     }
 
     /** Whether hybrid races resolve fast-first (vs merged-complete). */
@@ -180,6 +192,8 @@ fun SettingsScreen(
     val lyricsMode by viewModel.lyricsMode.collectAsState()
     val preferredProvider by viewModel.preferredLyricsProvider.collectAsState()
     val lyricsDebug by viewModel.lyricsDebug.collectAsState()
+    val hapticsEnabled by viewModel.hapticsEnabled.collectAsState()
+    val context = LocalContext.current
     val chromeBottom = rememberChromeBottomReserve()
 
     LazyColumn(
@@ -271,6 +285,22 @@ fun SettingsScreen(
                     checked = stopMusicOnClose,
                     onChecked = viewModel::setStopMusicOnClose
                 )
+                HorizontalDivider(
+                    color = MaterialTheme.colorScheme.outlineVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                )
+                SettingsClickRow(
+                    label = "Battery optimization",
+                    value = "Open settings",
+                    onClick = {
+                        // Opens the SYSTEM battery-optimization list; the user picks
+                        // Waveyy manually. No REQUEST_IGNORE_BATTERY_OPTIMIZATIONS
+                        // permission — that permission triggers Play Store review.
+                        val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        runCatching { context.startActivity(intent) }
+                    }
+                )
             }
         }
 
@@ -328,6 +358,16 @@ fun SettingsScreen(
                     label = "Theme",
                     value = "Dark (enforced)",
                     onClick = { }
+                )
+                HorizontalDivider(
+                    color = MaterialTheme.colorScheme.outlineVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                )
+                SettingsToggleRow(
+                    label = "Haptic feedback",
+                    subtitle = "Vibrate on taps, likes, and playback controls",
+                    checked = hapticsEnabled,
+                    onChecked = viewModel::setHapticsEnabled
                 )
             }
         }
