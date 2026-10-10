@@ -225,11 +225,12 @@ fun WaveyyNavHost(
                     .navigationBarsPadding()
                     .hazeEffect(
                         state = hazeState,
-                        style = HazeStyle(
-                            backgroundColor = Color.Transparent,
-                            blurRadius = 30.dp,
-                            noiseFactor = 0f
-                        )
+                    style = HazeStyle(
+                        backgroundColor = Color.Transparent,
+                        tint = null,
+                        blurRadius = 30.dp,
+                        noiseFactor = 0f
+                    )
                     )
                     .padding(bottom = 16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
