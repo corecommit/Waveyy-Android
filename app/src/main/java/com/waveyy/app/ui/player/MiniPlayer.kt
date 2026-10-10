@@ -6,6 +6,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Pause
@@ -21,7 +23,6 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -155,8 +156,7 @@ fun MiniPlayer(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(28.dp))
-                .background(MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.35f))
-                .background(accent.copy(alpha = 0.08f))
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
                 .graphicsLayer {
                     translationX = visualX.value
                     translationY = visualY.value
@@ -178,8 +178,8 @@ fun MiniPlayer(
                 imageUrl = currentSong.imageUrl,
                 contentDescription = currentSong.name,
                 modifier = Modifier
-                    .size(40.dp)
-                    .clip(RoundedCornerShape(8.dp))
+                    .size(44.dp)
+                    .clip(RoundedCornerShape(12.dp))
             )
             Column(
                 modifier = Modifier
@@ -200,11 +200,33 @@ fun MiniPlayer(
                     overflow = TextOverflow.Ellipsis
                 )
             }
-            LikeSongButton(song = currentSong)
-            IconButton(onClick = { scope.launch { connection.togglePlayPause() } }) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+                contentAlignment = Alignment.Center
+            ) {
+                LikeSongButton(
+                    song = currentSong,
+                    modifier = Modifier.size(32.dp)
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(accent)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) { scope.launch { connection.togglePlayPause() } },
+                contentAlignment = Alignment.Center
+            ) {
                 Icon(
                     imageVector = if (state.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                    contentDescription = if (state.isPlaying) "Pause" else "Play"
+                    contentDescription = if (state.isPlaying) "Pause" else "Play",
+                    tint = MaterialTheme.colorScheme.onPrimary
                 )
             }
         }
