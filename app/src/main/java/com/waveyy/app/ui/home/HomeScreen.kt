@@ -81,7 +81,7 @@ fun HomeScreen(
     onArtist: (String) -> Unit = {},
     onSearch: () -> Unit = {},
     onSettings: () -> Unit = {},
-    onDiscover: () -> Unit = {}
+    onHistory: () -> Unit = {}
 ) {
     val state by viewModel.state.collectAsState()
     val refreshing by viewModel.isRefreshing.collectAsState()
@@ -102,7 +102,7 @@ fun HomeScreen(
                     hazeState = hazeState,
                     header = {
                         HomeHeader(
-                            onExplore = onDiscover,
+                            onHistory = onHistory,
                             onSearch = onSearch,
                             onSettings = onSettings,
                             modifier = Modifier
@@ -154,7 +154,7 @@ fun HomeScreen(
                         onArtist = onArtist,
                         onSearch = onSearch,
                         onSettings = onSettings,
-                        onDiscover = onDiscover,
+                        onHistory = onHistory,
                         isRefreshing = refreshing,
                         onRefresh = viewModel::refreshQuiet,
                         modifier = Modifier.padding(padding)
@@ -197,7 +197,7 @@ private fun HomeContent(
     onArtist: (String) -> Unit,
     onSearch: () -> Unit,
     onSettings: () -> Unit,
-    onDiscover: () -> Unit,
+    onHistory: () -> Unit,
     isRefreshing: Boolean,
     onRefresh: () -> Unit,
     modifier: Modifier = Modifier,
@@ -343,7 +343,7 @@ private fun HomeContent(
         }
 
         HomeHeader(
-            onExplore = onDiscover,
+            onHistory = onHistory,
             onSearch = onSearch,
             onSettings = onSettings,
             modifier = Modifier

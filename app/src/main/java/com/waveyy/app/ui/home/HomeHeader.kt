@@ -10,7 +10,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Explore
+import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Icon
@@ -27,17 +27,17 @@ import androidx.compose.foundation.layout.Box
 
 /**
  * Home header row: "Home" title plus three icon-only action buttons
- * (discover, search, settings). Rendered as a glass overlay above the
+ * (history, search, settings). Rendered as a glass overlay above the
  * grid (see HomeScreen) — no background of its own.
  *
- * @param onExplore play-something-surprising handler.
+ * @param onHistory open-listening-history handler.
  * @param onSearch open-search handler.
  * @param onSettings open-settings handler.
  * @param modifier layout modifier.
  */
 @Composable
 fun HomeHeader(
-    onExplore: () -> Unit,
+    onHistory: () -> Unit,
     onSearch: () -> Unit,
     onSettings: () -> Unit,
     modifier: Modifier = Modifier
@@ -61,9 +61,9 @@ fun HomeHeader(
             verticalAlignment = Alignment.CenterVertically
         ) {
             HeaderIconButton(
-                image = Icons.Outlined.Explore,
-                description = "Discover",
-                onClick = onExplore
+                image = Icons.Outlined.History,
+                description = "History",
+                onClick = onHistory
             )
             HeaderIconButton(
                 image = Icons.Outlined.Search,
