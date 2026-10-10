@@ -80,7 +80,11 @@ class LibraryViewModel @Inject constructor(
         val userId = auth.currentUser()?.id
         viewModelScope.launch {
             mutableRefreshing.value = true
-            playlists.getPlaylists(userId)
+            val started = System.currentTimeMillis()
+            val result = kotlinx.coroutines.withTimeoutOrNull(REFRESH_TIMEOUT_MS) {
+                runCatching { playlists.getPlaylists(userId).getOrThrow() }
+            } ?: Result.failure(Exception("Refresh timed out"))
+            result
                 .onSuccess { loaded ->
                     mutableState.value = LibraryState(
                         playlists = loaded,
@@ -97,6 +101,10 @@ class LibraryViewModel @Inject constructor(
                         userId = userId
                     )
                 }
+            val elapsed = System.currentTimeMillis() - started
+            if (elapsed < MIN_REFRESH_SPINNER_MS) {
+                kotlinx.coroutines.delay(MIN_REFRESH_SPINNER_MS - elapsed)
+            }
             mutableRefreshing.value = false
         }
     }
@@ -156,5 +164,13 @@ class LibraryViewModel @Inject constructor(
                 playlists.addSong(userId, liked.id, song)
             }.onSuccess { refresh() }
         }
+    }
+
+    private companion object {
+        /** Hard cap on quiet refresh so the spinner can never hang. */
+        const val REFRESH_TIMEOUT_MS = 15_000L
+
+        /** Minimum time the pull-to-refresh spinner stays visible. */
+        const val MIN_REFRESH_SPINNER_MS = 600L
     }
 }

@@ -40,9 +40,11 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import timber.log.Timber
 import java.net.URL
 import javax.inject.Inject
@@ -154,6 +156,12 @@ class PlayerViewModel @Inject constructor(
     /** Playback failure message for the Snackbar (null when clear). */
     val playerError: StateFlow<String?> = mutablePlayerError.asStateFlow()
 
+    private val mutablePreparingFor = MutableStateFlow<String?>(null)
+    /** True while a tap is resolving / preparing (drives the play-button spinner). */
+    val isPreparing: StateFlow<Boolean> = mutablePreparingFor
+        .map { it != null }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000L), false)
+
     /** Clears a surfaced playback error (after the Snackbar is shown). */
     fun clearPlayerError() {
         mutablePlayerError.value = null
@@ -244,36 +252,63 @@ class PlayerViewModel @Inject constructor(
                 return@launch
             }
 
-            // Capture the ORIGINAL id BEFORE any refresh — this is the key to
-            // filtering the tapped song out of the backfill list, immune to
-            // refresh-id-drift.
+            // Show the mini player immediately with the tapped song's
+            // metadata (unresolved — its stream is not yet fetched). This
+            // is what makes the pill appear on tap instead of after
+            // resolution completes. The queue is replaced with the
+            // resolved version further down.
+            mutableQueue.value = listOf(tappedSong)
+            userPrefs.setMiniPlayerHidden(false)
+            val myPreparingId = tappedSong.id
+            mutablePreparingFor.value = myPreparingId
+
             val originalTappedId = tappedSong.id
+            var resolvedTapped: Song? = null
 
-            // 1. Resolve the tapped song. Its id may or may not change.
-            val resolvedTapped = if (tappedSong.streams.any { it.url.isNotBlank() }) {
-                tappedSong
-            } else {
-                runCatching { refreshStreams(tappedSong) }.getOrNull() ?: tappedSong
-            }
-            if (resolvedTapped.streams.none { it.url.isNotBlank() }) {
-                mutablePlayerError.value = UNPLAYABLE_MESSAGE
-                return@launch
-            }
-
-            // 2. Build the single MediaItem and play it.
-            val singleItem = com.waveyy.app.playback.QueueManager()
-                .toMediaItem(resolvedTapped) ?: run {
+            try {
+                // 1. Resolve the tapped song. Its id may or may not change.
+                resolvedTapped = if (tappedSong.streams.any { it.url.isNotBlank() }) {
+                    tappedSong
+                } else {
+                    runCatching { refreshStreams(tappedSong) }.getOrNull() ?: tappedSong
+                }
+                if (resolvedTapped.streams.none { it.url.isNotBlank() }) {
                     mutablePlayerError.value = UNPLAYABLE_MESSAGE
                     return@launch
                 }
-            mutableQueue.value = listOf(resolvedTapped)
-            userPrefs.setMiniPlayerHidden(false)
-            connection.playSingleItem(singleItem)
-            onTrackChanged(resolvedTapped.id)
+
+                // 2. Build the single MediaItem and play it.
+                val singleItem = com.waveyy.app.playback.QueueManager()
+                    .toMediaItem(resolvedTapped) ?: run {
+                        mutablePlayerError.value = UNPLAYABLE_MESSAGE
+                        return@launch
+                    }
+                mutableQueue.value = listOf(resolvedTapped)
+                connection.playSingleItem(singleItem)
+                onTrackChanged(resolvedTapped.id)
+
+                // 3. Wait until the player has actually left the buffering
+                // state for this item, or timeout at 8s. The spinner stays
+                // visible until this resolves.
+                withTimeoutOrNull(8_000L) {
+                    connection.state.first { s ->
+                        s.mediaId == resolvedTapped.id && !s.isBuffering
+                    }
+                }
+            } finally {
+                // Only clear if THIS call still owns the spinner. A newer tap
+                // that started resolving after us must not have its spinner
+                // cleared by our finally block.
+                if (mutablePreparingFor.value == myPreparingId) {
+                    mutablePreparingFor.value = null
+                }
+            }
+
+            val finalResolved = resolvedTapped ?: return@launch
             val generation = connection.currentGeneration()
 
-            // 3. Background: resolve the rest and append. Every filter here
-            // compares against originalTappedId, not resolvedTapped.id, so the
+            // 4. Background: resolve the rest and append. Every filter here
+            // compares against originalTappedId, not finalResolved.id, so the
             // tapped song can never slip back in under a different id.
             launch {
                 val others = source.songs.filterIndexed { i, s ->
@@ -295,19 +330,13 @@ class PlayerViewModel @Inject constructor(
                     }.awaitAll()
                 }.filter { it.streams.any { s -> s.url.isNotBlank() } }
 
-                // Dedupe: exclude the original tapped id AND the resolved
-                // tapped id (refresh may have produced a new one), plus any
-                // repeat of an already-seen id.
                 val seenIds = mutableSetOf<String>()
                 seenIds.add(originalTappedId)
-                seenIds.add(resolvedTapped.id)
+                seenIds.add(finalResolved.id)
                 val extraSongs = resolvedOthers.filter { seenIds.add(it.id) }
                 if (extraSongs.isEmpty()) return@launch
 
-                // Guard: user must not have moved on. Also guards against a
-                // second tap having started a new playSingleItem — in that
-                // case we'd be appending to the wrong session.
-                val stillOnTapped = connection.state.value.mediaId == resolvedTapped.id
+                val stillOnTapped = connection.state.value.mediaId == finalResolved.id
                 if (!stillOnTapped) {
                     Timber.tag("PlayerVM").d("skipping backfill: user moved on")
                     return@launch
@@ -317,15 +346,12 @@ class PlayerViewModel @Inject constructor(
                     return@launch
                 }
 
-                // Convert and append. Media3's addMediaItems grows the queue
-                // without touching the current item — no re-prepare, no
-                // re-seek, no index desync.
                 val items = com.waveyy.app.playback.QueueManager()
                     .toMediaItems(extraSongs)
                 if (items.isEmpty()) return@launch
 
                 connection.appendItems(items)
-                mutableQueue.value = listOf(resolvedTapped) + extraSongs
+                mutableQueue.value = listOf(finalResolved) + extraSongs
                 Timber.tag("PlayerVM").d(
                     "queue appended: %d extra songs, current kept",
                     extraSongs.size

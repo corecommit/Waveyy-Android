@@ -36,6 +36,8 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeSource
 
 /**
  * Shimmer skeleton primitives replacing the old stripe implementation.
@@ -97,46 +99,55 @@ fun SkeletonBox(width: Dp?, height: Dp, shape: Shape, modifier: Modifier = Modif
 @Composable
 fun SkeletonHomeScreen(
     modifier: Modifier = Modifier,
+    topContentPadding: Dp = 0.dp,
+    hazeState: dev.chrisbanes.haze.HazeState? = null,
     header: @Composable () -> Unit = {}
 ) {
-    LazyVerticalGrid(
-        columns = GridCells.Fixed(2),
-        modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(
-            start = 20.dp,
-            end = 20.dp,
-            top = 0.dp,
-            bottom = 4.dp
-        ),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(2) }) {
-            Column(modifier = Modifier.background(MaterialTheme.colorScheme.background)) {
-                header()
+    Box(modifier = modifier.fillMaxSize()) {
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(2),
+            modifier = Modifier
+                .fillMaxSize()
+                .then(
+                    if (hazeState != null) {
+                        Modifier.hazeSource(state = hazeState)
+                    } else {
+                        Modifier
+                    }
+                ),
+            contentPadding = PaddingValues(
+                start = 20.dp,
+                end = 20.dp,
+                top = topContentPadding,
+                bottom = 4.dp
+            ),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(2) }) {
+                SkeletonBox(
+                    width = null,
+                    height = 200.dp,
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp)
+                )
+            }
+            items(4) {
+                SkeletonBox(width = null, height = 150.dp, shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
+            }
+            item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(2) }) {
+                SkeletonBox(
+                    width = 120.dp,
+                    height = 20.dp,
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(percent = 50),
+                    modifier = Modifier.padding(top = 16.dp)
+                )
+            }
+            items(4) {
+                SkeletonBox(width = null, height = 150.dp, shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
             }
         }
-        item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(2) }) {
-            SkeletonBox(
-                width = null,
-                height = 200.dp,
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
-                modifier = Modifier.padding(top = 16.dp)
-            )
-        }
-        items(4) {
-            SkeletonBox(width = null, height = 150.dp, shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
-        }
-        item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(2) }) {
-            SkeletonBox(
-                width = 120.dp,
-                height = 20.dp,
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(percent = 50),
-                modifier = Modifier.padding(top = 16.dp)
-            )
-        }
-        items(4) {
-            SkeletonBox(width = null, height = 150.dp, shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
+        Box(modifier = Modifier.align(Alignment.TopCenter)) {
+            header()
         }
     }
 }

@@ -28,6 +28,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -88,16 +89,36 @@ fun HomeScreen(
     }
     Scaffold(contentWindowInsets = WindowInsets(0)) { padding ->
         when (val current = state) {
-            HomeUiState.Loading -> SkeletonHomeScreen(
-                modifier = Modifier.padding(padding),
-                header = {
-                    HomeHeader(
-                        onExplore = onDiscover,
-                        onSearch = onSearch,
-                        onSettings = onSettings
-                    )
+            HomeUiState.Loading -> {
+                val loadDensity = LocalDensity.current
+                val loadStatusTop = with(loadDensity) {
+                    WindowInsets.statusBars.getTop(loadDensity).toDp()
                 }
-            )
+                val hazeState = remember { HazeState() }
+                SkeletonHomeScreen(
+                    modifier = Modifier.padding(padding),
+                    topContentPadding = loadStatusTop + 64.dp,
+                    hazeState = hazeState,
+                    header = {
+                        HomeHeader(
+                            onExplore = onDiscover,
+                            onSearch = onSearch,
+                            onSettings = onSettings,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .hazeEffect(
+                                    state = hazeState,
+                                    style = HazeStyle(
+                                        backgroundColor = MaterialTheme.colorScheme.background.copy(alpha = 0.85f),
+                                        tint = null,
+                                        blurRadius = 40.dp,
+                                        noiseFactor = 0f
+                                    )
+                                )
+                        )
+                    }
+                )
+            }
             is HomeUiState.Error -> HomeError(
                 onRetry = viewModel::refresh,
                 modifier = Modifier.padding(padding)
@@ -204,7 +225,16 @@ private fun HomeContent(
         PullToRefreshBox(
             isRefreshing = isRefreshing,
             onRefresh = onRefresh,
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.fillMaxSize(),
+            indicator = {
+                PullToRefreshDefaults.Indicator(
+                    state = it,
+                    isRefreshing = isRefreshing,
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = gridTopPadding)
+                )
+            }
         ) {
             LazyVerticalGrid(
                 columns = GridCells.Fixed(2),
