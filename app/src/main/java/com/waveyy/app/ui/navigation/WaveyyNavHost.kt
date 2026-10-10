@@ -5,6 +5,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,11 +16,20 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
@@ -41,8 +51,9 @@ import com.waveyy.app.ui.auth.SignupScreen
 import com.waveyy.app.ui.debug.ComponentGalleryScreen
 import com.waveyy.app.ui.debug.ThemeGalleryScreen
 import com.waveyy.app.ui.debug.YtMusicDebugScreen
-import com.waveyy.app.ui.discover.DiscoverScreen
+import com.waveyy.app.ui.history.HistoryScreen
 import com.waveyy.app.ui.home.HomeScreen
+import com.waveyy.app.ui.library.LikedSongsScreen
 import com.waveyy.app.ui.library.PlaylistDetailScreen
 import com.waveyy.app.ui.library.PlaylistsScreen
 import com.waveyy.app.ui.placeholder.PlaceholderScreen
@@ -55,6 +66,7 @@ import com.waveyy.app.ui.MainViewModel
 import com.waveyy.app.ui.search.SearchScreen
 import com.waveyy.app.ui.settings.SettingsScreen
 import com.waveyy.app.ui.together.TogetherScreen
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import timber.log.Timber
 
@@ -69,6 +81,8 @@ fun WaveyyNavHost(
     mainVm: MainViewModel = hiltViewModel()
 ) {
     val navController: NavHostController = rememberNavController()
+    var chromeHidden by remember { mutableStateOf(false) }
+    var touchTick by remember { mutableIntStateOf(0) }
     val playback by playerVm.connection.state.collectAsState()
     val queue by playerVm.queue.collectAsState()
     val currentSong = queue.getOrNull(playback.mediaIndex)
@@ -80,13 +94,49 @@ fun WaveyyNavHost(
     // and the full-lyrics route, which supplies its own transport bar.
     val hideChrome = currentRoute?.startsWith("player") == true ||
         currentRoute?.startsWith("lyrics") == true
+    // Auto-hide the bottom chrome after CHROME_HIDE_DELAY_MS of no
+    // activity. Any touch (tap, drag, scroll) bumps `touchTick`, which
+    // cancels and restarts this effect. Navigating between routes also
+    // resets it so the chrome reappears when the destination changes.
+    // The effect is a no-op when the chrome is already hidden (full
+    // player / full lyrics routes).
+    LaunchedEffect(touchTick, currentRoute, hideChrome) {
+        if (hideChrome) {
+            chromeHidden = false
+            return@LaunchedEffect
+        }
+        chromeHidden = false
+        delay(CHROME_HIDE_DELAY_MS)
+        chromeHidden = true
+    }
     val scope = rememberCoroutineScope()
 
     fun playSource(source: QueueSource, index: Int) {
         scope.launch { playerVm.playSource(source, index) }
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .pointerInput(Unit) {
+                // Observe every pointer DOWN event (Initial pass runs before
+                // any child consumes it) so we don't break taps, drags, or
+                // scrolling anywhere in the app. Only DOWN events count —
+                // moves fire every frame and would keep the timer alive
+                // forever during a scroll.
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent(PointerEventPass.Initial)
+                        val hasNewPress = event.changes.any { change ->
+                            change.pressed && !change.previousPressed
+                        }
+                        if (hasNewPress) {
+                            touchTick++
+                        }
+                    }
+                }
+            }
+    ) {
         NavHost(
             navController = navController,
             startDestination = Graph.ROOT,
@@ -111,13 +161,13 @@ fun WaveyyNavHost(
                         onArtist = { id -> navController.navigate(Routes.withId(Routes.ARTIST, id)) },
                         onSearch = { navController.navigate(Routes.withQuery("")) },
                         onSettings = { navController.navigate(Routes.SETTINGS) },
-                        onDiscover = { navController.navigate(Routes.DISCOVER) }
+                        onHistory = { navController.navigate(Routes.HISTORY) }
                     )
                 }
-                composable(Routes.DISCOVER) {
-                    DiscoverScreen(
-                        onPlaySong = ::playSource,
-                        onBack = { navController.popBackStack() }
+                composable(Routes.HISTORY) {
+                    HistoryScreen(
+                        onBack = { navController.popBackStack() },
+                        onPlaySong = ::playSource
                     )
                 }
                 composable(Routes.SEARCH) {
@@ -143,7 +193,8 @@ fun WaveyyNavHost(
                 }
                 composable(Routes.PLAYLISTS) {
                     PlaylistsScreen(
-                        onOpen = { id -> navController.navigate(Routes.withId(Routes.PLAYLIST_DETAIL, id)) }
+                        onOpen = { id -> navController.navigate(Routes.withId(Routes.PLAYLIST_DETAIL, id)) },
+                        onOpenLiked = { navController.navigate(Routes.LIKED_SONGS) }
                     )
                 }
                 composable(
@@ -152,6 +203,12 @@ fun WaveyyNavHost(
                 ) {
                     PlaylistDetailScreen(
                         onBack = { navController.popBackStack() }
+                    )
+                }
+                composable(Routes.LIKED_SONGS) {
+                    LikedSongsScreen(
+                        onBack = { navController.popBackStack() },
+                        onPlaySong = ::playSource
                     )
                 }
                 composable(Routes.PROFILE) { PlaceholderScreen("Profile") }
@@ -180,7 +237,8 @@ fun WaveyyNavHost(
                                 popUpTo(Routes.LOGIN) { inclusive = true }
                             }
                         },
-                        onSignup = { navController.navigate(Routes.SIGNUP) }
+                        onSignup = { navController.navigate(Routes.SIGNUP) },
+                        onBack = { navController.popBackStack() }
                     )
                 }
                 composable(Routes.SIGNUP) {
@@ -190,7 +248,8 @@ fun WaveyyNavHost(
                                 popUpTo(Routes.SIGNUP) { inclusive = true }
                             }
                         },
-                        onLogin = { navController.popBackStack() }
+                        onLogin = { navController.popBackStack() },
+                        onBack = { navController.popBackStack() }
                     )
                 }
             if (BuildConfig.DEBUG) {
@@ -225,7 +284,26 @@ fun WaveyyNavHost(
             }
         }
         if (!hideChrome) {
-            // Bottom chrome as a glass overlay column pinned to the bottom.
+            val density = LocalDensity.current
+            val miniShiftPx = with(density) { MINI_PLAYER_DOWN_SHIFT.toPx() }
+            val navShiftPx = with(density) { NAV_PILL_DOWN_SHIFT.toPx() }
+
+            val miniOffsetY by animateFloatAsState(
+                targetValue = if (chromeHidden) miniShiftPx else 0f,
+                animationSpec = tween(durationMillis = CHROME_ANIM_MILLIS),
+                label = "chromeMiniOffset"
+            )
+            val navOffsetY by animateFloatAsState(
+                targetValue = if (chromeHidden) navShiftPx else 0f,
+                animationSpec = tween(durationMillis = CHROME_ANIM_MILLIS),
+                label = "chromeNavOffset"
+            )
+            val navAlpha by animateFloatAsState(
+                targetValue = if (chromeHidden) 0f else 1f,
+                animationSpec = tween(durationMillis = CHROME_ANIM_MILLIS),
+                label = "chromeNavAlpha"
+            )
+
             Column(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
@@ -235,39 +313,52 @@ fun WaveyyNavHost(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 if (playback.mediaId != null) {
-                    MiniPlayer(
-                        connection = playerVm.connection,
-                        currentSong = currentSong,
-                        onExpand = {
-                            val id = playback.mediaId ?: "current"
-                            navController.navigate(Routes.withId(Routes.PLAYER, id))
-                        },
-                        onOpenLyrics = { songId ->
-                            navController.navigate(Routes.withId(Routes.FULL_LYRICS, songId))
+                    Box(
+                        modifier = Modifier.graphicsLayer {
+                            translationY = miniOffsetY
                         }
-                    )
+                    ) {
+                        MiniPlayer(
+                            connection = playerVm.connection,
+                            currentSong = currentSong,
+                            onExpand = {
+                                val id = playback.mediaId ?: "current"
+                                navController.navigate(Routes.withId(Routes.PLAYER, id))
+                            },
+                            onOpenLyrics = { songId ->
+                                navController.navigate(Routes.withId(Routes.FULL_LYRICS, songId))
+                            }
+                        )
+                    }
                     Spacer(Modifier.height(12.dp))
                 }
-                FloatingNavPill(
-                    currentRoute = currentRoute?.substringBefore("?"),
-                    onDestination = { route ->
-                        val currentBase = currentRoute?.substringBefore("?")
-                        Timber.tag("WaveyyNav").d(
-                            "pill tap: route=$route current=$currentBase hideChrome=$hideChrome"
-                        )
-                        if (currentBase == route) {
-                            mainVm.requestScrollToTop(route)
-                        } else {
-                            navController.navigate(route) {
-                                popUpTo(navController.graph.findStartDestination().id) {
-                                    saveState = true
+                Box(
+                    modifier = Modifier.graphicsLayer {
+                        translationY = navOffsetY
+                        alpha = navAlpha
+                    }
+                ) {
+                    FloatingNavPill(
+                        currentRoute = currentRoute?.substringBefore("?"),
+                        onDestination = { route ->
+                            val currentBase = currentRoute?.substringBefore("?")
+                            Timber.tag("WaveyyNav").d(
+                                "pill tap: route=$route current=$currentBase hideChrome=$hideChrome"
+                            )
+                            if (currentBase == route) {
+                                mainVm.requestScrollToTop(route)
+                            } else {
+                                navController.navigate(route) {
+                                    popUpTo(navController.graph.findStartDestination().id) {
+                                        saveState = true
+                                    }
+                                    launchSingleTop = true
+                                    restoreState = true
                                 }
-                                launchSingleTop = true
-                                restoreState = true
                             }
                         }
-                    }
-                )
+                    )
+                }
             }
         }
     }
@@ -293,3 +384,23 @@ object DebugRoutes {
 
 /** Shared screen-transition duration (M3 default specs). */
 private const val TRANSITION_MILLIS = 300
+
+/** Idle time before the bottom chrome auto-hides. */
+private const val CHROME_HIDE_DELAY_MS = 5_000L
+
+/** Duration of the chrome hide/show transition. */
+private const val CHROME_ANIM_MILLIS = 300
+
+/**
+ * How far the mini player slides down when the chrome hides. Equals
+ * nav pill height (64) + spacer (12) so it lands exactly where the
+ * nav pill was.
+ */
+private val MINI_PLAYER_DOWN_SHIFT = 76.dp
+
+/**
+ * How far the nav pill slides down when hiding. Must exceed
+ * navBarInset + bottom padding (16) + pill height (64) so it clears
+ * the screen completely on every device.
+ */
+private val NAV_PILL_DOWN_SHIFT = 200.dp
