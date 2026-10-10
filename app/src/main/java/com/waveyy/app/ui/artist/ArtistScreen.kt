@@ -33,8 +33,9 @@ import com.waveyy.app.ui.components.AlbumCard
 import com.waveyy.app.ui.components.HeroPlayButton
 import com.waveyy.app.ui.components.SongCard
 import com.waveyy.app.ui.components.SkeletonArtistScreen
-import com.waveyy.app.ui.player.rememberChromeBottomReserve
+import com.waveyy.app.ui.components.WaveyyBackButton
 import com.waveyy.app.ui.components.WaveyyErrorPanel
+import com.waveyy.app.ui.player.rememberChromeBottomReserve
 import com.waveyy.app.util.HtmlDecoder
 import com.waveyy.app.util.PlayCountFormatter
 
@@ -47,7 +48,8 @@ import com.waveyy.app.util.PlayCountFormatter
 fun ArtistScreen(
     viewModel: ArtistViewModel = hiltViewModel(),
     onPlaySong: (QueueSource, Int) -> Unit = { _, _ -> },
-    onAlbum: (String) -> Unit = {}
+    onAlbum: (String) -> Unit = {},
+    onBack: () -> Unit = {}
 ) {
     val state by viewModel.state.collectAsState()
     when (val current = state) {
@@ -57,13 +59,13 @@ fun ArtistScreen(
         is ArtistUiState.Error -> {
             WaveyyErrorPanel(onRetry = viewModel::refresh)
         }
-        is ArtistUiState.Success -> ArtistContent(page = current.page, onPlaySong = onPlaySong, onAlbum = onAlbum)
+        is ArtistUiState.Success -> ArtistContent(page = current.page, onPlaySong = onPlaySong, onAlbum = onAlbum, onBack = onBack)
     }
 }
 
 /** Loaded artist body. */
 @Composable
-private fun ArtistContent(page: ArtistPage, onPlaySong: (QueueSource, Int) -> Unit, onAlbum: (String) -> Unit) {
+private fun ArtistContent(page: ArtistPage, onPlaySong: (QueueSource, Int) -> Unit, onAlbum: (String) -> Unit, onBack: () -> Unit) {
     val chromeBottom = rememberChromeBottomReserve()
     LazyColumn(
         modifier = Modifier
@@ -73,28 +75,36 @@ private fun ArtistContent(page: ArtistPage, onPlaySong: (QueueSource, Int) -> Un
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
-            Row(
-                modifier = Modifier.padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                AdaptiveImage(
-                    imageUrl = page.artist.imageUrl,
-                    contentDescription = page.artist.name,
-                    modifier = Modifier
-                        .size(120.dp)
-                        .clip(CircleShape)
-                )
-                Column(modifier = Modifier.padding(start = 16.dp)) {
-                    Text(
-                        text = HtmlDecoder.decode(page.artist.name),
-                        style = MaterialTheme.typography.headlineMedium
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    WaveyyBackButton(onClick = onBack)
+                }
+                Row(
+                    modifier = Modifier.padding(top = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    AdaptiveImage(
+                        imageUrl = page.artist.imageUrl,
+                        contentDescription = page.artist.name,
+                        modifier = Modifier
+                            .size(120.dp)
+                            .clip(CircleShape)
                     )
-                    if (page.artist.followerCount > 0L) {
+                    Column(modifier = Modifier.padding(start = 16.dp)) {
                         Text(
-                            text = PlayCountFormatter.format(page.artist.followerCount) + " Followers",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            text = HtmlDecoder.decode(page.artist.name),
+                            style = MaterialTheme.typography.headlineMedium
                         )
+                        if (page.artist.followerCount > 0L) {
+                            Text(
+                                text = PlayCountFormatter.format(page.artist.followerCount) + " Followers",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 }
             }
