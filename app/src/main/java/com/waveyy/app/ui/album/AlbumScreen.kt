@@ -3,6 +3,7 @@ package com.waveyy.app.ui.album
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -17,6 +18,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
@@ -26,6 +28,7 @@ import com.waveyy.app.domain.model.Song
 import com.waveyy.app.playback.QueueSource
 import com.waveyy.app.ui.components.AdaptiveImage
 import com.waveyy.app.ui.components.SongRow
+import com.waveyy.app.ui.components.WaveyyBackButton
 import com.waveyy.app.ui.components.WaveyyBadge
 import com.waveyy.app.ui.components.SkeletonRows
 import com.waveyy.app.ui.player.rememberChromeBottomReserve
@@ -39,7 +42,8 @@ import com.waveyy.app.ui.theme.WaveyyShapes
 @Composable
 fun AlbumScreen(
     viewModel: AlbumViewModel = hiltViewModel(),
-    onPlaySong: (QueueSource, Int) -> Unit = { _, _ -> }
+    onPlaySong: (QueueSource, Int) -> Unit = { _, _ -> },
+    onBack: () -> Unit = {}
 ) {
     val state by viewModel.state.collectAsState()
     when (val current = state) {
@@ -49,13 +53,13 @@ fun AlbumScreen(
         is AlbumUiState.Error -> {
             WaveyyErrorPanel(onRetry = viewModel::refresh)
         }
-        is AlbumUiState.Success -> AlbumContent(album = current.album, onPlaySong = onPlaySong)
+        is AlbumUiState.Success -> AlbumContent(album = current.album, onPlaySong = onPlaySong, onBack = onBack)
     }
 }
 
 /** Loaded album body. */
 @Composable
-private fun AlbumContent(album: Album, onPlaySong: (QueueSource, Int) -> Unit) {
+private fun AlbumContent(album: Album, onPlaySong: (QueueSource, Int) -> Unit, onBack: () -> Unit) {
     val chromeBottom = rememberChromeBottomReserve()
     LazyColumn(
         modifier = Modifier
@@ -66,6 +70,9 @@ private fun AlbumContent(album: Album, onPlaySong: (QueueSource, Int) -> Unit) {
     ) {
         item {
             Column(modifier = Modifier.padding(16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    WaveyyBackButton(onClick = onBack)
+                }
                 AdaptiveImage(
                     imageUrl = album.imageUrl,
                     contentDescription = album.name,

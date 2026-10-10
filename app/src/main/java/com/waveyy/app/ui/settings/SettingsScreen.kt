@@ -2,6 +2,7 @@ package com.waveyy.app.ui.settings
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
@@ -37,6 +38,8 @@ import com.waveyy.app.BuildConfig
 import com.waveyy.app.data.local.datastore.UserPrefs
 import com.waveyy.app.data.lyrics.LyricsRaceRepository
 import com.waveyy.app.data.repository.AuthRepository
+import com.waveyy.app.ui.components.WaveyyBackButton
+import com.waveyy.app.ui.player.rememberChromeBottomReserve
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
@@ -164,7 +167,8 @@ class SettingsViewModel @Inject constructor(
 @Composable
 fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
-    onSignIn: () -> Unit = {}
+    onSignIn: () -> Unit = {},
+    onBack: () -> Unit = {}
 ) {
     val quality by viewModel.audioQuality.collectAsState()
     val saavnEnabled by viewModel.saavnEnabled.collectAsState()
@@ -176,21 +180,30 @@ fun SettingsScreen(
     val lyricsMode by viewModel.lyricsMode.collectAsState()
     val preferredProvider by viewModel.preferredLyricsProvider.collectAsState()
     val lyricsDebug by viewModel.lyricsDebug.collectAsState()
+    val chromeBottom = rememberChromeBottomReserve()
 
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
             .statusBarsPadding(),
-        contentPadding = PaddingValues(bottom = 100.dp)
+        contentPadding = PaddingValues(bottom = chromeBottom)
     ) {
         item {
-            Text(
-                text = "Settings",
-                style = MaterialTheme.typography.headlineLarge,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(horizontal = 24.dp, vertical = 20.dp)
-            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, end = 24.dp, top = 12.dp, bottom = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                WaveyyBackButton(onClick = onBack)
+                Text(
+                    text = "Settings",
+                    style = MaterialTheme.typography.headlineLarge,
+                    fontWeight = FontWeight.Bold
+                )
+            }
         }
 
         // ─── Audio ───

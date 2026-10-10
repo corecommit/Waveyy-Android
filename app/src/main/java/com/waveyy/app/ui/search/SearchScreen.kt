@@ -130,147 +130,158 @@ fun SearchScreen(
         viewModel.submitQuery(query, addToHistory = true)
     }
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = chromeBottom),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        stickyHeader {
-            Column(
+    Column(modifier = Modifier.fillMaxSize()) {
+        // Fixed header: search bar (with status-bar inset).
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.background)
+                .statusBarsPadding()
+        ) {
+            Row(
                 modifier = Modifier
-                    .background(MaterialTheme.colorScheme.background)
-                    .statusBarsPadding()
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Row(
+                // Back button as a circular icon button, outside the pill.
+                Box(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                        .clickable(onClick = onBack),
+                    contentAlignment = Alignment.Center
                 ) {
-                    // Back button as a circular icon button, outside the pill.
-                    Box(
-                        modifier = Modifier
-                            .size(48.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                            .clickable(onClick = onBack),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.ArrowBack,
-                            contentDescription = "Back",
-                            tint = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
+                    Icon(
+                        imageVector = Icons.Filled.ArrowBack,
+                        contentDescription = "Back",
+                        tint = MaterialTheme.colorScheme.onSurface
+                    )
+                }
 
-                    // Pill search field.
-                    OutlinedTextField(
-                    value = text,
-                    onValueChange = { text = it },
-                    modifier = Modifier
-                        .weight(1f)
-                        .focusRequester(focusRequester)
-                        .onFocusChanged { focused = it.isFocused },
-                    placeholder = {
-                        Text(
-                            text = "Search songs, artists, albums",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Outlined.Search,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    },
-                    trailingIcon = {
-                        if (text.isNotEmpty()) {
-                            IconButton(onClick = { text = "" }) {
-                                Icon(
-                                    imageVector = Icons.Outlined.Close,
-                                    contentDescription = "Clear",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
+                // Pill search field.
+                OutlinedTextField(
+                value = text,
+                onValueChange = { text = it },
+                modifier = Modifier
+                    .weight(1f)
+                    .focusRequester(focusRequester)
+                    .onFocusChanged { focused = it.isFocused },
+                placeholder = {
+                    Text(
+                        text = "Search songs, artists, albums",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Outlined.Search,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
+                trailingIcon = {
+                    if (text.isNotEmpty()) {
+                        IconButton(onClick = { text = "" }) {
+                            Icon(
+                                imageVector = Icons.Outlined.Close,
+                                contentDescription = "Clear",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
-                    },
-                    singleLine = true,
-                    shape = RoundedCornerShape(percent = 50),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        focusedBorderColor = Color.Transparent,
-                        unfocusedBorderColor = Color.Transparent
-                    ),
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    }
+                },
+                singleLine = true,
+                shape = RoundedCornerShape(percent = 50),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    focusedBorderColor = Color.Transparent,
+                    unfocusedBorderColor = Color.Transparent
+                ),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                     keyboardActions = KeyboardActions(onSearch = { submit(text) })
+                )
+            }
+        }
+
+        val showHistory = text.isBlank() && focused && history.isNotEmpty()
+        if (!showHistory) {
+            // Fixed filter chips.
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp)
+            ) {
+                items(SearchFilter.entries.toList()) { entry ->
+                    FilterChip(
+                        selected = filter == entry,
+                        onClick = { filter = entry },
+                        label = { Text(entry.label) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     )
                 }
             }
         }
-        if (text.isBlank() && focused && history.isNotEmpty()) {
-            item {
-                HistoryList(
-                    history = history,
-                    onPick = { submit(it) },
-                    onRemove = viewModel::removeHistoryEntry,
-                    onClear = viewModel::clearHistory
-                )
-            }
-            item {
-                GenreChipsSection(
-                    onPick = { genre -> submit(genre) }
-                )
-            }
-        } else {
-            stickyHeader {
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-                ) {
-                    items(SearchFilter.entries.toList()) { entry ->
-                        FilterChip(
-                            selected = filter == entry,
-                            onClick = { filter = entry },
-                            label = { Text(entry.label) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                labelColor = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        )
-                    }
+
+        // Scrollable body.
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f),
+            contentPadding = PaddingValues(bottom = chromeBottom),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            if (showHistory) {
+                item {
+                    HistoryList(
+                        history = history,
+                        onPick = { submit(it) },
+                        onRemove = viewModel::removeHistoryEntry,
+                        onClear = viewModel::clearHistory
+                    )
                 }
-            }
-            item {
-                Crossfade(
-                    targetState = state is SearchUiState.Loading,
-                    animationSpec = tween(200),
-                    label = "searchCrossfade"
-                ) { loading ->
-                    if (loading) {
-                        SkeletonRows(count = 8)
-                    } else {
-                        ResultsBody(
-                            state = state,
-                            text = text,
-                            showSongs = showSongs,
-                            showAlbums = showAlbums,
-                            showArtists = showArtists,
-                            showPlaylists = showPlaylists,
-                            suggestions = suggestions,
-                            onPlaySong = onPlaySong,
-                            onAlbum = onAlbum,
-                            onArtist = onArtist,
-                            onPickSuggestion = { submit(it) },
-                            onRetry = viewModel::refresh
-                        )
-                    }
+                item {
+                    GenreChipsSection(
+                        onPick = { genre -> submit(genre) }
+                    )
+                }
+            } else {
+                item {
+                    Crossfade(
+                        targetState = state is SearchUiState.Loading,
+                        animationSpec = tween(200),
+                        label = "searchCrossfade"
+                    ) { loading ->
+                        if (loading) {
+                            SkeletonRows(count = 8)
+                        } else {
+                            ResultsBody(
+                                state = state,
+                                text = text,
+                                showSongs = showSongs,
+                                showAlbums = showAlbums,
+                                showArtists = showArtists,
+                                showPlaylists = showPlaylists,
+                                suggestions = suggestions,
+                                onPlaySong = onPlaySong,
+                                onAlbum = onAlbum,
+                                onArtist = onArtist,
+                                onPickSuggestion = { submit(it) },
+                                onRetry = viewModel::refresh
+                            )
+                        }
+                }
                 }
             }
         }

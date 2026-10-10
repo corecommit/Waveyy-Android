@@ -56,6 +56,7 @@ import com.waveyy.app.ui.search.SearchScreen
 import com.waveyy.app.ui.settings.SettingsScreen
 import com.waveyy.app.ui.together.TogetherScreen
 import kotlinx.coroutines.launch
+import timber.log.Timber
 
 /**
  * Root navigation host with two nested graphs: [MiniPlayer] and the
@@ -113,7 +114,10 @@ fun WaveyyNavHost(
                     )
                 }
                 composable(Routes.DISCOVER) {
-                    DiscoverScreen(onPlaySong = ::playSource)
+                    DiscoverScreen(
+                        onPlaySong = ::playSource,
+                        onBack = { navController.popBackStack() }
+                    )
                 }
                 composable(Routes.SEARCH) {
                     SearchScreen(
@@ -124,12 +128,16 @@ fun WaveyyNavHost(
                     )
                 }
                 composable(Routes.ALBUM) {
-                    AlbumScreen(onPlaySong = ::playSource)
+                    AlbumScreen(
+                        onPlaySong = ::playSource,
+                        onBack = { navController.popBackStack() }
+                    )
                 }
                 composable(Routes.ARTIST) {
                     ArtistScreen(
                         onPlaySong = ::playSource,
-                        onAlbum = { id -> navController.navigate(Routes.withId(Routes.ALBUM, id)) }
+                        onAlbum = { id -> navController.navigate(Routes.withId(Routes.ALBUM, id)) },
+                        onBack = { navController.popBackStack() }
                     )
                 }
                 composable(Routes.PLAYLISTS) {
@@ -140,7 +148,11 @@ fun WaveyyNavHost(
                 composable(
                     route = Routes.PLAYLIST_DETAIL,
                     deepLinks = listOf(navDeepLink { uriPattern = "waveyy://playlist/{id}" })
-                ) { PlaylistDetailScreen() }
+                ) {
+                    PlaylistDetailScreen(
+                        onBack = { navController.popBackStack() }
+                    )
+                }
                 composable(Routes.PROFILE) { PlaceholderScreen("Profile") }
                 composable(
                     route = Routes.TOGETHER,
@@ -156,7 +168,8 @@ fun WaveyyNavHost(
                 composable(Routes.CONNECTIONS) { PlaceholderScreen("Connections") }
                 composable(Routes.SETTINGS) {
                     SettingsScreen(
-                        onSignIn = { navController.navigate(Routes.LOGIN) }
+                        onSignIn = { navController.navigate(Routes.LOGIN) },
+                        onBack = { navController.popBackStack() }
                     )
                 }
                 composable(Routes.LOGIN) {
@@ -234,8 +247,11 @@ fun WaveyyNavHost(
                 FloatingNavPill(
                     currentRoute = currentRoute?.substringBefore("?"),
                     onDestination = { route ->
-                        if (currentRoute?.substringBefore("?") == route) {
-                            // Already here: scroll to top, never re-navigate.
+                        val currentBase = currentRoute?.substringBefore("?")
+                        Timber.tag("WaveyyNav").d(
+                            "pill tap: route=$route current=$currentBase hideChrome=$hideChrome backstack=${navController.currentBackStack.value.map { it.destination.route }}"
+                        )
+                        if (currentBase == route) {
                             mainVm.requestScrollToTop(route)
                         } else {
                             navController.navigate(route) {

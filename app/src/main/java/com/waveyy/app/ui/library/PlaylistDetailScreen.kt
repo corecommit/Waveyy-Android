@@ -2,9 +2,11 @@ package com.waveyy.app.ui.library
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -16,6 +18,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -26,6 +29,7 @@ import com.waveyy.app.data.repository.PlaylistRepository
 import com.waveyy.app.domain.model.Playlist
 import com.waveyy.app.ui.components.SongRow
 import com.waveyy.app.ui.components.SkeletonRows
+import com.waveyy.app.ui.components.WaveyyBackButton
 import com.waveyy.app.ui.player.rememberChromeBottomReserve
 import com.waveyy.app.ui.player.sharedPlayerViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -95,7 +99,8 @@ class PlaylistDetailViewModel @Inject constructor(
  */
 @Composable
 fun PlaylistDetailScreen(
-    viewModel: PlaylistDetailViewModel = hiltViewModel()
+    viewModel: PlaylistDetailViewModel = hiltViewModel(),
+    onBack: () -> Unit = {}
 ) {
     val state by viewModel.state.collectAsState()
     val player = sharedPlayerViewModel()
@@ -114,16 +119,26 @@ fun PlaylistDetailScreen(
             val playlist = current.playlist
             val chromeBottom = rememberChromeBottomReserve()
             LazyColumn(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .statusBarsPadding(),
                 contentPadding = PaddingValues(bottom = chromeBottom),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 item {
-                    Text(
-                        text = playlist.name,
-                        style = MaterialTheme.typography.headlineSmall,
-                        modifier = Modifier.padding(16.dp)
-                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        WaveyyBackButton(onClick = onBack)
+                        Text(
+                            text = playlist.name,
+                            style = MaterialTheme.typography.headlineSmall
+                        )
+                    }
                 }
                 items(playlist.songs, key = { it.id }) { song ->
                     androidx.compose.foundation.layout.Row(
