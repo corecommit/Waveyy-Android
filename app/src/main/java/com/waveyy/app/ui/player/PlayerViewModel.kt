@@ -208,6 +208,17 @@ class PlayerViewModel @Inject constructor(
      * current position. Fixes the "spam Continue to make it play" symptom
      * when the source list has 10+ stream-less songs.
      */
+    /**
+     * Plays a tap source. Resolves only the tapped song synchronously, then
+     * plays it as a single-item queue. The rest of the list is resolved and
+     * appended in the background.
+     *
+     * The tap id is captured BEFORE refreshStreams runs, because that method
+     * can return a song with a different id (JioSaavn matches a different
+     * version of the same track by name). Comparing against the resolved id
+     * would let the original tapped entry slip through the filter and get
+     * appended as a duplicate — that's the "same song plays twice" bug.
+     */
     fun playSource(source: com.waveyy.app.playback.QueueSource, startIndex: Int = 0) {
         viewModelScope.launch {
             val tappedSong = source.songs.getOrNull(startIndex)
@@ -216,7 +227,12 @@ class PlayerViewModel @Inject constructor(
                 return@launch
             }
 
-            // 1. Resolve ONLY the tapped song.
+            // Capture the ORIGINAL id BEFORE any refresh — this is the key to
+            // filtering the tapped song out of the backfill list, immune to
+            // refresh-id-drift.
+            val originalTappedId = tappedSong.id
+
+            // 1. Resolve the tapped song. Its id may or may not change.
             val resolvedTapped = if (tappedSong.streams.any { it.url.isNotBlank() }) {
                 tappedSong
             } else {
@@ -227,41 +243,66 @@ class PlayerViewModel @Inject constructor(
                 return@launch
             }
 
-            // 2. Play immediately (queue of one).
-            val oneSong = listOf(resolvedTapped)
-            mutableQueue.value = oneSong
+            // 2. Build the single MediaItem and play it.
+            val singleItem = com.waveyy.app.playback.QueueManager()
+                .toMediaItem(resolvedTapped) ?: run {
+                    mutablePlayerError.value = UNPLAYABLE_MESSAGE
+                    return@launch
+                }
+            mutableQueue.value = listOf(resolvedTapped)
             userPrefs.setMiniPlayerHidden(false)
-            connection.playSongs(oneSong, 0)
+            connection.playSingleItem(singleItem)
             onTrackChanged(resolvedTapped.id)
+            val generation = connection.currentGeneration()
 
-            // 3. In the background: resolve the rest, then append them to the queue.
+            // 3. Background: resolve the rest and append. Every filter here
+            // compares against originalTappedId, not resolvedTapped.id, so the
+            // tapped song can never slip back in under a different id.
             launch {
                 val others = source.songs.filterIndexed { i, s ->
-                    i != startIndex && s.id.isNotBlank() && s.id != resolvedTapped.id
+                    i != startIndex &&
+                        s.id.isNotBlank() &&
+                        s.id != originalTappedId
                 }
+                if (others.isEmpty()) return@launch
+
                 val resolvedOthers = coroutineScope {
                     others.map { song ->
                         async {
-                            if (song.streams.any { s -> s.url.isNotBlank() }) song
-                            else runCatching { refreshStreams(song) }.getOrNull() ?: song
+                            if (song.streams.any { s -> s.url.isNotBlank() }) {
+                                song
+                            } else {
+                                runCatching { refreshStreams(song) }.getOrNull() ?: song
+                            }
                         }
                     }.awaitAll()
                 }.filter { it.streams.any { s -> s.url.isNotBlank() } }
 
-                // Dedupe by id, keeping the tapped song first.
-                val seen = mutableSetOf<String>()
-                seen.add(resolvedTapped.id)
-                val extraSongs = resolvedOthers.filter { seen.add(it.id) }
+                // Dedupe: exclude the original tapped id AND the resolved
+                // tapped id (refresh may have produced a new one), plus any
+                // repeat of an already-seen id.
+                val seenIds = mutableSetOf<String>()
+                seenIds.add(originalTappedId)
+                seenIds.add(resolvedTapped.id)
+                val extraSongs = resolvedOthers.filter { seenIds.add(it.id) }
                 if (extraSongs.isEmpty()) return@launch
 
-                // Guard: only append if the user hasn't moved on meanwhile.
-                if (connection.state.value.mediaId != resolvedTapped.id) {
+                // Guard: user must not have moved on. Also guards against a
+                // second tap having started a new playSingleItem — in that
+                // case we'd be appending to the wrong session.
+                val stillOnTapped = connection.state.value.mediaId == resolvedTapped.id
+                if (!stillOnTapped) {
                     Timber.tag("PlayerVM").d("skipping backfill: user moved on")
                     return@launch
                 }
+                if (connection.currentGeneration() != generation) {
+                    Timber.tag("PlayerVM").d("skipping backfill: superseded by newer tap")
+                    return@launch
+                }
 
-                // Convert to MediaItems and append — the current item keeps playing
-                // with no re-prepare, no re-seek, no glitch.
+                // Convert and append. Media3's addMediaItems grows the queue
+                // without touching the current item — no re-prepare, no
+                // re-seek, no index desync.
                 val items = com.waveyy.app.playback.QueueManager()
                     .toMediaItems(extraSongs)
                 if (items.isEmpty()) return@launch
