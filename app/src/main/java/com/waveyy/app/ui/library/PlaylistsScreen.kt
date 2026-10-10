@@ -72,6 +72,7 @@ import kotlinx.coroutines.flow.filter
 fun PlaylistsScreen(
     viewModel: LibraryViewModel = hiltViewModel(),
     onOpen: (String) -> Unit,
+    onOpenLiked: () -> Unit = {},
     mainVm: MainViewModel = sharedMainViewModel()
 ) {
     val state by viewModel.state.collectAsState()
@@ -158,6 +159,14 @@ fun PlaylistsScreen(
                         )
                     }
                 }
+            }
+            item(span = { GridItemSpan(2) }) {
+                LikedSongsCard(
+                    songCount = state.playlists
+                        .firstOrNull { it.id == state.likedPlaylistId }
+                        ?.songs?.size ?: 0,
+                    onClick = onOpenLiked
+                )
             }
 
             if (state.backendMissing) {
@@ -284,5 +293,57 @@ private fun PlaylistGridCard(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+    }
+}
+
+/** Pinned Liked Songs row — shows at the top of the Library grid. */
+@Composable
+private fun LikedSongsCard(songCount: Int, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .clickable(onClick = onClick)
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(56.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(
+                    androidx.compose.ui.graphics.Brush.linearGradient(
+                        listOf(
+                            MaterialTheme.colorScheme.primary,
+                            MaterialTheme.colorScheme.secondary
+                        )
+                    )
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Favorite,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onPrimary,
+                modifier = Modifier.size(28.dp)
+            )
+        }
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(horizontal = 16.dp)
+        ) {
+            Text(
+                text = "Liked Songs",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                text = "$songCount ${if (songCount == 1) "song" else "songs"}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
