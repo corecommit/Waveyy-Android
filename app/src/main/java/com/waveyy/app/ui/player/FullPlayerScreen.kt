@@ -516,7 +516,7 @@ private fun handleInfoAction(
 }
 
 /** Formats seconds as m:ss. */
-private fun formatDuration(totalSeconds: Long): String {
+internal fun formatDuration(totalSeconds: Long): String {
     if (totalSeconds <= 0L) return "0:00"
     val minutes = totalSeconds / 60L
     val seconds = (totalSeconds % 60L).toString().padStart(2, '0')

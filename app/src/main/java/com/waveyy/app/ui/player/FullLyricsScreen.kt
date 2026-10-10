@@ -23,10 +23,18 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.SkipNext
+import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -44,6 +52,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.waveyy.app.playback.PlaybackState
 import com.waveyy.app.ui.components.AdaptiveImage
 import com.waveyy.app.ui.library.LikeSongButton
 import com.waveyy.app.ui.theme.rememberAlbumAccent
@@ -167,90 +176,198 @@ fun FullLyricsScreen(
                     }
                 }
             }
-            when {
-                song == null -> Text(
-                    text = "Song unavailable",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = Color.White.copy(alpha = 0.7f),
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(32.dp)
-                )
-                lyrics is LyricsUiState.Loading -> Text(
-                    text = "Loading…",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = Color.White.copy(alpha = 0.7f),
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(32.dp)
-                )
-                lines.isEmpty() -> Text(
-                    text = when (lyrics) {
-                        LyricsUiState.Instrumental -> "Instrumental"
-                        is LyricsUiState.Plain -> (lyrics as LyricsUiState.Plain).text
-                        else -> "Lyrics not available"
-                    },
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = Color.White.copy(alpha = 0.8f),
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(32.dp)
-                )
-                else -> LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    state = listState,
-                    contentPadding = PaddingValues(vertical = 200.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    itemsIndexed(lines) { i, line ->
-                        val distance = kotlin.math.abs(i - idx)
-                        // Heavier blur so distant lines are clearly out of focus.
-                        val blurRadius = (distance * 1.4f).coerceAtMost(7f)
-                        // Strong alpha falloff.
-                        val alpha = (1f - distance * 0.22f).coerceIn(0.20f, 1f)
-                        val scale = (1f - distance * 0.03f).coerceIn(0.88f, 1f)
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+            ) {
+                when {
+                    song == null -> Text(
+                        text = "Song unavailable",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = Color.White.copy(alpha = 0.7f),
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(32.dp)
+                    )
+                    lyrics is LyricsUiState.Loading -> Text(
+                        text = "Loading…",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = Color.White.copy(alpha = 0.7f),
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(32.dp)
+                    )
+                    lines.isEmpty() -> Text(
+                        text = when (lyrics) {
+                            LyricsUiState.Instrumental -> "Instrumental"
+                            is LyricsUiState.Plain -> (lyrics as LyricsUiState.Plain).text
+                            else -> "Lyrics not available"
+                        },
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = Color.White.copy(alpha = 0.8f),
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(32.dp)
+                    )
+                    else -> LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        state = listState,
+                        contentPadding = PaddingValues(vertical = 200.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        itemsIndexed(lines) { i, line ->
+                            val distance = kotlin.math.abs(i - idx)
+                            // Heavier blur so distant lines are clearly out of focus.
+                            val blurRadius = (distance * 1.4f).coerceAtMost(7f)
+                            // Strong alpha falloff.
+                            val alpha = (1f - distance * 0.22f).coerceIn(0.20f, 1f)
+                            val scale = (1f - distance * 0.03f).coerceIn(0.88f, 1f)
 
-                        // Smoothly animate transitions when idx changes.
-                        val animatedAlpha by animateFloatAsState(
-                            targetValue = alpha,
-                            animationSpec = tween(400),
-                            label = "lyricAlpha$i"
-                        )
-                        val animatedScale by animateFloatAsState(
-                            targetValue = scale,
-                            animationSpec = tween(400),
-                            label = "lyricScale$i"
-                        )
+                            // Smoothly animate transitions when idx changes.
+                            val animatedAlpha by animateFloatAsState(
+                                targetValue = alpha,
+                                animationSpec = tween(400),
+                                label = "lyricAlpha$i"
+                            )
+                            val animatedScale by animateFloatAsState(
+                                targetValue = scale,
+                                animationSpec = tween(400),
+                                label = "lyricScale$i"
+                            )
 
-                        Text(
-                            text = line.text,
-                            style = if (distance == 0) {
-                                MaterialTheme.typography.headlineMedium
-                            } else {
-                                MaterialTheme.typography.titleMedium
-                            },
-                            fontWeight = if (distance == 0) FontWeight.Bold else FontWeight.Normal,
-                            color = Color.White.copy(alpha = animatedAlpha),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .graphicsLayer {
-                                    scaleX = animatedScale
-                                    scaleY = animatedScale
-                                }
-                                .blur(radius = blurRadius.dp)
-                                .clickable {
-                                    if (songId == state.mediaId) {
-                                        scope.launch { connection.seekTo(line.timeMs) }
+                            Text(
+                                text = line.text,
+                                style = if (distance == 0) {
+                                    MaterialTheme.typography.headlineMedium
+                                } else {
+                                    MaterialTheme.typography.titleMedium
+                                },
+                                fontWeight = if (distance == 0) FontWeight.Bold else FontWeight.Normal,
+                                color = Color.White.copy(alpha = animatedAlpha),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .graphicsLayer {
+                                        scaleX = animatedScale
+                                        scaleY = animatedScale
                                     }
-                                }
-                                .padding(horizontal = 24.dp, vertical = 8.dp)
-                        )
+                                    .blur(radius = blurRadius.dp)
+                                    .clickable {
+                                        if (songId == state.mediaId) {
+                                            scope.launch { connection.seekTo(line.timeMs) }
+                                        }
+                                    }
+                                    .padding(horizontal = 24.dp, vertical = 8.dp)
+                            )
+                        }
                     }
                 }
             }
+
+            PlayerTransportBar(
+                state = state,
+                onSeek = { target -> scope.launch { connection.seekTo(target) } },
+                onTogglePlay = { scope.launch { connection.togglePlayPause() } },
+                onPrev = { viewModel.rewind() },
+                onNext = { viewModel.advance() }
+            )
+        }
+    }
+}
+
+/**
+ * Inline transport bar for the full-lyrics route: seek slider with
+ * elapsed/remaining labels and prev / play-pause / next controls.
+ */
+@Composable
+private fun PlayerTransportBar(
+    state: PlaybackState,
+    onSeek: (Long) -> Unit,
+    onTogglePlay: () -> Unit,
+    onPrev: () -> Unit,
+    onNext: () -> Unit
+) {
+    val fraction = if (state.durationMs > 0L) {
+        (state.positionMs.toFloat() / state.durationMs).coerceIn(0f, 1f)
+    } else {
+        0f
+    }
+    val remainingSec = ((state.durationMs - state.positionMs) / 1000L)
+        .coerceAtLeast(0L)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+    ) {
+        Slider(
+            value = fraction,
+            onValueChange = { onSeek((it * state.durationMs).toLong()) },
+            colors = SliderDefaults.colors(
+                thumbColor = MaterialTheme.colorScheme.primary,
+                activeTrackColor = MaterialTheme.colorScheme.primary,
+                inactiveTrackColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                inactiveTickColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                activeTickColor = MaterialTheme.colorScheme.primary
+            )
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = formatDuration(state.positionMs / 1000L),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(
+                    onClick = onPrev,
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.SkipPrevious,
+                        contentDescription = "Previous",
+                        modifier = Modifier.size(30.dp)
+                    )
+                }
+                FilledIconButton(
+                    onClick = onTogglePlay,
+                    modifier = Modifier.size(64.dp),
+                    colors = IconButtonDefaults.filledIconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    )
+                ) {
+                    Icon(
+                        imageVector = if (state.isPlaying) Icons.Filled.Pause
+                                      else Icons.Filled.PlayArrow,
+                        contentDescription = if (state.isPlaying) "Pause" else "Play",
+                        modifier = Modifier.size(32.dp)
+                    )
+                }
+                IconButton(
+                    onClick = onNext,
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.SkipNext,
+                        contentDescription = "Next",
+                        modifier = Modifier.size(30.dp)
+                    )
+                }
+            }
+            Text(
+                text = "-" + formatDuration(remainingSec),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
