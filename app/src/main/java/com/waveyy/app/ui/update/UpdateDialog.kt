@@ -50,19 +50,33 @@ fun UpdateDialog(
                     .verticalScroll(rememberScrollState())
             ) {
                 Text(
-                    text = "${update.title}  ·  v${update.version}",
+                    text = update.title,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(Modifier.height(12.dp))
                 if (downloading) {
-                    LinearProgressIndicator(
-                        progress = { progress.coerceIn(0f, 1f) },
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    // progress == 0f can mean "just started" OR "server
+                    // omitted Content-Length". Either way, show an
+                    // indeterminate-ish spinner state; only render the
+                    // progress bar once we have a non-zero value.
+                    if (progress > 0f) {
+                        LinearProgressIndicator(
+                            progress = { progress.coerceIn(0f, 1f) },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    } else {
+                        LinearProgressIndicator(
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        text = "Downloading… ${(progress * 100).toInt()}%",
+                        text = if (progress > 0f) {
+                            "Downloading… ${(progress * 100).toInt()}%"
+                        } else {
+                            "Downloading… this can take a moment on slow networks."
+                        },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

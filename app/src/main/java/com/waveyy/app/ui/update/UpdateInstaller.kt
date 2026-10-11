@@ -13,6 +13,7 @@ import okhttp3.Request
 import timber.log.Timber
 import java.io.File
 import javax.inject.Inject
+import javax.inject.Named
 import javax.inject.Singleton
 
 /**
@@ -22,7 +23,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class UpdateInstaller @Inject constructor(
-    private val okHttp: OkHttpClient
+    @Named("download") private val okHttp: OkHttpClient
 ) {
 
     /**
@@ -52,8 +53,17 @@ class UpdateInstaller @Inject constructor(
     }
 
     private fun downloadApk(url: String, dest: File, onProgress: (Float) -> Unit) {
-        val request = Request.Builder().url(url).build()
+        Timber.tag("UpdateInstaller").d("download start: $url")
+        val request = Request.Builder()
+            .url(url)
+            .header("Accept", "application/octet-stream")
+            .build()
         okHttp.newCall(request).execute().use { response ->
+            Timber.tag("UpdateInstaller").d(
+                "response: code=${response.code} " +
+                    "contentLength=${response.body?.contentLength()} " +
+                    "contentType=${response.body?.contentType()}"
+            )
             if (!response.isSuccessful) {
                 throw IllegalStateException("Download failed: HTTP ${response.code}")
             }
@@ -64,11 +74,28 @@ class UpdateInstaller @Inject constructor(
                     val buf = ByteArray(64 * 1024)
                     var read: Int
                     var written = 0L
+                    var lastLoggedPct = -1
                     while (input.read(buf).also { read = it } > 0) {
                         out.write(buf, 0, read)
                         written += read
-                        if (total > 0) onProgress((written.toFloat() / total).coerceIn(0f, 1f))
+                        if (total > 0) {
+                            val pct = (written * 100 / total).toInt()
+                            onProgress((written.toFloat() / total).coerceIn(0f, 1f))
+                            if (pct != lastLoggedPct && pct % 10 == 0) {
+                                lastLoggedPct = pct
+                                Timber.tag("UpdateInstaller")
+                                    .d("progress ${pct}% (${written}/${total})")
+                            }
+                        } else {
+                            // No Content-Length: emit nothing rather than
+                            // divide by zero. The ViewModel shows a
+                            // bytes-downloaded label in this case.
+                            Timber.tag("UpdateInstaller")
+                                .d("downloaded $written bytes (unknown total)")
+                        }
                     }
+                    Timber.tag("UpdateInstaller")
+                        .d("download complete: $written bytes written")
                 }
             }
         }

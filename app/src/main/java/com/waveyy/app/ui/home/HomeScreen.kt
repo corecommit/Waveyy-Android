@@ -126,39 +126,72 @@ fun HomeScreen(
             )
             is HomeUiState.Success -> {
                 val sections = current.sections
-                val allEmpty = sections.trending.isEmpty() &&
+                val nothingArrived = sections.trending.isEmpty() &&
                     sections.recent.isEmpty() &&
                     sections.recommended.isEmpty() &&
-                    sections.popularAlbums.isEmpty() &&
-                    sections.popularArtists.isEmpty() &&
                     sections.newReleases.isEmpty()
-                if (allEmpty) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(24.dp),
-                        verticalArrangement = Arrangement.Center,
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = "Nothing to show yet. Check your sources in Settings.",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                val loadHazeState = remember { HazeState() }
+                if (nothingArrived) {
+                    SkeletonHomeScreen(
+                        modifier = Modifier.padding(padding),
+                        topContentPadding = with(LocalDensity.current) {
+                            WindowInsets.statusBars.getTop(LocalDensity.current).toDp()
+                        } + 64.dp,
+                        hazeState = loadHazeState,
+                        header = {
+                            HomeHeader(
+                                onHistory = onHistory,
+                                onSearch = onSearch,
+                                onSettings = onSettings,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .hazeEffect(
+                                        state = loadHazeState,
+                                        style = HazeStyle(
+                                            backgroundColor = MaterialTheme.colorScheme.background.copy(alpha = 0.85f),
+                                            tint = null,
+                                            blurRadius = 40.dp,
+                                            noiseFactor = 0f
+                                        )
+                                    )
+                            )
+                        }
+                    )
+                } else {
+                    val allEmpty = sections.trending.isEmpty() &&
+                        sections.recent.isEmpty() &&
+                        sections.recommended.isEmpty() &&
+                        sections.popularAlbums.isEmpty() &&
+                        sections.popularArtists.isEmpty() &&
+                        sections.newReleases.isEmpty()
+                    if (allEmpty) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(24.dp),
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = "Nothing to show yet. Check your sources in Settings.",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    } else {
+                        HomeContent(
+                            sections = current.sections,
+                            onPlaySong = onPlaySong,
+                            onAlbum = onAlbum,
+                            onArtist = onArtist,
+                            onSearch = onSearch,
+                            onSettings = onSettings,
+                            onHistory = onHistory,
+                            isRefreshing = refreshing,
+                            onRefresh = viewModel::refreshQuiet,
+                            modifier = Modifier.padding(padding)
                         )
                     }
-                } else {
-                    HomeContent(
-                        sections = current.sections,
-                        onPlaySong = onPlaySong,
-                        onAlbum = onAlbum,
-                        onArtist = onArtist,
-                        onSearch = onSearch,
-                        onSettings = onSettings,
-                        onHistory = onHistory,
-                        isRefreshing = refreshing,
-                        onRefresh = viewModel::refreshQuiet,
-                        modifier = Modifier.padding(padding)
-                    )
                 }
             }
         }

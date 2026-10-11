@@ -101,6 +101,9 @@ class PlayerViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000L), false)
 
     private var lastLoggedId: String? = null
+
+    /** Last seed id we fetched radio for (debounce). */
+    private var lastRadioSeedId: String? = null
     private var sleepJob: Job? = null
     private var sleepEndOfSong = false
 
@@ -258,6 +261,7 @@ class PlayerViewModel @Inject constructor(
             // resolved version further down.
             mutableQueue.value = listOf(tappedSong)
             userPrefs.setMiniPlayerHidden(false)
+            lastRadioSeedId = null
             val myPreparingId = tappedSong.id
             mutablePreparingFor.value = myPreparingId
             // Stop the previous song immediately. Without this, the old
@@ -422,6 +426,9 @@ class PlayerViewModel @Inject constructor(
 
     private val queueResolvedAt = mutableMapOf<String, Long>()
 
+    /** Ids of songs whose prefetch is currently in flight (dedup). */
+    private val prefetchInFlight = mutableSetOf<String>()
+
     /** Re-resolves stale streams (older than 30 min) before playing. */
     suspend fun ensureFreshStreams(songs: List<Song>): List<Song> {
         val now = System.currentTimeMillis()
@@ -441,38 +448,83 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
-    /** Advances to the next item, refreshing its stream URL first. */
-    fun advance() {
-        viewModelScope.launch {
-            val current = mutableQueue.value
-            val at = connection.state.value.mediaIndex
-            val next = current.getOrNull(at + 1)
-            if (next != null) {
-                val fresh = ensureFreshStreams(listOf(next)).firstOrNull()
-                if (fresh != null && fresh != next) {
-                    mutableQueue.value = current.toMutableList().also { it[at + 1] = fresh }
-                    connection.replaceItem(at + 1, fresh)
+    /**
+     * Kicks off background resolution of the stream URL for the songs
+     * ahead of the current index, so the next advance()/rewind() is
+     * instant. Resolves up to [aheadCount] songs after [fromIndex] AND
+     * the one song before it (for rewind). Silent — failures are logged,
+     * not surfaced.
+     */
+    private fun prefetchAround(fromIndex: Int) {
+        val queue = mutableQueue.value
+        if (queue.isEmpty()) return
+
+        // Targets: next 2 forward + 1 backward, in that priority order.
+        val targets = buildList {
+            for (offset in 1..2) {
+                queue.getOrNull(fromIndex + offset)?.let { add(it) }
+            }
+            queue.getOrNull(fromIndex - 1)?.let { add(it) }
+        }.filter { song ->
+            song.id.isNotBlank() &&
+                !prefetchInFlight.contains(song.id) &&
+                isStale(song)
+        }
+
+        if (targets.isEmpty()) return
+
+        targets.forEach { song ->
+            prefetchInFlight += song.id
+            viewModelScope.launch {
+                try {
+                    val fresh = refreshStreams(song)
+                    if (fresh != null) {
+                        // Swap in the freshly resolved song wherever it
+                        // currently sits in the queue, but only if the user
+                        // hasn't moved on since we started.
+                        val current = mutableQueue.value
+                        val idx = current.indexOfFirst { it.id == song.id }
+                        if (idx >= 0) {
+                            val updated = current.toMutableList().also { it[idx] = fresh }
+                            mutableQueue.value = updated
+                            queueResolvedAt[fresh.id] = System.currentTimeMillis()
+                            // Also swap the controller item so the URL is
+                            // ready when ExoPlayer advances to it.
+                            connection.replaceItem(idx, fresh)
+                            Timber.tag("PlayerVM").d(
+                                "prefetched %s (idx=%d)", fresh.id, idx
+                            )
+                        }
+                    }
+                } finally {
+                    prefetchInFlight -= song.id
                 }
             }
-            connection.next()
         }
     }
 
-    /** Returns to the previous item, refreshing its stream URL first. */
+    /** True when [song]'s URL is missing or older than the freshness TTL. */
+    private fun isStale(song: Song): Boolean {
+        val last = queueResolvedAt[song.id] ?: 0L
+        val hasStream = song.streams.any { it.url.isNotBlank() }
+        return !hasStream || System.currentTimeMillis() - last >= STREAM_TTL_MS
+    }
+
+    /**
+     * Advances to the next item. Instant: URL freshness is handled by
+     * [prefetchAround], which runs while the current song plays. If the
+     * prefetch hasn't finished (rare — usually fires well before the
+     * user skips), the controller plays with the stale URL; ExoPlayer's
+     * built-in retry logic surfaces an error only if the URL is actually
+     * dead, and the Snackbar's Retry re-resolves.
+     */
+    fun advance() {
+        viewModelScope.launch { connection.next() }
+    }
+
+    /** Returns to the previous item. Instant, same reasoning as [advance]. */
     fun rewind() {
-        viewModelScope.launch {
-            val current = mutableQueue.value
-            val at = connection.state.value.mediaIndex
-            val prev = current.getOrNull(at - 1)
-            if (prev != null) {
-                val fresh = ensureFreshStreams(listOf(prev)).firstOrNull()
-                if (fresh != null && fresh != prev) {
-                    mutableQueue.value = current.toMutableList().also { it[at - 1] = fresh }
-                    connection.replaceItem(at - 1, fresh)
-                }
-            }
-            connection.previous()
-        }
+        viewModelScope.launch { connection.previous() }
     }
 
     /** Plays a single song (queue of one). */
@@ -491,6 +543,17 @@ class PlayerViewModel @Inject constructor(
             }
         }
         lastLoggedId = songId
+        // Radio autoplay: queue up related songs behind the current track
+        // so playback doesn't fall off the end into random covers. Fires
+        // in the background; won't block anything.
+        maybeExtendQueueWithRadio(songId)
+        // Prefetch around the new track so skip-forward/skip-back is
+        // instant. Fires on every track change (including natural advance
+        // and manual tap).
+        val currentIndex = mutableQueue.value.indexOfFirst { it.id == songId }
+        if (currentIndex >= 0) {
+            prefetchAround(currentIndex)
+        }
         val song = mutableQueue.value.firstOrNull { it.id == songId }
         viewModelScope.launch(Dispatchers.IO) {
             val now = System.currentTimeMillis()
@@ -602,13 +665,120 @@ class PlayerViewModel @Inject constructor(
     /** Starts a radio queue: the seed song plus its recommendations. */
     fun startRadio(song: Song) {
         viewModelScope.launch {
-            val recs = runCatching {
-                songRepository.suggestions(song.id).first()
-            }.getOrDefault(emptyList())
+            val recs = fetchRadioFor(song)
             val queue = (listOf(song) + recs).distinctBy { it.id }
             if (queue.isNotEmpty()) {
                 playSource(com.waveyy.app.playback.QueueSource.Recommendations(queue), 0)
             }
+        }
+    }
+
+    /**
+     * Fetches a radio-style list of songs related to [seed]. Combines:
+     *  1. JioSaavn's `/song/{id}/suggestions` endpoint (curated by mood)
+     *  2. Same-artist search (top tracks by the primary artist)
+     * Merged, deduped, filtered against covers/karaoke/live versions.
+     * Returned in ranking order: suggestions first, then same-artist.
+     */
+    private suspend fun fetchRadioFor(seed: Song): List<Song> {
+        // Query both sources in parallel.
+        val suggestionsJob = viewModelScope.async {
+            runCatching { songRepository.suggestions(seed.id).first() }
+                .getOrDefault(emptyList())
+        }
+        val primaryArtist = seed.artist
+            .split(",").firstOrNull()?.trim().orEmpty()
+            .takeIf { it.isNotBlank() && it != "unknown" }
+        val sameArtistJob = if (primaryArtist != null) {
+            viewModelScope.async {
+                runCatching { songRepository.searchSongs(primaryArtist).first() }
+                    .getOrDefault(emptyList())
+            }
+        } else {
+            null
+        }
+
+        val suggestions = suggestionsJob.await()
+        val sameArtist = sameArtistJob?.await().orEmpty()
+
+        // Merge: interleave suggestions and same-artist so the user gets a
+        // mix, not all suggestions first then all same-artist.
+        val merged = mutableListOf<Song>()
+        val max = maxOf(suggestions.size, sameArtist.size)
+        for (i in 0 until max) {
+            suggestions.getOrNull(i)?.let { merged += it }
+            sameArtist.getOrNull(i)?.let { merged += it }
+        }
+
+        // Filter: exclude the seed, covers/karaoke/live/instrumental
+        // versions, and anything already in the current queue.
+        val existingIds = mutableQueue.value.map { it.id }.toSet()
+        return merged
+            .asSequence()
+            .filter { it.id != seed.id && it.id !in existingIds }
+            .filter { it.id.isNotBlank() }
+            .filter { song -> !isCoverOrKaraoke(song) }
+            .filter { song -> song.streams.isNotEmpty() || song.id.isNotBlank() }
+            .distinctBy { song ->
+                com.waveyy.app.domain.usecase.SearchRanking.titleKey(song.name) + "||" +
+                    song.artist.lowercase().split(",").first().trim()
+            }
+            .take(RADIO_APPEND_LIMIT)
+            .toList()
+    }
+
+    /**
+     * True when [song] looks like a cover, karaoke, live, instrumental,
+     * 8-bit, or remix version — anything we don't want in the autoplay
+     * tail. Uses title + artist heuristics; skip-lists are case-insensitive.
+     */
+    private fun isCoverOrKaraoke(song: Song): Boolean {
+        val blob = (song.name + " " + song.artist).lowercase()
+        return COVER_KEYWORDS.any { it in blob }
+    }
+
+    /**
+     * Appends related songs to the end of the queue when the current track
+     * has 3 or fewer tracks left after it. Debounced — won't re-fire for
+     * the same seed id. Radio songs are appended, never inserted, so the
+     * user's own queue order stays intact.
+     */
+    private fun maybeExtendQueueWithRadio(seedId: String) {
+        if (seedId == lastRadioSeedId) return
+        val queue = mutableQueue.value
+        val seedIndex = queue.indexOfFirst { it.id == seedId }
+        if (seedIndex < 0) return
+        val remaining = queue.size - seedIndex - 1
+        if (remaining > RADIO_TRIGGER_AT_REMAINING) return
+
+        lastRadioSeedId = seedId
+        val seed = queue[seedIndex]
+        val generationAtStart = connection.currentGeneration()
+
+        viewModelScope.launch {
+            val radio = fetchRadioFor(seed)
+            if (radio.isEmpty()) return@launch
+
+            // Guard: user must not have skipped to a different song, and
+            // a new playSource must not have replaced the queue.
+            if (connection.currentGeneration() != generationAtStart) {
+                Timber.tag("PlayerVM").d("radio skipped: newer session")
+                return@launch
+            }
+            if (connection.state.value.mediaId != seedId) {
+                Timber.tag("PlayerVM").d("radio skipped: moved past seed")
+                return@launch
+            }
+
+            val items = com.waveyy.app.playback.QueueManager()
+                .toMediaItems(radio)
+            if (items.isEmpty()) return@launch
+
+            connection.appendItems(items)
+            mutableQueue.value = mutableQueue.value + radio
+            Timber.tag("PlayerVM").d(
+                "radio appended: %d tracks behind %s", radio.size, seed.name
+            )
         }
     }
 
@@ -731,6 +901,32 @@ class PlayerViewModel @Inject constructor(
     companion object {
         private const val HISTORY_CAP = 50
         private const val PLAY_LOG_CAP = 300
+
+        /** Keywords that flag a track as an unwanted variant. */
+        val COVER_KEYWORDS = listOf(
+            "karaoke",
+            "cover by",
+            "cover version",
+            "instrumental",
+            "8-bit",
+            "8 bit",
+            "made famous by",
+            "in the style of",
+            "tribute",
+            "backing track",
+            "ringtone",
+            "slowed",
+            "reverb",
+            "sped up",
+            "nightcore"
+        )
+
+        /** Max radio tracks appended per song. */
+        const val RADIO_APPEND_LIMIT = 15
+
+        /** Trigger radio fetch when the queue has this many tracks left
+         *  after the current one. */
+        private const val RADIO_TRIGGER_AT_REMAINING = 3
 
         /** Minimum saved position for a resume checkpoint. */
         private const val RESUME_MIN_POSITION_MS = 5_000L
