@@ -29,6 +29,7 @@ import com.waveyy.app.playback.PlaybackConnection
 import com.waveyy.app.util.LyricsParser
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
@@ -680,17 +681,18 @@ class PlayerViewModel @Inject constructor(
      * Merged, deduped, filtered against covers/karaoke/live versions.
      * Returned in ranking order: suggestions first, then same-artist.
      */
-    private suspend fun fetchRadioFor(seed: Song): List<Song> {
-        // Query both sources in parallel.
-        val suggestionsJob = viewModelScope.async {
+    private suspend fun fetchRadioFor(seed: Song): List<Song> = coroutineScope {
+        // Query both sources in parallel. Both are children of this
+        // coroutine, so they're cancelled if the caller bails out early.
+        val suggestionsDeferred = async {
             runCatching { songRepository.suggestions(seed.id).first() }
                 .getOrDefault(emptyList())
         }
         val primaryArtist = seed.artist
             .split(",").firstOrNull()?.trim().orEmpty()
             .takeIf { it.isNotBlank() && it != "unknown" }
-        val sameArtistJob = if (primaryArtist != null) {
-            viewModelScope.async {
+        val sameArtistDeferred: Deferred<List<Song>>? = if (primaryArtist != null) {
+            async {
                 runCatching { songRepository.searchSongs(primaryArtist).first() }
                     .getOrDefault(emptyList())
             }
@@ -698,13 +700,13 @@ class PlayerViewModel @Inject constructor(
             null
         }
 
-        val suggestions = suggestionsJob.await()
-        val sameArtist = sameArtistJob?.await().orEmpty()
+        val suggestions = suggestionsDeferred.await()
+        val sameArtist = sameArtistDeferred?.await().orEmpty()
 
         // Merge: interleave suggestions and same-artist so the user gets a
         // mix, not all suggestions first then all same-artist.
         val merged = mutableListOf<Song>()
-        val max = maxOf(suggestions.size, sameArtist.size)
+        val max = if (suggestions.size >= sameArtist.size) suggestions.size else sameArtist.size
         for (i in 0 until max) {
             suggestions.getOrNull(i)?.let { merged += it }
             sameArtist.getOrNull(i)?.let { merged += it }
@@ -713,7 +715,7 @@ class PlayerViewModel @Inject constructor(
         // Filter: exclude the seed, covers/karaoke/live/instrumental
         // versions, and anything already in the current queue.
         val existingIds = mutableQueue.value.map { it.id }.toSet()
-        return merged
+        merged
             .asSequence()
             .filter { it.id != seed.id && it.id !in existingIds }
             .filter { it.id.isNotBlank() }
