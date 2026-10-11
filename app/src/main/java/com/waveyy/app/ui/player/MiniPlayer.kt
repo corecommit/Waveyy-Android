@@ -237,26 +237,20 @@ fun MiniPlayer(
             },
         contentAlignment = Alignment.Center
     ) {
-        // Layer 1: pill background. Fades out during drag, does NOT translate.
+        // Single clipped pill container. Everything inside stays inside.
+        // Vertical drag moves the whole pill (including buttons).
+        // Horizontal drag only slides the sub-Row of art + text.
         Box(
             modifier = Modifier
-                .matchParentSize()
+                .fillMaxWidth()
                 .clip(RoundedCornerShape(28.dp))
                 .background(MaterialTheme.colorScheme.surfaceContainerHigh)
                 .background(Color.Black.copy(alpha = 0.5f))
                 .graphicsLayer {
-                    val dragMag = maxOf(abs(visualX), abs(visualY))
-                    alpha = (1f - dragMag / (thresholdPx * 1.2f)).coerceIn(0f, 1f)
-                }
-        )
-
-        // Layer 2: content — translates freely, no clipping.
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .graphicsLayer {
-                    translationX = visualX
                     translationY = visualY
+                    // Fade out on downward drag so hide gesture feels fluid.
+                    val dragMag = abs(visualY)
+                    alpha = (1f - dragMag / (thresholdPx * 1.2f)).coerceIn(0.2f, 1f)
                     val s = (1f + maxOf(abs(visualX), abs(visualY)) / thresholdPx * 0.03f)
                         .coerceIn(1f, 1.03f)
                     scaleX = s
@@ -274,125 +268,140 @@ fun MiniPlayer(
                     }
                 )
                 .height(64.dp)
-                .padding(horizontal = 10.dp),
-            verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
+            Row(
                 modifier = Modifier
-                    .size(48.dp)
-                    .pointerInput(currentSong.id) {
-                        detectTapGestures(
-                            onTap = {
-                                // Single tap on the art expands. The parent
-                                // Row's onClick would not fire because
-                                // detectTapGestures consumes the event.
-                                waveyyHaptics.tick()
-                                onExpand()
-                            },
-                            onDoubleTap = {
-                                waveyyHaptics.tick()
-                                musicVm.toggleLike(currentSong)
-                            }
-                        )
-                    },
-                contentAlignment = Alignment.Center
+                    .fillMaxSize()
+                    .padding(horizontal = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                val fraction = if (state.durationMs > 0L) {
-                    (state.positionMs.toFloat() / state.durationMs).coerceIn(0f, 1f)
-                } else {
-                    0f
-                }
-                val strokeWidthPx = with(LocalDensity.current) { 2.dp.toPx() }
-                val trackColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.25f)
-                Canvas(modifier = Modifier.fillMaxSize()) {
-                    val inset = strokeWidthPx / 2f
-                    val arcSize = Size(
-                        width = size.width - strokeWidthPx,
-                        height = size.height - strokeWidthPx
-                    )
-                    // Dim track: full circle.
-                    drawArc(
-                        color = trackColor,
-                        startAngle = -90f,
-                        sweepAngle = 360f,
-                        useCenter = false,
-                        topLeft = Offset(inset, inset),
-                        size = arcSize,
-                        style = Stroke(width = strokeWidthPx, cap = StrokeCap.Round)
-                    )
-                    // Progress arc, fills clockwise from 12 o'clock.
-                    if (fraction > 0f) {
-                        drawArc(
-                            color = com.waveyy.app.ui.theme.WaveyyPalette.Emerald,
-                            startAngle = -90f,
-                            sweepAngle = 360f * fraction,
-                            useCenter = false,
-                            topLeft = Offset(inset, inset),
-                            size = arcSize,
-                            style = Stroke(width = strokeWidthPx, cap = StrokeCap.Round)
+                // Sliding content row — art + title + artist only.
+                // Buttons below are drawn after and sit above this row
+                // in z-order, so sliding content appears to tuck under
+                // them when it goes too far.
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .graphicsLayer {
+                            translationX = visualX
+                        },
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .pointerInput(currentSong.id) {
+                                detectTapGestures(
+                                    onTap = {
+                                        waveyyHaptics.tick()
+                                        onExpand()
+                                    },
+                                    onDoubleTap = {
+                                        waveyyHaptics.tick()
+                                        musicVm.toggleLike(currentSong)
+                                    }
+                                )
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        val fraction = if (state.durationMs > 0L) {
+                            (state.positionMs.toFloat() / state.durationMs).coerceIn(0f, 1f)
+                        } else {
+                            0f
+                        }
+                        val strokeWidthPx = with(LocalDensity.current) { 2.dp.toPx() }
+                        val trackColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.25f)
+                        Canvas(modifier = Modifier.fillMaxSize()) {
+                            val inset = strokeWidthPx / 2f
+                            val arcSize = Size(
+                                width = size.width - strokeWidthPx,
+                                height = size.height - strokeWidthPx
+                            )
+                            drawArc(
+                                color = trackColor,
+                                startAngle = -90f,
+                                sweepAngle = 360f,
+                                useCenter = false,
+                                topLeft = Offset(inset, inset),
+                                size = arcSize,
+                                style = Stroke(width = strokeWidthPx, cap = StrokeCap.Round)
+                            )
+                            if (fraction > 0f) {
+                                drawArc(
+                                    color = com.waveyy.app.ui.theme.WaveyyPalette.Emerald,
+                                    startAngle = -90f,
+                                    sweepAngle = 360f * fraction,
+                                    useCenter = false,
+                                    topLeft = Offset(inset, inset),
+                                    size = arcSize,
+                                    style = Stroke(width = strokeWidthPx, cap = StrokeCap.Round)
+                                )
+                            }
+                        }
+                        AdaptiveImage(
+                            imageUrl = currentSong.imageUrl,
+                            contentDescription = currentSong.name,
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                        )
+                    }
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(horizontal = 10.dp)
+                    ) {
+                        Text(
+                            text = currentSong.name,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = currentSong.artist,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
-                AdaptiveImage(
-                    imageUrl = currentSong.imageUrl,
-                    contentDescription = currentSong.name,
+
+                // Fixed controls — never translate horizontally.
+                LikeSongButton(
+                    song = currentSong,
+                    modifier = Modifier.size(40.dp)
+                )
+                Spacer(Modifier.size(12.dp))
+                Box(
                     modifier = Modifier
                         .size(40.dp)
                         .clip(CircleShape)
-                )
-            }
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(horizontal = 10.dp)
-            ) {
-                Text(
-                    text = currentSong.name,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = currentSong.artist,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-            LikeSongButton(
-                song = currentSong,
-                modifier = Modifier.size(40.dp)
-            )
-            Spacer(Modifier.size(12.dp))
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(com.waveyy.app.ui.theme.WaveyyPalette.Emerald)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null
-                    ) {
-                        waveyyHaptics.tick()
-                        scope.launch { connection.togglePlayPause() }
-                    },
-                contentAlignment = Alignment.Center
-            ) {
-                if (showSpinner) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        color = com.waveyy.app.ui.theme.WaveyyPalette.DeepGreen,
-                        strokeWidth = 2.dp
-                    )
-                } else {
-                    Icon(
-                        imageVector = if (state.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                        contentDescription = if (state.isPlaying) "Pause" else "Play",
-                        tint = Color.Black,
-                        modifier = Modifier.size(20.dp)
-                    )
+                        .background(com.waveyy.app.ui.theme.WaveyyPalette.Emerald)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) {
+                            waveyyHaptics.tick()
+                            scope.launch { connection.togglePlayPause() }
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (showSpinner) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            color = com.waveyy.app.ui.theme.WaveyyPalette.DeepGreen,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Icon(
+                            imageVector = if (state.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                            contentDescription = if (state.isPlaying) "Pause" else "Play",
+                            tint = Color.Black,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                 }
             }
         }

@@ -272,7 +272,7 @@ fun SearchScreen(
                             label = "searchCrossfade"
                         ) { loading ->
                             if (loading) {
-                                SkeletonRows(count = 8)
+                                SkeletonRows(count = 14)
                             } else {
                                 ResultsBody(
                                     state = state,
@@ -314,7 +314,7 @@ private fun ResultsBody(
     onRetry: () -> Unit
 ) {
     when (state) {
-        SearchUiState.Loading -> SkeletonRows(count = 8)
+        SearchUiState.Loading -> SkeletonRows(count = 14)
         is SearchUiState.Error -> SearchError(onRetry = onRetry)
         is SearchUiState.Success -> {
             if (state.songs.isEmpty() && state.albums.isEmpty() && state.artists.isEmpty()) {
