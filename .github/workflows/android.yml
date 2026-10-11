@@ -97,12 +97,32 @@ jobs:
           path: dist/waveyy.apk
           retention-days: 14
 
+      - name: Extract release notes from CHANGELOG.md
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          VERSION="${{ steps.version.outputs.name }}"
+          if [ ! -f CHANGELOG.md ]; then
+            echo "Release $VERSION. See commit history for details." > RELEASE_NOTES.md
+            exit 0
+          fi
+          awk -v ver="$VERSION" '
+            $0 ~ "^## \\[" ver "\\]" { found=1; next }
+            /^## \[/ && found { exit }
+            found { print }
+          ' CHANGELOG.md > RELEASE_NOTES.md
+          if [ ! -s RELEASE_NOTES.md ]; then
+            echo "Release $VERSION. See commit history for details." > RELEASE_NOTES.md
+          fi
+          echo "=== Extracted release notes ==="
+          cat RELEASE_NOTES.md
+          echo "=============================="
+
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
           files: dist/waveyy.apk
-          generate_release_notes: true
+          body_path: RELEASE_NOTES.md
           draft: false
           prerelease: false
           name: "Waveyy ${{ steps.version.outputs.name }}"
