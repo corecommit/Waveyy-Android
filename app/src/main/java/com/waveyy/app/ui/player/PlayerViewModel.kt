@@ -688,7 +688,7 @@ class PlayerViewModel @Inject constructor(
         // + same-artist search.
         val isYtSeed = seed.source == com.waveyy.app.domain.model.MusicSource.YTMUSIC &&
             seed.id.startsWith("yt:")
-        val ytDeferred = if (isYtSeed) {
+        val ytDeferred: Deferred<List<Song>>? = if (isYtSeed) {
             async {
                 runCatching {
                     songRepository.ytRadioFor(seed.id.removePrefix("yt:"))
