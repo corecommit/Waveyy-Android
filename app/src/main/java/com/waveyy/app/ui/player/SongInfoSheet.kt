@@ -1,6 +1,5 @@
 package com.waveyy.app.ui.player
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -88,21 +87,6 @@ fun SongInfoSheet(
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
     ) {
         LazyColumn {
-            item {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(width = 40.dp, height = 4.dp)
-                            .clip(RoundedCornerShape(percent = 50))
-                            .background(MaterialTheme.colorScheme.onSurfaceVariant)
-                    )
-                }
-            }
             item {
                 Row(
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),

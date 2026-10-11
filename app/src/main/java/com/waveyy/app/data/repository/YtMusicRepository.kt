@@ -2,6 +2,7 @@ package com.waveyy.app.data.repository
 
 import com.waveyy.app.data.local.datastore.UserPrefs
 import com.waveyy.app.data.remote.ytmusic.YtMusicApi
+import com.waveyy.app.data.remote.ytmusic.YtSearchFilter
 import com.waveyy.app.domain.model.AudioStream
 import com.waveyy.app.domain.model.MusicSource
 import com.waveyy.app.domain.model.Song
@@ -21,11 +22,41 @@ class YtMusicRepository @Inject constructor(
     private val userPrefs: UserPrefs
 ) {
 
-    /** Searches tracks, mapped to domain songs with source YTMUSIC. */
+    /**
+     * Searches tracks, mapped to domain songs with source YTMUSIC.
+     * Uses the SONG filter so the response is songs-only (no albums,
+     * artists, playlists, or podcasts mixed in).
+     */
     suspend fun searchSongs(query: String): List<Song> {
         return runCatching {
             val visitor = userPrefs.ytVisitor()
-            val result = api.search(query, visitor)
+            val result = api.search(
+                query = query,
+                visitorData = visitor,
+                params = YtSearchFilter.SONG
+            )
+            result.visitorData?.let { userPrefs.setYtVisitor(it) }
+            result.tracks.map { it.toDomain() }
+        }.getOrDefault(emptyList())
+    }
+
+    /**
+     * Searches albums only. Returns a list of (title, artist, browseId,
+     * thumbnailUrl) tuples — callers resolve to full Album domain objects
+     * via the existing /browse endpoint when needed.
+     *
+     * For now, returns the raw YtTracks-with-album-shape as Song-shaped
+     * placeholders so the existing UI can render them without new models.
+     * A follow-up phase will add a proper YtAlbumDto.
+     */
+    suspend fun searchAlbums(query: String): List<Song> {
+        return runCatching {
+            val visitor = userPrefs.ytVisitor()
+            val result = api.search(
+                query = query,
+                visitorData = visitor,
+                params = YtSearchFilter.ALBUM
+            )
             result.visitorData?.let { userPrefs.setYtVisitor(it) }
             result.tracks.map { it.toDomain() }
         }.getOrDefault(emptyList())

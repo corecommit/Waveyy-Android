@@ -26,21 +26,41 @@ class YtMusicApi @Inject constructor(
 ) {
 
     /**
-     * Searches tracks. Returns parsed tracks in response order.
+     * Searches YouTube Music. [params] is an optional base64-encoded
+     * protobuf that filters results by category (see [YtSearchFilter]).
+     * When null, YT returns a mixed result set (songs + albums + artists
+     * + playlists + podcasts interleaved).
      *
-     * @param query search text.
+     * Response path (WEB_REMIX, when params present):
+     *   contents.tabbedSearchResultsRenderer
+     *     .tabs[0].tabRenderer.content
+     *     .sectionListRenderer.contents.last()
+     *     .musicShelfRenderer.contents[]
+     *
+     * Each item is a musicResponsiveListItemRenderer whose flexColumns
+     * follow the `title` / `secondaryLine` split — [parseTrack] handles
+     * the separator logic.
+     *
+     * @param query user search text.
      * @param visitorData optional stored visitor token.
+     * @param params filter params (see [YtSearchFilter]); null for unfiltered.
      */
-    suspend fun search(query: String, visitorData: String?): YtSearchResult {
+    suspend fun search(
+        query: String,
+        visitorData: String?,
+        params: String? = null
+    ): YtSearchResult {
         val body = buildJsonObject {
             put("query", JsonPrimitive(query))
-        }
-        val response = transport.post("search", body, visitorData) ?: return YtSearchResult(emptyList(), null)
-        val tracks = mutableListOf<YtTrack>()
-        for (section in searchSections(response)) {
-            for (item in shelfItems(section)) {
-                parseTrack(item)?.let(tracks::add)
+            if (!params.isNullOrBlank()) {
+                put("params", JsonPrimitive(params))
             }
+        }
+        val response = transport.post("search", body, visitorData)
+            ?: return YtSearchResult(emptyList(), null)
+        val tracks = mutableListOf<YtTrack>()
+        for (item in searchItems(response)) {
+            parseTrack(item)?.let(tracks::add)
         }
         return YtSearchResult(tracks, response.visitorToken())
     }
@@ -173,50 +193,80 @@ class YtMusicApi @Inject constructor(
         )
     }
 
-    private fun searchSections(response: JsonObject): List<JsonObject> {
+    private fun searchItems(response: JsonObject): List<JsonObject> {
         val tabs = response.optObj("contents")
             ?.optObj("tabbedSearchResultsRenderer")
             ?.optArr("tabs").orEmpty()
-        val tab = tabs.firstNotNullOfOrNull { (it as? JsonObject)?.optObj("tabRenderer") } ?: return emptyList()
-        return tab.optObj("content")
+        val tab = tabs.firstNotNullOfOrNull {
+            (it as? JsonObject)?.optObj("tabRenderer")
+        } ?: return emptyList()
+        val sections = tab.optObj("content")
             ?.optObj("sectionListRenderer")
             ?.optArr("contents").orEmpty()
             .mapNotNull { it as? JsonObject }
-    }
-
-    private fun shelfItems(section: JsonObject): List<JsonObject> {
-        val shelf = section["musicShelfRenderer"] as? JsonObject
-            ?: section["musicCardShelfRenderer"] as? JsonObject
-            ?: return emptyList()
+        val shelf = sections.lastOrNull()?.let { section ->
+            section.optObj("musicShelfRenderer")
+                ?: section.optObj("musicCardShelfRenderer")
+        } ?: return emptyList()
         return (shelf["contents"] as? JsonArray).orEmpty().mapNotNull { entry ->
             ((entry as? JsonObject)?.get("musicResponsiveListItemRenderer") as? JsonObject)
         }
     }
 
+    /**
+     * Parses one musicResponsiveListItemRenderer. Reads:
+     *   flexColumns[0] — title runs (first run has the videoId).
+     *   flexColumns[1] — the "secondary line" of runs. YT splits this
+     *     into segments separated by runs whose text is " • " (or "·").
+     *     Segment 0: artists (each is a nav-link run).
+     *     Segment 1: album (usually one nav-link run).
+     *     Segment last: duration ("3:41").
+     *
+     * Mirrors SimpMusic's `secondaryLine.splitBySeparator()` pattern.
+     */
     private fun parseTrack(item: JsonObject): YtTrack? {
         val columns = item.optArr("flexColumns").orEmpty()
             .mapNotNull { (it as? JsonObject)?.optObj("musicResponsiveListItemFlexColumnRenderer") }
         if (columns.isEmpty()) return null
+
+        // Title + videoId from the first flex column.
         val titleRuns = columns.firstOrNull()?.runs().orEmpty()
         val titleRun = titleRuns.firstOrNull() ?: return null
         val title = titleRun.optStr("text")?.takeIf { it.isNotBlank() } ?: return null
         val videoId = titleRun.optObj("navigationEndpoint")
             ?.optObj("watchEndpoint")
             ?.optStr("videoId")?.takeIf { it.isNotBlank() } ?: return null
-        val artistRuns = columns.drop(1).flatMap { it.runs() }
-        val artist = artistRuns.firstOrNull { run ->
-            run.optObj("navigationEndpoint")?.optObj("browseEndpoint")
-                ?.optStr("browseId")?.startsWith("UC") == true
-        }?.optStr("text") ?: artistRuns.firstOrNull()?.optStr("text") ?: "unknown"
-        val durationSec = columns.flatMap { it.runs() }
-            .mapNotNull { it.optStr("text") }
+
+        // Secondary line: split runs into segments by separator.
+        val secondaryRuns = columns.getOrNull(1)?.runs().orEmpty()
+        val segments = splitBySeparator(secondaryRuns)
+
+        // Artists: first segment, keep only runs with a UC browse endpoint
+        // (skips any non-artist nav links that sneak in).
+        val artist = segments.firstOrNull()
+            ?.firstOrNull { run ->
+                run.optObj("navigationEndpoint")
+                    ?.optObj("browseEndpoint")
+                    ?.optStr("browseId")?.startsWith("UC") == true
+            }
+            ?.optStr("text")
+            ?.takeIf { it.isNotBlank() }
+            ?: segments.firstOrNull()?.firstOrNull()?.optStr("text")
+            ?: "unknown"
+
+        // Duration: scan every segment's last run for "M:SS" or "H:MM:SS".
+        val durationSec = segments.asSequence()
+            .flatMap { seg -> seg.mapNotNull { it.optStr("text") } }
             .firstOrNull { DURATION.matches(it) }
             ?.let(::parseDuration) ?: 0L
+
+        // Thumbnail.
         val thumbnails = item.optObj("thumbnailRenderer")
             ?.optObj("musicThumbnailRenderer")
             ?.optObj("thumbnail")
             ?.optArr("thumbnails").orEmpty()
             .mapNotNull { (it as? JsonObject)?.optStr("url") }
+
         return YtTrack(
             videoId = videoId,
             title = title,
@@ -224,6 +274,30 @@ class YtMusicApi @Inject constructor(
             durationSec = durationSec,
             thumbnailUrl = thumbnails.lastOrNull().orEmpty()
         )
+    }
+
+    /**
+     * Splits runs into segments separated by runs whose text is a lone
+     * " • " or "·". YT's flex-column renderer emits the separator as
+     * its own run between artist / album / duration groups.
+     */
+    private fun splitBySeparator(runs: List<JsonObject>): List<List<JsonObject>> {
+        val out = mutableListOf<MutableList<JsonObject>>()
+        var current = mutableListOf<JsonObject>()
+        for (run in runs) {
+            val text = run.optStr("text").orEmpty().trim()
+            val isSeparator = text == "•" || text == "·" || text == "|"
+            if (isSeparator) {
+                if (current.isNotEmpty()) {
+                    out += current
+                    current = mutableListOf()
+                }
+            } else {
+                current += run
+            }
+        }
+        if (current.isNotEmpty()) out += current
+        return out
     }
 
     private fun JsonObject.runs(): List<JsonObject> {
@@ -262,3 +336,17 @@ private fun JsonObject.optLong(key: String): Long =
 
 private fun JsonObject.visitorToken(): String? =
     optObj("responseContext")?.optStr("visitorData")?.takeIf { it.isNotBlank() }
+
+/** Search filter params for YT Music's `search` endpoint. */
+object YtSearchFilter {
+    /** Songs only. */
+    const val SONG = "EgWKAQIIAWoKEAkQBRAKEAMQBA%3D%3D"
+    /** Music videos only. */
+    const val VIDEO = "EgWKAQIQAWoKEAkQChAFEAMQBA%3D%3D"
+    /** Albums only. */
+    const val ALBUM = "EgWKAQIYAWoKEAkQChAFEAMQBA%3D%3D"
+    /** Artists only. */
+    const val ARTIST = "EgWKAQIgAWoKEAkQChAFEAMQBA%3D%3D"
+    /** Community playlists only. */
+    const val PLAYLIST = "EgeKAQQoAEABagoQAxAEEAoQCRAF"
+}

@@ -25,11 +25,11 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.FastForward
+import androidx.compose.material.icons.filled.FastRewind
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.SkipNext
-import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -348,7 +348,7 @@ private fun PlayerTransportBar(
                     modifier = Modifier.size(48.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Filled.SkipPrevious,
+                        imageVector = Icons.Filled.FastRewind,
                         contentDescription = "Previous",
                         modifier = Modifier.size(30.dp)
                     )
@@ -357,8 +357,8 @@ private fun PlayerTransportBar(
                     onClick = onTogglePlay,
                     modifier = Modifier.size(64.dp),
                     colors = IconButtonDefaults.filledIconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary
+                        containerColor = Color.White,
+                        contentColor = Color.Black
                     )
                 ) {
                     Icon(
@@ -373,7 +373,7 @@ private fun PlayerTransportBar(
                     modifier = Modifier.size(48.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Filled.SkipNext,
+                        imageVector = Icons.Filled.FastForward,
                         contentDescription = "Next",
                         modifier = Modifier.size(30.dp)
                     )
