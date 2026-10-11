@@ -23,6 +23,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.outlined.AddCircleOutline
+import androidx.compose.material.icons.filled.FastForward
+import androidx.compose.material.icons.filled.FastRewind
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.MoreVert
@@ -33,8 +35,6 @@ import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.RepeatOne
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Shuffle
-import androidx.compose.material.icons.filled.SkipNext
-import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Lyrics
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
@@ -47,7 +47,6 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -168,18 +167,6 @@ fun FullPlayerScreen(
         ) {
             IconButton(onClick = { waveyyHaptics.tick(); onClose() }) {
                 Icon(imageVector = Icons.Filled.KeyboardArrowDown, contentDescription = "Minimize")
-            }
-            Spacer(Modifier.weight(1f))
-            Surface(
-                shape = RoundedCornerShape(50),
-                color = MaterialTheme.colorScheme.primaryContainer
-            ) {
-                Text(
-                    text = "NOW PLAYING",
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    style = MaterialTheme.typography.labelMedium,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
-                )
             }
             Spacer(Modifier.weight(1f))
             IconButton(onClick = { showInfo = true }) {
@@ -317,7 +304,7 @@ fun FullPlayerScreen(
                 modifier = Modifier.size(56.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Filled.SkipPrevious,
+                    imageVector = Icons.Filled.FastRewind,
                     contentDescription = "Previous",
                     modifier = Modifier.size(36.dp)
                 )
@@ -326,8 +313,8 @@ fun FullPlayerScreen(
                 onClick = { waveyyHaptics.tick(); scope.launch { connection.togglePlayPause() } },
                 modifier = Modifier.size(72.dp),
                 colors = IconButtonDefaults.filledIconButtonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
+                    containerColor = Color.White,
+                    contentColor = Color.Black
                 )
             ) {
                 Icon(
@@ -342,7 +329,7 @@ fun FullPlayerScreen(
                 modifier = Modifier.size(56.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Filled.SkipNext,
+                    imageVector = Icons.Filled.FastForward,
                     contentDescription = "Next",
                     modifier = Modifier.size(36.dp)
                 )
