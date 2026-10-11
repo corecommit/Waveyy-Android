@@ -83,47 +83,73 @@ class HomeViewModel @Inject constructor(
         refresh()
     }
 
-    /** Reloads every rail. */
+    /**
+     * Reloads every rail incrementally. Emits an empty Success immediately
+     * so the UI can show skeletons, then updates each rail as it lands.
+     * The screen renders trending the moment it's ready; other rails fill
+     * in behind.
+     */
     fun refresh() {
-        mutableState.value = HomeUiState.Loading
+        // Start from empty Success so the grid renders skeletons.
+        mutableState.value = HomeUiState.Success(HomeSections())
         viewModelScope.launch {
-            runCatching { load() }
-                .onSuccess { mutableState.value = HomeUiState.Success(it) }
-                .onFailure { mutableState.value = HomeUiState.Error(it.message ?: "Home failed") }
+            // Recent comes from Room — synchronous, ready first.
+            val recent = historyDao.recent(HISTORY_LIMIT).map { row ->
+                Song(
+                    id = row.songId,
+                    name = row.name,
+                    artist = row.artist,
+                    album = "unknown",
+                    imageUrl = row.image,
+                    durationSec = 0L,
+                    playCount = 0L,
+                    streams = emptyList()
+                )
+            }
+            publishSections { it.copy(recent = recent) }
+
+            // Rails run in parallel; each updates the state as it lands.
+            val trendingJob = async {
+                val trending = runCatching { loadTrending() }
+                    .getOrDefault(emptyList())
+                publishSections {
+                    it.copy(
+                        trending = trending,
+                        popularArtists = popularArtistsOf(trending),
+                        popularAlbums = popularAlbumsOf(trending)
+                    )
+                }
+            }
+            val recsJob = async {
+                val recs = runCatching { loadRecommended(recent) }
+                    .getOrElse { Recommended(emptyList(), emptyList()) }
+                publishSections {
+                    it.copy(
+                        recommended = recs.songs,
+                        recommendedGenres = recs.genres
+                    )
+                }
+            }
+            val newJob = async {
+                val newReleases = runCatching { loadNewReleases() }
+                    .getOrDefault(emptyList())
+                publishSections { it.copy(newReleases = newReleases) }
+            }
+            trendingJob.await()
+            recsJob.await()
+            newJob.await()
         }
     }
 
-    private suspend fun load(): HomeSections = coroutineScope {
-        val recent = historyDao.recent(HISTORY_LIMIT).map { row ->
-            Song(
-                id = row.songId,
-                name = row.name,
-                artist = row.artist,
-                album = "unknown",
-                imageUrl = row.image,
-                durationSec = 0L,
-                playCount = 0L,
-                streams = emptyList()
-            )
+    /**
+     * Applies [transform] to the current HomeSections and republishes.
+     * No-op if the current state is not a Success (error state, etc.).
+     */
+    private fun publishSections(transform: (HomeSections) -> HomeSections) {
+        val current = mutableState.value
+        if (current is HomeUiState.Success) {
+            mutableState.value = HomeUiState.Success(transform(current.sections))
         }
-        // Rails are independent — run them in parallel. Cut refresh time
-        // from (trending → recommended → newReleases) sequential to the
-        // slowest single rail.
-        val trendingDeferred = async { loadTrending() }
-        val recommendedDeferred = async { loadRecommended(recent) }
-        val newReleasesDeferred = async { loadNewReleases() }
-        val trending = trendingDeferred.await()
-        val recommended = recommendedDeferred.await()
-        val newReleases = newReleasesDeferred.await()
-        HomeSections(
-            trending = trending,
-            popularArtists = popularArtistsOf(trending),
-            popularAlbums = popularAlbumsOf(trending),
-            recent = recent,
-            recommended = recommended.songs,
-            recommendedGenres = recommended.genres,
-            newReleases = newReleases
-        )
     }
 
     /** Fresh-release rail, locale-aware like the trending chain. */
@@ -295,19 +321,13 @@ class HomeViewModel @Inject constructor(
      */
     fun refreshQuiet() {
         if (mutableRefreshing.value) return
+        mutableRefreshing.value = true
         viewModelScope.launch {
-            mutableRefreshing.value = true
             val started = System.currentTimeMillis()
-            val loaded = kotlinx.coroutines.withTimeoutOrNull(REFRESH_TIMEOUT_MS) {
-                runCatching { load() }.getOrNull()
-            }
-            if (loaded != null) {
-                mutableState.value = HomeUiState.Success(loaded)
-            } else if (mutableState.value !is HomeUiState.Success) {
-                mutableState.value = HomeUiState.Error("Refresh timed out")
-            }
-            // Minimum spinner duration so a fast refresh still gives
-            // visual feedback (otherwise the gesture feels unacknowledged).
+            // refresh() now emits incrementally; keep the spinner alive for
+            // a minimum duration so the gesture always reads as
+            // acknowledged.
+            refresh()
             val elapsed = System.currentTimeMillis() - started
             if (elapsed < MIN_REFRESH_SPINNER_MS) {
                 kotlinx.coroutines.delay(MIN_REFRESH_SPINNER_MS - elapsed)
@@ -317,9 +337,6 @@ class HomeViewModel @Inject constructor(
     }
 
     companion object {
-        /** Hard cap on quiet refresh so the spinner can never hang. */
-        private const val REFRESH_TIMEOUT_MS = 15_000L
-
         /** Minimum time the pull-to-refresh spinner stays visible. */
         private const val MIN_REFRESH_SPINNER_MS = 600L
 

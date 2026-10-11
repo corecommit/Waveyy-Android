@@ -18,6 +18,7 @@ import javax.inject.Singleton
 @Singleton
 class LyricsRaceRepository @Inject constructor(
     private val orchestrator: LyricsRaceOrchestrator,
+    private val lrclib: LrclibProvider,
     database: WaveyyDatabase
 ) {
     private val dao: LyricsCacheDao = database.lyricsCacheDao()
@@ -63,6 +64,21 @@ class LyricsRaceRepository @Inject constructor(
         dao.get(songId, cutoff)?.let { return it.toScored() }
         dao.getByTitleArtist(title, artist, cutoff)?.let { return it.toScored() }
         return null
+    }
+
+    /**
+     * Phrase search across lyrics providers. Currently uses LRCLIB
+     * (free, keyless, indexed). Returns the raw match list — callers
+     * resolve each to a JioSaavn song by title+artist.
+     */
+    suspend fun searchByLyricsPhrase(phrase: String): List<LyricsTextMatch> {
+        return runCatching { lrclib.searchByLyrics(phrase) }
+            .getOrElse {
+                Timber.tag("LyricsRace").d(
+                    "phrase search failed: ${it.message}"
+                )
+                emptyList()
+            }
     }
 
     /** Clears the race cache (Settings button). */

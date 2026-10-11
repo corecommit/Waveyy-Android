@@ -22,8 +22,11 @@ data class UpdateState(
     val showPopup: Boolean = false,
     /** True while downloading. */
     val downloading: Boolean = false,
-    /** 0f..1f download progress. */
+    /** 0f..1f download progress. -1f when the server omitted
+     *  Content-Length and total is unknown. */
     val progress: Float = 0f,
+    /** Raw bytes downloaded (used when [progress] < 0). */
+    val bytesDownloaded: Long = 0L,
     /** Transient error message from a failed download attempt. */
     val error: String? = null
 )
@@ -90,6 +93,7 @@ class UpdateViewModel @Inject constructor(
             mutableState.value = mutableState.value.copy(
                 downloading = true,
                 progress = 0f,
+                bytesDownloaded = 0L,
                 error = null
             )
             val result = installer.downloadAndInstall(
@@ -97,7 +101,14 @@ class UpdateViewModel @Inject constructor(
                 downloadUrl = update.downloadUrl,
                 fileName = update.apkFileName,
                 onProgress = { p ->
-                    mutableState.value = mutableState.value.copy(progress = p)
+                    // p < 0 signals "unknown total"; the installer only
+                    // emits p >= 0 when it knows the size. We track
+                    // bytesDownloaded separately so the dialog can still
+                    // show something during an unknown-size download.
+                    val current = mutableState.value
+                    mutableState.value = current.copy(
+                        progress = p.coerceAtLeast(0f)
+                    )
                 }
             )
             mutableState.value = mutableState.value.copy(

@@ -50,6 +50,25 @@ object NetworkModule {
             .build()
     }
 
+    /**
+     * Dedicated client for large binary downloads (APK updates). No
+     * logging interceptor — BODY-level logging of a 27 MB stream stalls
+     * the read and can trip the read timeout. Extended timeouts are for
+     * slow mobile networks.
+     */
+    @Provides
+    @Singleton
+    @Named("download")
+    fun provideDownloadOkHttp(): OkHttpClient {
+        return OkHttpClient.Builder()
+            .connectTimeout(30L, TimeUnit.SECONDS)
+            .readTimeout(5L, TimeUnit.MINUTES)
+            .writeTimeout(30L, TimeUnit.SECONDS)
+            .followRedirects(true)
+            .followSslRedirects(true)
+            .build()
+    }
+
     /** Single Retrofit over `BuildConfig.API_BASE_URL` for all proxies. */
     @Provides
     @Singleton
