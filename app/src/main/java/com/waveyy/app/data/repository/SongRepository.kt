@@ -166,6 +166,17 @@ class SongRepository @Inject constructor(
         emit(RecommendedSongsParser.parse(api.recommendedSongs(songId = id)))
     }.flowOn(Dispatchers.IO)
 
+    /**
+     * Fetches the YT Music radio for a video id. Returns the YT queue
+     * (up to ~25 tracks in YT's relevance order) mapped to domain songs.
+     * Empty when ytmusic is unavailable or the request fails.
+     */
+    suspend fun ytRadioFor(videoId: String): List<Song> {
+        if (videoId.isBlank()) return emptyList()
+        return runCatching { ytmusic?.nextRadio(videoId).orEmpty() }
+            .getOrDefault(emptyList())
+    }
+
     /** Album detail, mirroring `getAlbumById`. */
     fun albumById(id: String): Flow<Album?> = flow {
         emit(api.albumDetails(albumId = id).data?.let(AlbumMapper::toDomain))

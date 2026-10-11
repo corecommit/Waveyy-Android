@@ -46,6 +46,83 @@ class YtMusicApi @Inject constructor(
     }
 
     /**
+     * Fetches the YouTube Music radio queue that plays after [videoId].
+     * Response shape (WEB_REMIX):
+     *   contents.singleColumnMusicWatchNextResultsRenderer
+     *     .tabbedRenderer.watchNextTabbedResultsRenderer
+     *     .tabs[0].tabRenderer.content.musicQueueRenderer.content
+     *     .playlistPanelRenderer.contents[]
+     *
+     * Each item is a playlistPanelVideoRenderer with videoId, title runs,
+     * artist byline runs, and thumbnails. Returned in YT's natural
+     * relevance order — the first N are what YouTube itself would autoplay.
+     *
+     * @param videoId seed video id (e.g. "dQw4w9WgXcQ").
+     * @return ordered list of tracks, or empty when the request fails or
+     *   the response is malformed.
+     */
+    suspend fun nextRadio(videoId: String, visitorData: String?): List<YtTrack> {
+        val body = buildJsonObject {
+            put("videoId", JsonPrimitive(videoId))
+            put("isAudioOnly", JsonPrimitive(true))
+            put("enablePersistentPlaylistPanel", JsonPrimitive(true))
+        }
+        val response = transport.post("next", body, visitorData)
+            ?: return emptyList()
+        val tabs = response.optObj("contents")
+            ?.optObj("singleColumnMusicWatchNextResultsRenderer")
+            ?.optObj("tabbedRenderer")
+            ?.optObj("watchNextTabbedResultsRenderer")
+            ?.optArr("tabs").orEmpty()
+        val firstTabContent = (tabs.firstOrNull() as? JsonObject)
+            ?.optObj("tabRenderer")
+            ?.optObj("content")
+            ?: return emptyList()
+        val panelContents = firstTabContent
+            .optObj("musicQueueRenderer")
+            ?.optObj("content")
+            ?.optObj("playlistPanelRenderer")
+            ?.optArr("contents").orEmpty()
+        return panelContents.mapNotNull { element ->
+            val obj = element as? JsonObject ?: return@mapNotNull null
+            val renderer = obj.optObj("playlistPanelVideoRenderer")
+                ?: return@mapNotNull null
+            parsePanelVideo(renderer)
+        }
+    }
+
+    /**
+     * Parses one playlistPanelVideoRenderer into a YtTrack.
+     * Fields: videoId, title.runs[], longBylineText.runs[], lengthText.
+     */
+    private fun parsePanelVideo(renderer: JsonObject): YtTrack? {
+        val videoId = renderer.optStr("videoId")?.takeIf { it.isNotBlank() }
+            ?: return null
+        val titleRuns = renderer.optObj("title")?.optArr("runs").orEmpty()
+        val title = titleRuns.mapNotNull { (it as? JsonObject)?.optStr("text") }
+            .joinToString("").takeIf { it.isNotBlank() } ?: return null
+        // longBylineText has "Artist • Album • Year" in separate runs.
+        // Take the first run's text — that's the artist name.
+        val bylineRuns = renderer.optObj("longBylineText")?.optArr("runs").orEmpty()
+        val artist = bylineRuns.firstOrNull()
+            ?.let { (it as? JsonObject)?.optStr("text") }
+            ?.takeIf { it.isNotBlank() } ?: "unknown"
+        // lengthText is "3:41" — parse into seconds.
+        val lengthText = renderer.optObj("lengthText")?.optStr("simpleText")
+        val durationSec = lengthText?.let(::parseDuration) ?: 0L
+        val thumbnails = renderer.optObj("thumbnail")?.optObj("musicThumbnailRenderer")
+            ?.optObj("thumbnail")?.optArr("thumbnails").orEmpty()
+            .mapNotNull { (it as? JsonObject)?.optStr("url") }
+        return YtTrack(
+            videoId = videoId,
+            title = title,
+            artist = artist,
+            durationSec = durationSec,
+            thumbnailUrl = thumbnails.lastOrNull().orEmpty()
+        )
+    }
+
+    /**
      * Resolves a playable audio stream URL, or null when the track is
      * gated (login/bot-check) or parsing fails.
      */

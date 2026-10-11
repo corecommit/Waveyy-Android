@@ -682,8 +682,21 @@ class PlayerViewModel @Inject constructor(
      * Returned in ranking order: suggestions first, then same-artist.
      */
     private suspend fun fetchRadioFor(seed: Song): List<Song> = coroutineScope {
-        // Query both sources in parallel. Both are children of this
-        // coroutine, so they're cancelled if the caller bails out early.
+        // YT Music's /next endpoint gives the actual YouTube-curated radio
+        // for a video. Only available when the seed is a YT track (we have
+        // a videoId). For JioSaavn seeds, fall back to JioSaavn suggestions
+        // + same-artist search.
+        val isYtSeed = seed.source == com.waveyy.app.domain.model.MusicSource.YTMUSIC &&
+            seed.id.startsWith("yt:")
+        val ytDeferred = if (isYtSeed) {
+            async {
+                runCatching {
+                    songRepository.ytRadioFor(seed.id.removePrefix("yt:"))
+                }.getOrDefault(emptyList())
+            }
+        } else {
+            null
+        }
         val suggestionsDeferred = async {
             runCatching { songRepository.suggestions(seed.id).first() }
                 .getOrDefault(emptyList())
@@ -700,12 +713,16 @@ class PlayerViewModel @Inject constructor(
             null
         }
 
+        val ytRadio = ytDeferred?.await().orEmpty()
         val suggestions = suggestionsDeferred.await()
         val sameArtist = sameArtistDeferred?.await().orEmpty()
 
-        // Merge: interleave suggestions and same-artist so the user gets a
-        // mix, not all suggestions first then all same-artist.
+        // Priority order: YT radio first (best), then JioSaavn suggestions,
+        // then same-artist search. Interleave to keep the mix varied.
         val merged = mutableListOf<Song>()
+        if (ytRadio.isNotEmpty()) {
+            merged += ytRadio
+        }
         val max = if (suggestions.size >= sameArtist.size) suggestions.size else sameArtist.size
         for (i in 0 until max) {
             suggestions.getOrNull(i)?.let { merged += it }

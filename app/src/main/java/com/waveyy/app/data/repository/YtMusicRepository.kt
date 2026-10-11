@@ -32,6 +32,19 @@ class YtMusicRepository @Inject constructor(
     }
 
     /**
+     * Fetches the YT Music "radio" for [videoId] — the queue YouTube
+     * itself would autoplay after this track. Returns up to 25 tracks
+     * in YT's relevance order. Empty when the request fails.
+     */
+    suspend fun nextRadio(videoId: String): List<Song> {
+        return runCatching {
+            val visitor = userPrefs.ytVisitor()
+            val tracks = api.nextRadio(videoId, visitor)
+            tracks.map { it.toDomain() }
+        }.getOrDefault(emptyList())
+    }
+
+    /**
      * Resolves a playable stream URL, or null when gated (login/bot-check)
      * or unresolvable.
      */
