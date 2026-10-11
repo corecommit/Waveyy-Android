@@ -3,7 +3,10 @@
 All notable changes to Waveyy are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [1.0.1] — 2026-10-11
+## [1.0.0] — 2026-10-11
+
+First public release of Waveyy for Android. Sideload-only; the APK is
+available from the [releases page](https://github.com/corecommit/Waveyy-Android/releases).
 
 ### Fixed
 
@@ -11,11 +14,6 @@ All notable changes to Waveyy are documented here. Format follows
   the heart and play buttons stay fixed; content clips inside the pill.
 - Search loading skeleton fills more of the screen while loading.
 - Login/Signup back button no longer sits behind the status bar.
-
-## [1.0.0] — 2026-10-11
-
-First public release of Waveyy for Android. Sideload-only; the APK is
-available from the [releases page](https://github.com/corecommit/Waveyy-Android/releases).
 
 ### Added
 
