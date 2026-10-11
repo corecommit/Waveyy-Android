@@ -38,4 +38,35 @@ object ImageUrl {
         if (url.isBlank() || !url.contains("saavncdn.com", ignoreCase = true)) return url
         return url.replace(sizeToken, "-$size.")
     }
+
+    /**
+     * True when [url] is a YouTube-hosted thumbnail. YT thumbnails have no
+     * WebP variant and no Saavn fallback, so callers must skip the WebP
+     * swap and the Saavn JPG fallback for these.
+     */
+    fun isYouTubeThumbnail(url: String): Boolean {
+        return url.contains("googleusercontent.com", ignoreCase = true) ||
+            url.contains("ytimg.com", ignoreCase = true) ||
+            url.contains("youtube.com", ignoreCase = true)
+    }
+
+    /**
+     * Returns a smaller variant of a YouTube thumbnail when possible.
+     * YT thumbnail URLs carry a size token like `=w544-h544-l90-rj`; a
+     * smaller variant loads faster on weak connections and is a viable
+     * retry when the original 404s.
+     *
+     * Returns null when [url] isn't a YT thumbnail or already uses the
+     * smallest size.
+     */
+    fun youTubeFallback(url: String): String? {
+        if (!isYouTubeThumbnail(url)) return null
+        // YT size tokens: wXXX-hXXX-...
+        val sizeRegex = Regex("""=w(\d+)-h(\d+)""")
+        val match = sizeRegex.find(url) ?: return null
+        val currentWidth = match.groupValues[1].toIntOrNull() ?: return null
+        if (currentWidth <= 120) return null
+        // Fall back to a 120px variant; always exists for real videos.
+        return url.replace(sizeRegex, "=w120-h120")
+    }
 }
