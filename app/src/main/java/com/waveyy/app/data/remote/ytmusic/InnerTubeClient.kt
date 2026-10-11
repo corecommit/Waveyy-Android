@@ -55,6 +55,9 @@ class InnerTubeClient @Inject constructor(
                 .header("X-YouTube-Client-Name", CLIENT_ID)
                 .header("X-YouTube-Client-Version", CLIENT_VERSION)
                 .header("User-Agent", USER_AGENT)
+                .header("Referer", REFERER)
+                .header("Origin", "https://music.youtube.com")
+                .header("Accept-Language", "en-US,en;q=0.9")
                 .post(body)
                 .build()
             okHttp.newCall(request).execute().use { response ->
@@ -79,13 +82,25 @@ class InnerTubeClient @Inject constructor(
 
     companion object {
         private const val BASE_URL = "https://music.youtube.com/youtubei/v1"
-        private const val API_KEY = "AIzaSyC9XL3ZjWddXya6X74dJoCTL-Wj9xG0l"
+
+        // API key + client version aligned with the WEB_REMIX client the
+        // yt-dlp and SimpMusic projects ship as of 2026-10. Google rotates
+        // these periodically; if 401s return, bump CLIENT_VERSION first.
+        private const val API_KEY = "AIzaSyC9XL3ZjWddXya6X74dJoCTL-WEYFDNX30"
         private const val CLIENT_ID = "67"
-        private const val CLIENT_VERSION = "1.20250101.01.00"
+        private const val CLIENT_VERSION = "1.20260304.03.00"
         private const val CLIENT_NAME = "WEB_REMIX"
+
+        // Desktop Chrome UA — matches what the WEB_REMIX client advertises
+        // and avoids the "mobile app but no device fingerprint" mismatch
+        // that gets requests softly-flagged.
         private const val USER_AGENT =
-            "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 " +
-                "(KHTML, like Gecko) Chrome/120.0 Mobile Safari/537.36"
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) " +
+                "AppleWebKit/537.36 (KHTML, like Gecko) " +
+                "Chrome/140.0.0.0 Safari/537.36"
+
+        private const val REFERER = "https://music.youtube.com/"
+
         private val JSON_MEDIA_TYPE = "application/json".toMediaType()
     }
 }
