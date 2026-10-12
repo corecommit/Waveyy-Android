@@ -50,6 +50,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -94,6 +95,11 @@ fun FullLyricsScreen(
         modifier = Modifier.fillMaxSize()
     ) {
         val maxH = constraints.maxHeight.toFloat()
+        // Bottom padding = one viewport height, so the last lyric line
+        // can still scroll to the top of the visible area. Top padding
+        // is zero so the active line sits flush at the top.
+        val density = LocalDensity.current.density
+        val lyricBottomPadDp = (maxH / density).dp
 
         // Base: near-black with a whisper of accent.
         Box(
@@ -218,7 +224,10 @@ fun FullLyricsScreen(
                     else -> LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         state = listState,
-                        contentPadding = PaddingValues(vertical = 200.dp),
+                        contentPadding = PaddingValues(
+                            top = 0.dp,
+                            bottom = lyricBottomPadDp
+                        ),
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         itemsIndexed(lines) { i, line ->
