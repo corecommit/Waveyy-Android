@@ -53,6 +53,12 @@ fun AdaptiveImage(
     }
     var model by remember(imageUrl) { mutableStateOf(preferred) }
     var attempt by remember(imageUrl) { mutableIntStateOf(0) }
+    androidx.compose.runtime.LaunchedEffect(model) {
+        if (model != null) {
+            timber.log.Timber.tag("AdaptiveImage")
+                .d("load id=%s attempt=%d model=%s", imageUrl, attempt, model)
+        }
+    }
 
     Box(modifier = modifier, contentAlignment = Alignment.Center) {
         // Placeholder background
@@ -71,16 +77,23 @@ fun AdaptiveImage(
                 onError = {
                     val next: String? = when (attempt) {
                         0 -> {
-                            // First retry: swap WebP→JPG for Saavn, or
-                            // shrink YT thumbnail.
+                            // 1st retry: swap WebP→JPG for Saavn, or shrink
+                            // YT thumbnail.
                             when {
                                 isYt -> ImageUrl.youTubeFallback(imageUrl)
                                 else -> ImageUrl.toSaavnJpgUrl(imageUrl)
                             }
                         }
                         1 -> {
-                            // Second retry: original URL, no swaps. Catches
-                            // cases where WebP/JPG negotiation is the problem.
+                            // 2nd retry: swap rendition to 150x150. Often
+                            // the smaller size still exists even when the
+                            // 500x500 was rota'd off the CDN.
+                            ImageUrl.swapSaavnRendition(imageUrl, "150x150")
+                        }
+                        2 -> {
+                            // 3rd retry: original URL, no swaps. Catches
+                            // cases where WebP/JPG negotiation was the
+                            // problem all along.
                             imageUrl.takeIf { it != model && it.isNotBlank() }
                         }
                         else -> null

@@ -222,16 +222,40 @@ class SongRepository @Inject constructor(
      * Direct deployment first; falls back to the working proxy search by
      * name, accepting only an exact id match. Null when unresolvable.
      */
+    /**
+     * Re-fetches a song's streams. Prefers an exact id match (fastest,
+     * most accurate) but falls back to a title-key match — JioSaavn's
+     * ids drift between the history snapshot and today's search, so the
+     * strict id filter caused every history-sourced tap to fail.
+     *
+     * Returns null only when nothing with a matching title AND playable
+     * streams exists.
+     */
     suspend fun refreshSong(song: Song): Song? {
         refreshSongById(song.id)?.let { return it }
         val hint = song.name.takeIf { it.isNotBlank() && it != "Unknown" } ?: return null
+        val targetKey = com.waveyy.app.domain.usecase.SearchRanking.titleKey(song.name)
+
         return runCatching {
-            val body = api.searchSongs(query = hint, limit = 10)
+            val body = api.searchSongs(query = hint, limit = 15)
             if (!body.error.isNullOrBlank()) return null
-            (body.data?.results.orEmpty() + body.data?.songs.orEmpty())
+            val candidates = body.data?.results.orEmpty() + body.data?.songs.orEmpty()
+
+            // 1. Exact id match (best).
+            val byId = candidates
                 .firstOrNull { it.id == song.id }
                 ?.let(SongMapper::toDomain)
-                ?.takeIf { fresh -> fresh.streams.any { it.url.isNotBlank() } }
+                ?.takeIf { it.streams.any { s -> s.url.isNotBlank() } }
+            if (byId != null) return@runCatching byId
+
+            // 2. Title-key match (handles id drift).
+            candidates
+                .firstOrNull { dto ->
+                    com.waveyy.app.domain.usecase.SearchRanking
+                        .titleKey(dto.name ?: dto.title ?: dto.song) == targetKey
+                }
+                ?.let(SongMapper::toDomain)
+                ?.takeIf { it.streams.any { s -> s.url.isNotBlank() } }
         }.getOrNull()
     }
 

@@ -1,5 +1,6 @@
 package com.waveyy.app.ui.home
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -8,12 +9,15 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -28,9 +32,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.waveyy.app.MainActivity
@@ -41,11 +47,11 @@ import com.waveyy.app.ui.MainViewModel
 import com.waveyy.app.ui.sharedMainViewModel
 import com.waveyy.app.ui.navigation.Routes
 import com.waveyy.app.ui.player.rememberChromeBottomReserve
+import com.waveyy.app.ui.components.AdaptiveImage
 import com.waveyy.app.ui.components.AlbumCard
 import com.waveyy.app.ui.components.ArtistCard
 import com.waveyy.app.ui.components.SkeletonHomeScreen
 import com.waveyy.app.ui.components.SongCard
-import com.waveyy.app.ui.components.SongRow
 import com.waveyy.app.ui.components.WaveyyButton
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.HazeStyle
@@ -240,29 +246,34 @@ private fun HomeContent(
                 ),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // ─── Quick Picks ───
+                // ─── Quick Picks (3-column scrollable row) ───
                 if (sections.quickPicks.isNotEmpty()) {
                     item {
-                        HomeRailTitle(
-                            text = "Quick Picks",
-                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)
-                        )
-                    }
-                    itemsIndexed(
-                        sections.quickPicks,
-                        key = { _, song -> "qp:${song.id}" }
-                    ) { index, song ->
-                        SongRow(
-                            title = song.name,
-                            artist = song.artist,
-                            imageUrl = song.imageUrl,
-                            songId = song.id,
-                            onPlay = { _ ->
-                                onPlaySong(QueueSource.HomeFeed(sections.quickPicks), index)
-                            },
-                            duration = formatDuration(song.durationSec),
-                            modifier = Modifier.padding(horizontal = 4.dp)
-                        )
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            HomeRailTitle(
+                                text = "Quick Picks",
+                                modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)
+                            )
+                            LazyRow(
+                                contentPadding = PaddingValues(horizontal = 20.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                itemsIndexed(
+                                    sections.quickPicks,
+                                    key = { _, song -> "qp:${song.id}" }
+                                ) { index, song ->
+                                    QuickPickCard(
+                                        song = song,
+                                        onPlay = {
+                                            onPlaySong(
+                                                QueueSource.HomeFeed(sections.quickPicks),
+                                                index
+                                            )
+                                        }
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -405,10 +416,40 @@ private fun HomeSongRail(
     }
 }
 
-/** Formats seconds as m:ss; empty when zero. */
-private fun formatDuration(totalSeconds: Long): String {
-    if (totalSeconds <= 0L) return ""
-    val minutes = totalSeconds / 60L
-    val seconds = (totalSeconds % 60L).toString().padStart(2, '0')
-    return "$minutes:$seconds"
+/**
+ * Fixed-width tile for the Quick Picks rail. Sized so exactly three fit
+ * on a 360dp-wide device with the rail's horizontal padding and spacing.
+ * Reuses SongCard's layout but with a smaller corner radius and a single-
+ * line title.
+ */
+@Composable
+private fun QuickPickCard(song: Song, onPlay: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .width(96.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClick = onPlay)
+    ) {
+        AdaptiveImage(
+            imageUrl = song.imageUrl,
+            contentDescription = song.name,
+            modifier = Modifier
+                .size(96.dp)
+                .clip(RoundedCornerShape(12.dp))
+        )
+        Text(
+            text = song.name,
+            style = MaterialTheme.typography.titleSmall,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(top = 6.dp)
+        )
+        Text(
+            text = song.artist,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
 }
