@@ -27,13 +27,16 @@ import javax.inject.Inject
 
 /** Home rail bundle. */
 data class HomeSections(
-    val trending: List<Song> = emptyList(),
-    val popularArtists: List<Artist> = emptyList(),
-    val popularAlbums: List<Album> = emptyList(),
-    val recent: List<Song> = emptyList(),
-    val recommended: List<Song> = emptyList(),
-    val recommendedGenres: List<String> = emptyList(),
-    val newReleases: List<Song> = emptyList()
+    /** Top-of-home list of 6 tracks drawn from history + recommendations. */
+    val quickPicks: List<Song> = emptyList(),
+    /** Horizontal rail: recently played songs. */
+    val recentlyPlayed: List<Song> = emptyList(),
+    /** Horizontal rail: personalized songs from genre seeds + fallbacks. */
+    val madeForYou: List<Song> = emptyList(),
+    /** Horizontal rail: artists derived from the base song set. */
+    val artists: List<Artist> = emptyList(),
+    /** Horizontal rail: albums derived from the base song set. */
+    val albums: List<Album> = emptyList()
 )
 
 /** Home screen state. */
@@ -86,14 +89,18 @@ class HomeViewModel @Inject constructor(
     /**
      * Reloads every rail incrementally. Emits an empty Success immediately
      * so the UI can show skeletons, then updates each rail as it lands.
-     * The screen renders trending the moment it's ready; other rails fill
-     * in behind.
+     *
+     * Order:
+     *   1. recentlyPlayed (from Room — synchronous)
+     *   2. madeForYou + quickPicks (Quick Picks needs recentlyPlayed and
+     *      madeForYou, so it lands with madeForYou)
+     *   3. artists (derived from the base song set)
+     *   4. albums (merged popular albums + new releases)
      */
     fun refresh() {
-        // Start from empty Success so the grid renders skeletons.
         mutableState.value = HomeUiState.Success(HomeSections())
         viewModelScope.launch {
-            // Recent comes from Room — synchronous, ready first.
+            // 1. Recent history from Room.
             val recent = historyDao.recent(HISTORY_LIMIT).map { row ->
                 Song(
                     id = row.songId,
@@ -106,38 +113,58 @@ class HomeViewModel @Inject constructor(
                     streams = emptyList()
                 )
             }
-            publishSections { it.copy(recent = recent) }
+            publishSections { it.copy(recentlyPlayed = recent) }
 
-            // Rails run in parallel; each updates the state as it lands.
-            val trendingJob = async {
-                val trending = runCatching { loadTrending() }
-                    .getOrDefault(emptyList())
+            coroutineScope {
+                // Base song set for artist + album derivation.
+                val baseJob = async {
+                    runCatching { loadTrending() }.getOrDefault(emptyList())
+                }
+
+                // Made for You + Quick Picks.
+                val mfyJob = async {
+                    runCatching { loadRecommended(recent) }
+                        .getOrElse { Recommended(emptyList(), emptyList()) }
+                }
+
+                // New releases contribute to the albums rail.
+                val newReleasesJob = async {
+                    runCatching { loadNewReleases() }.getOrDefault(emptyList())
+                }
+
+                // 2. Made for You + Quick Picks land together.
+                val recs = mfyJob.await()
                 publishSections {
                     it.copy(
-                        trending = trending,
-                        popularArtists = popularArtistsOf(trending),
-                        popularAlbums = popularAlbumsOf(trending)
+                        madeForYou = recs.songs,
+                        quickPicks = deriveQuickPicks(recent, recs.songs)
                     )
                 }
-            }
-            val recsJob = async {
-                val recs = runCatching { loadRecommended(recent) }
-                    .getOrElse { Recommended(emptyList(), emptyList()) }
+
+                // 3. Artists derived from the base set.
+                val base = baseJob.await()
                 publishSections {
-                    it.copy(
-                        recommended = recs.songs,
-                        recommendedGenres = recs.genres
+                    it.copy(artists = popularArtistsOf(base))
+                }
+
+                // 4. Albums = popular albums (from base) + new releases,
+                //    deduped by id.
+                val newReleases = newReleasesJob.await()
+                val popularAlbums = popularAlbumsOf(base)
+                val newReleaseAlbums = newReleases.mapNotNull { song ->
+                    val album = song.album.takeIf { it.isNotBlank() && it != "unknown" }
+                        ?: return@mapNotNull null
+                    Album(
+                        id = "album:$album:${song.artist}",
+                        name = album,
+                        artist = song.artist,
+                        imageUrl = song.imageUrl,
+                        songs = emptyList()
                     )
                 }
+                val merged = (popularAlbums + newReleaseAlbums).distinctBy { it.id }
+                publishSections { it.copy(albums = merged) }
             }
-            val newJob = async {
-                val newReleases = runCatching { loadNewReleases() }
-                    .getOrDefault(emptyList())
-                publishSections { it.copy(newReleases = newReleases) }
-            }
-            trendingJob.await()
-            recsJob.await()
-            newJob.await()
         }
     }
 
@@ -150,6 +177,40 @@ class HomeViewModel @Inject constructor(
         if (current is HomeUiState.Success) {
             mutableState.value = HomeUiState.Success(transform(current.sections))
         }
+    }
+
+    /**
+     * Interleaves [recent] and [recommended] to produce up to
+     * [QUICK_PICKS_LIMIT] tracks, deduped by title-key + primary artist.
+     * Yields the YT Music-style "quick picks" list.
+     */
+    private fun deriveQuickPicks(
+        recent: List<Song>,
+        recommended: List<Song>
+    ): List<Song> {
+        val out = mutableListOf<Song>()
+        val seen = mutableSetOf<String>()
+        val max = if (recent.size >= recommended.size) recent.size else recommended.size
+        for (i in 0 until max) {
+            if (out.size >= QUICK_PICKS_LIMIT) break
+            recent.getOrNull(i)?.let { song ->
+                val key = quickPickKey(song)
+                if (seen.add(key)) out += song
+            }
+            if (out.size >= QUICK_PICKS_LIMIT) break
+            recommended.getOrNull(i)?.let { song ->
+                val key = quickPickKey(song)
+                if (seen.add(key)) out += song
+            }
+        }
+        return out
+    }
+
+    /** Dedupe key for Quick Picks. */
+    private fun quickPickKey(song: Song): String {
+        val title = com.waveyy.app.domain.usecase.SearchRanking.titleKey(song.name)
+        val artist = song.artist.lowercase().split(",").first().trim()
+        return "$title||$artist"
     }
 
     /** Fresh-release rail, locale-aware like the trending chain. */
@@ -339,6 +400,9 @@ class HomeViewModel @Inject constructor(
     companion object {
         /** Minimum time the pull-to-refresh spinner stays visible. */
         private const val MIN_REFRESH_SPINNER_MS = 600L
+
+        /** Quick Picks list size (top of Home). */
+        private const val QUICK_PICKS_LIMIT = 6
 
         private const val TRENDING_LIMIT = 20
         private const val NEW_RELEASE_LIMIT = 10

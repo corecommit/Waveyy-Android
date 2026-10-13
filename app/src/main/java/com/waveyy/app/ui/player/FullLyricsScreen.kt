@@ -83,11 +83,18 @@ fun FullLyricsScreen(
     val song = queue.firstOrNull { it.id == songId }
     LaunchedEffect(song?.id) { song?.let { viewModel.loadLyrics(it) } }
     val lines = (lyrics as? LyricsUiState.Ready)?.lines.orEmpty()
-    val idx = activeLyricIndex(lyrics, state.positionMs).coerceAtLeast(0)
-    val listState = rememberLazyListState()
-    LaunchedEffect(idx) {
-        if (lines.isNotEmpty()) listState.animateScrollToItem(idx)
+    // activeIdx = -1 means nothing should be highlighted (before the
+    // first line or after the last line has faded).
+    val activeIdx = activeLyricIndex(lyrics, state.positionMs)
+    // Scroll target. During intro, focus the first line; during outro,
+    // focus the last line. Otherwise, the active line.
+    val scrollIdx = when {
+        lines.isEmpty() -> 0
+        activeIdx >= 0 -> activeIdx
+        state.positionMs < lines.first().timeMs -> 0
+        else -> lines.lastIndex
     }
+    val listState = rememberLazyListState()
     val accent = rememberAlbumAccent(song?.imageUrl, song?.id)
 
     // Track height for the gradient so it scales with screen size.
@@ -95,11 +102,27 @@ fun FullLyricsScreen(
         modifier = Modifier.fillMaxSize()
     ) {
         val maxH = constraints.maxHeight.toFloat()
-        // Bottom padding = one viewport height, so the last lyric line
-        // can still scroll to the top of the visible area. Top padding
-        // is zero so the active line sits flush at the top.
-        val density = LocalDensity.current.density
-        val lyricBottomPadDp = (maxH / density).dp
+        val densityFloat = LocalDensity.current.density
+        // Top padding = half the viewport, which is what allows the
+        // active line to reach the vertical center. Bottom padding is
+        // zero, so the list can't scroll past the last line into blank
+        // space — the last line naturally parks at the viewport bottom.
+        val lyricTopPadDp = (maxH / densityFloat / 2f).dp
+
+        // Rough line height for centering. Some lines wrap to two rows;
+        // 60dp is a middle estimate. Off-by-10dp is imperceptible.
+        val approxLineHeightPx = (60 * densityFloat).toInt()
+        val centerOffsetPx = ((maxH.toInt() - approxLineHeightPx) / 2)
+            .coerceAtLeast(0)
+
+        LaunchedEffect(scrollIdx, lines.size, maxH) {
+            if (lines.isEmpty()) return@LaunchedEffect
+            // Negative offset pushes the item DOWN so its center lands
+            // at the viewport center. When the list can't scroll far
+            // enough (near the end), Compose clamps — the last line
+            // ends up at the bottom.
+            listState.animateScrollToItem(scrollIdx, -centerOffsetPx)
+        }
 
         // Base: near-black with a whisper of accent.
         Box(
@@ -225,13 +248,13 @@ fun FullLyricsScreen(
                         modifier = Modifier.fillMaxSize(),
                         state = listState,
                         contentPadding = PaddingValues(
-                            top = 0.dp,
-                            bottom = lyricBottomPadDp
+                            top = lyricTopPadDp,
+                            bottom = 0.dp
                         ),
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         itemsIndexed(lines) { i, line ->
-                            val distance = kotlin.math.abs(i - idx)
+                            val distance = kotlin.math.abs(i - activeIdx)
                             // Heavier blur so distant lines are clearly out of focus.
                             val blurRadius = (distance * 1.4f).coerceAtMost(7f)
                             // Strong alpha falloff.

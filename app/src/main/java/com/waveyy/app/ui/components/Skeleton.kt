@@ -22,8 +22,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -93,8 +93,9 @@ fun SkeletonBox(width: Dp?, height: Dp, shape: Shape, modifier: Modifier = Modif
 }
 
 /**
- * Home loading state: real header row, hero skeleton, 2x2 grid, label
- * pill, second 2x2 grid — mirroring the loaded layout shapes.
+ * Home loading state: mirrors the loaded layout — a Quick Picks list
+ * (six 56.dp row skeletons) followed by four horizontal rail skeletons
+ * (title pill + row of card skeletons).
  */
 @Composable
 fun SkeletonHomeScreen(
@@ -104,8 +105,7 @@ fun SkeletonHomeScreen(
     header: @Composable () -> Unit = {}
 ) {
     Box(modifier = modifier.fillMaxSize()) {
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(2),
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .then(
@@ -116,38 +116,109 @@ fun SkeletonHomeScreen(
                     }
                 ),
             contentPadding = PaddingValues(
-                start = 20.dp,
-                end = 20.dp,
                 top = topContentPadding,
                 bottom = 4.dp
             ),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(2) }) {
-                SkeletonBox(
-                    width = null,
-                    height = 200.dp,
-                    shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp)
-                )
-            }
-            items(4) {
-                SkeletonBox(width = null, height = 150.dp, shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
-            }
-            item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(2) }) {
+            // Quick Picks list skeleton: 6 rows.
+            item {
                 SkeletonBox(
                     width = 120.dp,
                     height = 20.dp,
-                    shape = androidx.compose.foundation.shape.RoundedCornerShape(percent = 50),
-                    modifier = Modifier.padding(top = 16.dp)
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+                    modifier = Modifier.padding(start = 20.dp, top = 4.dp)
                 )
             }
-            items(4) {
-                SkeletonBox(width = null, height = 150.dp, shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
+            items(6) {
+                SkeletonRowPlaceholder()
+            }
+
+            // Four rail skeletons.
+            repeat(4) { railIndex ->
+                item {
+                    SkeletonRailPlaceholder(isCircle = railIndex == 2)
+                }
             }
         }
         Box(modifier = Modifier.align(Alignment.TopCenter)) {
             header()
+        }
+    }
+}
+
+/** A Quick-Picks-shaped row skeleton: 56.dp square + two text bars. */
+@Composable
+private fun SkeletonRowPlaceholder() {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        SkeletonBox(
+            width = 56.dp,
+            height = 56.dp,
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+        )
+        Column(modifier = Modifier.padding(start = 12.dp)) {
+            SkeletonBox(
+                width = 180.dp,
+                height = 16.dp,
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
+            )
+            SkeletonBox(
+                width = 120.dp,
+                height = 12.dp,
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+                modifier = Modifier.padding(top = 6.dp)
+            )
+        }
+    }
+}
+
+/**
+ * A rail skeleton: title pill + a row of 4 card-shaped skeletons.
+ * [isCircle] switches card shapes to circles for the artist rail.
+ */
+@Composable
+private fun SkeletonRailPlaceholder(isCircle: Boolean) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        SkeletonBox(
+            width = 140.dp,
+            height = 20.dp,
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+            modifier = Modifier.padding(start = 20.dp, top = 8.dp, bottom = 8.dp)
+        )
+        Row(
+            modifier = Modifier.padding(start = 20.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            repeat(4) {
+                val shape = if (isCircle) {
+                    androidx.compose.foundation.shape.CircleShape
+                } else {
+                    androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
+                }
+                val size = if (isCircle) 120.dp else 140.dp
+                Column {
+                    SkeletonBox(width = size, height = size, shape = shape)
+                    SkeletonBox(
+                        width = size - 20.dp,
+                        height = 14.dp,
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(6.dp),
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                    if (!isCircle) {
+                        SkeletonBox(
+                            width = size - 40.dp,
+                            height = 12.dp,
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(6.dp),
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                    }
+                }
+            }
         }
     }
 }
