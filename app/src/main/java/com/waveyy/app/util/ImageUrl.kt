@@ -69,4 +69,21 @@ object ImageUrl {
         // Fall back to a 120px variant; always exists for real videos.
         return url.replace(sizeRegex, "=w120-h120")
     }
+
+    /**
+     * Swaps any rendition token in a Saavn URL to [size] (e.g. "150x150").
+     * Returns null when the URL is blank, non-Saavn, or already uses the
+     * requested size.
+     */
+    fun swapSaavnRendition(url: String, size: String): String? {
+        if (url.isBlank() || !url.contains("saavncdn.com", ignoreCase = true)) return null
+        if (url.contains("-$size.", ignoreCase = true)) return null
+        // Match any existing size token (-50x50. -150x150. -500x500. etc.)
+        val anySizeToken = Regex("""-\d+x\d+\.""", RegexOption.IGNORE_CASE)
+        return if (anySizeToken.containsMatchIn(url)) {
+            url.replace(anySizeToken, "-$size.")
+        } else {
+            null
+        }
+    }
 }
