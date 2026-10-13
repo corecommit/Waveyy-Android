@@ -42,7 +42,14 @@ class LyricsRaceRepository @Inject constructor(
         }
         val winner = orchestrator.race(artist, title, duration, onlyProvider = onlyProvider)
             ?: return null
-        dao.upsert(winner.toEntity(songId, artist, title))
+        // Store normalized artist/title so equivalent songs (featuring
+        // chains stripped, primary artist extracted) hit the same cache
+        // row via the getByTitleArtist fallback lookup.
+        val cacheArtist = LyricsQueryNormalizer.primaryArtist(artist)
+            .ifBlank { artist }
+        val cacheTitle = LyricsQueryNormalizer.cleanTitle(title)
+            .ifBlank { title }
+        dao.upsert(winner.toEntity(songId, cacheArtist, cacheTitle))
         Timber.d(
             "LyricsRace won by %s (score=%.1f, %dms)",
             winner.provider, winner.score, winner.latencyMs
@@ -62,6 +69,17 @@ class LyricsRaceRepository @Inject constructor(
     ): LyricsRaceOrchestrator.Scored? {
         val cutoff = System.currentTimeMillis() - CACHE_TTL_MILLIS
         dao.get(songId, cutoff)?.let { return it.toScored() }
+        // Try the normalized (artist, title) pair first — cache writes use
+        // normalized values, so a raw lookup would miss.
+        val normalizedArtist = LyricsQueryNormalizer.primaryArtist(artist)
+            .ifBlank { artist }
+        val normalizedTitle = LyricsQueryNormalizer.cleanTitle(title)
+            .ifBlank { title }
+        dao.getByTitleArtist(normalizedTitle, normalizedArtist, cutoff)?.let {
+            return it.toScored()
+        }
+        // Fall back to the raw pair in case an older cache row predates
+        // the normalization change.
         dao.getByTitleArtist(title, artist, cutoff)?.let { return it.toScored() }
         return null
     }
