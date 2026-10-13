@@ -2,10 +2,12 @@ package com.waveyy.app.data.lyrics
 
 import com.waveyy.app.BuildConfig
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.Request
+import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -25,22 +27,42 @@ class GeniusProvider @Inject constructor(
     override suspend fun fetchLyrics(artist: String, title: String, duration: Long): LyricsResult? {
         if (!enabled || artist.isBlank() || title.isBlank()) return null
         return runCatching {
-            val url = searchUrl("$artist $title") ?: return null
+            val url = searchUrl("$artist $title", title, artist) ?: return null
             scrape(url)
         }.getOrNull()
     }
 
-    private suspend fun searchUrl(query: String): String? {
+    /**
+     * Searches Genius and returns the URL of the first hit whose (title,
+     * artist) plausibly matches. Genius' search also returns loose
+     * matches (same artist, different song).
+     */
+    private suspend fun searchUrl(query: String, title: String, artist: String): String? {
         val request = Request.Builder()
             .url("https://api.genius.com/search?q=${encode(query)}")
             .header("User-Agent", "Mozilla/5.0 (Linux; Android 14) Waveyy/1.0")
             .header("Authorization", "Bearer ${BuildConfig.GENIUS_API_KEY}")
             .build()
         val body = fetchBody(http.client, request) ?: return null
-        return json.parseToJsonElement(body).jsonObject["response"]
-            ?.jsonObject?.get("hits")?.jsonArray
-            ?.firstOrNull()?.jsonObject?.get("result")?.jsonObject?.get("url")
-            ?.jsonPrimitive?.content?.takeIf { it.isNotBlank() }
+        val hits = json.parseToJsonElement(body).jsonObject["response"]
+            ?.jsonObject?.get("hits")?.jsonArray ?: return null
+
+        for (hit in hits) {
+            val result = hit.jsonObject["result"]?.jsonObject ?: continue
+            val url = result["url"]?.jsonPrimitive?.content
+                ?.takeIf { it.isNotBlank() } ?: continue
+            val hitTitle = result["title"]?.jsonPrimitive?.contentOrNull
+            val hitArtist = result["primary_artist"]?.jsonObject
+                ?.get("name")?.jsonPrimitive?.contentOrNull
+            if (LyricsMatcher.isMatch(hitTitle, hitArtist, title, artist)) {
+                return url
+            }
+            Timber.tag("Genius").d(
+                "rejected hit '%s' by '%s' (query: '%s' by '%s')",
+                hitTitle, hitArtist, title, artist
+            )
+        }
+        return null
     }
 
     private suspend fun scrape(songUrl: String): LyricsResult? {

@@ -1,5 +1,7 @@
 package com.waveyy.app.data.lyrics
 
+import com.waveyy.app.util.HtmlDecoder
+import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -22,6 +24,24 @@ class TekstowoProvider @Inject constructor(
             val search = fetchBody(http.client, http.get(searchUrl)) ?: return null
             val href = SONG_LINK.find(search)?.groupValues?.get(1) ?: return null
             val page = fetchBody(http.client, http.get("https://www.tekstowo.pl$href")) ?: return null
+
+            // Verify the page's <title> tag contains the artist or title.
+            // Tekstowo's search isn't exact-match, so the first result can
+            // be a different song by the same artist.
+            val pageTitle = PAGE_TITLE.find(page)?.groupValues?.get(1)
+                ?.let { HtmlDecoder.decode(it) }
+                .orEmpty()
+            if (pageTitle.isNotBlank()) {
+                val pt = pageTitle.lowercase()
+                if (!pt.contains(title.lowercase()) && !pt.contains(artist.lowercase())) {
+                    Timber.tag("Tekstowo").d(
+                        "rejected page title='%s' (query: '%s' by '%s')",
+                        pageTitle, title, artist
+                    )
+                    return null
+                }
+            }
+
             val raw = SONG_TEXT.find(page)?.groupValues?.get(1) ?: return null
             val text = raw
                 .replace(BR, "\n")
@@ -46,6 +66,7 @@ class TekstowoProvider @Inject constructor(
     companion object {
         private val SONG_LINK = Regex("""href="(/piosenka,[^"]+\.html)"""")
         private val SONG_TEXT = Regex("""<div class="song-text"[^>]*>([\s\S]*?)</div>""")
+        private val PAGE_TITLE = Regex("""<title>([^<]+)</title>""", RegexOption.IGNORE_CASE)
         private val BR = Regex("""<br\s*/?>""", RegexOption.IGNORE_CASE)
         private val TAG = Regex("""<[^>]+>""")
         private val WHITESPACE = Regex("""\s+""")
