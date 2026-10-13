@@ -42,11 +42,25 @@ import com.waveyy.app.domain.model.Song
 import com.waveyy.app.ui.components.AdaptiveImage
 import com.waveyy.app.util.PlayCountFormatter
 
-/** Index of the line at [positionMs], or -1 when lyrics aren't synced. */
+/**
+ * Index of the currently-highlighted line, or -1 when nothing should be
+ * highlighted:
+ *   - before the first line's timestamp (intro),
+ *   - more than [LAST_LINE_FADE_MS] past the last line's timestamp
+ *     (outro / instrumental ending),
+ *   - lyrics aren't synced or the list is empty.
+ */
 fun activeLyricIndex(lyrics: LyricsUiState, positionMs: Long): Int {
     val lines = (lyrics as? LyricsUiState.Ready)?.lines ?: return -1
+    if (lines.isEmpty()) return -1
+    if (positionMs < lines.first().timeMs) return -1
+    val fadeEnd = lines.last().timeMs + LAST_LINE_FADE_MS
+    if (positionMs > fadeEnd) return -1
     return lines.indexOfLast { it.timeMs <= positionMs }
 }
+
+/** How long the last line stays highlighted after its timestamp. */
+private const val LAST_LINE_FADE_MS = 8_000L
 
 /**
  * Compact lyrics card for the scrollable full player: header (title,
@@ -119,13 +133,26 @@ fun LyricsCard(
                 )
                 is LyricsUiState.Ready -> {
                     val lines = current.lines
-                    val idx = activeLyricIndex(current, positionMs).coerceAtLeast(0)
-                    val start = (idx - 3).coerceAtLeast(0)
-                    val end = (idx + 4).coerceAtMost(lines.size)
+                    // activeIdx drives the "is this the current line?"
+                    // highlighting. -1 means nothing is current (intro
+                    // or outro).
+                    val activeIdx = activeLyricIndex(current, positionMs)
+                    // windowCenter drives which window of lines is
+                    // visible. During the intro show the first few; during
+                    // the outro show the last few; otherwise show around
+                    // the active line.
+                    val windowCenter = when {
+                        activeIdx >= 0 -> activeIdx
+                        lines.isEmpty() -> 0
+                        positionMs < lines.first().timeMs -> 0
+                        else -> lines.lastIndex
+                    }
+                    val start = (windowCenter - 3).coerceAtLeast(0)
+                    val end = (windowCenter + 4).coerceAtMost(lines.size)
                     Column {
                         lines.subList(start, end).forEachIndexed { i, line ->
                             val lineIdx = start + i
-                            val distance = kotlin.math.abs(lineIdx - idx)
+                            val distance = kotlin.math.abs(lineIdx - activeIdx)
                             val isCurrent = distance == 0
                             // Gentler falloff than the full screen since the card is small.
                             val blurRadius = (distance * 0.4f).coerceAtMost(2f)
