@@ -32,8 +32,17 @@ object LyricsQueryNormalizer {
         RegexOption.IGNORE_CASE
     )
 
+    private val DIACRITICS = Regex("[\u0300-\u036f]")
+
+    /** Strips combining diacritics: "Rëal" → "Real", "Café" → "Cafe". */
+    fun foldDiacritics(text: String): String {
+        if (text.isBlank()) return ""
+        return java.text.Normalizer.normalize(text, java.text.Normalizer.Form.NFD)
+            .replace(DIACRITICS, "")
+    }
+
     /**
-     * Returns up to 3 unique query candidates ordered by likelihood.
+     * Returns up to 5 unique query candidates ordered by likelihood.
      * Always non-empty when [title] is non-blank.
      */
     fun candidates(artist: String, title: String): List<LyricsQuery> {
@@ -43,6 +52,9 @@ object LyricsQueryNormalizer {
 
         val primary = primaryArtist(trimmedArtist)
         val cleaned = cleanTitle(trimmedTitle)
+        val foldedArtist = foldDiacritics(primary)
+        val foldedTitle = foldDiacritics(cleaned)
+        val foldedOriginal = foldDiacritics(trimmedTitle)
 
         val candidates = mutableListOf<LyricsQuery>()
 
@@ -51,19 +63,35 @@ object LyricsQueryNormalizer {
             candidates += LyricsQuery(primary, cleaned)
         }
 
-        // 2. Primary artist + original title (some providers index with
-        //    the "(feat. X)" suffix intact).
+        // 2. Primary artist + original title (some providers index with the
+        //    "(feat. X)" suffix intact).
         if (primary.isNotBlank() && trimmedTitle != cleaned) {
             candidates += LyricsQuery(primary, trimmedTitle)
         }
 
-        // 3. Full artist chain + cleaned title (fallback when the primary
+        // 3. ASCII-folded variants. LRCLIB and several other providers store
+        //    songs under the de-accented spelling ("If We Being Real" rather
+        //    than "If We Being Rëal"). Try folded artist+title first, then
+        //    folded title alone if the artist also had diacritics.
+        if (foldedTitle.isNotBlank() && foldedTitle != cleaned) {
+            if (primary.isNotBlank()) candidates += LyricsQuery(primary, foldedTitle)
+            if (foldedArtist.isNotBlank() && foldedArtist != primary) {
+                candidates += LyricsQuery(foldedArtist, foldedTitle)
+            }
+        }
+        if (foldedOriginal.isNotBlank() && foldedOriginal != trimmedTitle &&
+            foldedOriginal != foldedTitle
+        ) {
+            if (primary.isNotBlank()) candidates += LyricsQuery(primary, foldedOriginal)
+        }
+
+        // 4. Full artist chain + cleaned title (fallback when the primary
         //    is an alias that providers don't recognize).
         if (trimmedArtist.isNotBlank() && trimmedArtist != primary && cleaned.isNotBlank()) {
             candidates += LyricsQuery(trimmedArtist, cleaned)
         }
 
-        // 4. Cleaned title with no artist at all — last resort.
+        // 5. Cleaned title with no artist at all — last resort.
         if (candidates.isEmpty() && cleaned.isNotBlank()) {
             candidates += LyricsQuery("", cleaned)
         }
