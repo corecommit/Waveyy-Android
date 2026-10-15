@@ -23,34 +23,33 @@ class LrclibProvider @Inject constructor(
     override val name: String = "lrclib"
     override val enabled: Boolean = true
 
-    /**
-     * Fetches lyrics from LRCLIB via a 3-step retry chain:
-     *
-     *   1. /api/get WITH duration — exact match, most accurate, but fails
-     *      if JioSaavn's duration is off by >2s from LRCLIB's indexed
-     *      entry.
-     *   2. /api/get WITHOUT duration — same strict title+artist match,
-     *      duration-free. Catches version mismatches.
-     *   3. /api/search?q=artist title — fuzzy, returns a list. Pick the
-     *      first result whose (trackName, artistName) matches the query
-     *      using LyricsMatcher.
-     *
-     * Any step returning synced or plain lyrics ends the chain.
-     * Instrumental marker also ends the chain.
-     */
     override suspend fun fetchLyrics(artist: String, title: String, duration: Long): LyricsResult? {
         if (artist.isBlank() || title.isBlank()) return null
 
+        var plainFallback: LyricsResult? = null
+
         // Step 1: strict match with duration.
         if (duration > 0) {
-            fetchGet(artist, title, duration)?.let { return it }
+            fetchGet(artist, title, duration)?.let { result ->
+                if (result is LyricsResult.Synced || result is LyricsResult.Instrumental) return result
+                plainFallback = result
+            }
         }
 
         // Step 2: strict match without duration.
-        fetchGet(artist, title, null)?.let { return it }
+        fetchGet(artist, title, null)?.let { result ->
+            if (result is LyricsResult.Synced || result is LyricsResult.Instrumental) return result
+            if (plainFallback == null) plainFallback = result
+        }
 
         // Step 3: fuzzy search + verify.
-        return fetchSearch(artist, title)
+        fetchSearch(artist, title)?.let { result ->
+            if (result is LyricsResult.Synced || result is LyricsResult.Instrumental) return result
+            if (plainFallback == null) plainFallback = result
+        }
+
+        // Nothing synced found anywhere — return the best plain we have.
+        return plainFallback
     }
 
     /** Calls /api/get (strict). Null on 404 or parse failure. */
@@ -60,7 +59,9 @@ class LrclibProvider @Inject constructor(
         duration: Long?
     ): LyricsResult? {
         val url = buildString {
-            append("https://lrclib.net/api/get?artist=${encode(artist)}&track=${encode(title)}")
+            append("https://lrclib.net/api/get")
+            append("?artist_name=${encode(artist)}")
+            append("&track_name=${encode(title)}")
             if (duration != null && duration > 0) append("&duration=$duration")
         }
         val body = fetchBody(http.client, http.get(url)) ?: return null
