@@ -101,28 +101,10 @@ fun FullLyricsScreen(
     BoxWithConstraints(
         modifier = Modifier.fillMaxSize()
     ) {
+        // maxH is only used for the gradient below — the lyrics area has
+        // its own BoxWithConstraints further down (it's ~half the screen,
+        // so centering maths must use that inner height, not this one).
         val maxH = constraints.maxHeight.toFloat()
-        val densityFloat = LocalDensity.current.density
-        // Top padding = half the viewport, which is what allows the
-        // active line to reach the vertical center. Bottom padding is
-        // zero, so the list can't scroll past the last line into blank
-        // space — the last line naturally parks at the viewport bottom.
-        val lyricTopPadDp = (maxH / densityFloat / 2f).dp
-
-        // Rough line height for centering. Some lines wrap to two rows;
-        // 60dp is a middle estimate. Off-by-10dp is imperceptible.
-        val approxLineHeightPx = (60 * densityFloat).toInt()
-        val centerOffsetPx = ((maxH.toInt() - approxLineHeightPx) / 2)
-            .coerceAtLeast(0)
-
-        LaunchedEffect(scrollIdx, lines.size, maxH) {
-            if (lines.isEmpty()) return@LaunchedEffect
-            // Negative offset pushes the item DOWN so its center lands
-            // at the viewport center. When the list can't scroll far
-            // enough (near the end), Compose clamps — the last line
-            // ends up at the bottom.
-            listState.animateScrollToItem(scrollIdx, -centerOffsetPx)
-        }
 
         // Base: near-black with a whisper of accent.
         Box(
@@ -207,11 +189,28 @@ fun FullLyricsScreen(
                     }
                 }
             }
-            Box(
+            BoxWithConstraints(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
             ) {
+                // Real LazyColumn viewport height — NOT the whole screen.
+                // The previous version used screen height (~2x larger than
+                // the lyrics area) and pushed the active line off-screen.
+                val viewportH = constraints.maxHeight.toFloat()
+                val densityFloat = LocalDensity.current.density
+                // Top padding = half the viewport so the active line's
+                // vertical center lands at the viewport center.
+                val lyricTopPadDp = (viewportH / densityFloat / 2f).dp
+
+                LaunchedEffect(scrollIdx, lines.size, viewportH) {
+                    if (lines.isEmpty()) return@LaunchedEffect
+                    // No scroll offset: top padding already centers the
+                    // item. Compose clamps to maxScroll near the end, so
+                    // the last line naturally parks at the viewport bottom.
+                    listState.animateScrollToItem(scrollIdx)
+                }
+
                 when {
                     song == null -> Text(
                         text = "Song unavailable",
