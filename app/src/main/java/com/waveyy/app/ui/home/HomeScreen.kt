@@ -89,7 +89,7 @@ fun HomeScreen(
                 onSettings = onSettings
             )
             is HomeUiState.Error -> HomeError(
-                onRetry = viewModel::refresh,
+                onRetry = { viewModel.refresh() },
                 modifier = Modifier.padding(padding)
             )
             is HomeUiState.Success -> {

@@ -218,43 +218,76 @@ class SongRepository @Inject constructor(
     }
 
     /**
-     * Re-fetches a full [song] (streams included) right before playback.
-     * Direct deployment first; falls back to the working proxy search by
-     * name, accepting only an exact id match. Null when unresolvable.
-     */
-    /**
-     * Re-fetches a song's streams. Prefers an exact id match (fastest,
-     * most accurate) but falls back to a title-key match — JioSaavn's
-     * ids drift between the history snapshot and today's search, so the
-     * strict id filter caused every history-sourced tap to fail.
+     * Re-fetches a song's streams. Chain, in order:
      *
-     * Returns null only when nothing with a matching title AND playable
-     * streams exists.
+     *   1. Direct deployment by exact id (fastest, most accurate).
+     *   2. Proxy search, keeping only candidates whose id matches.
+     *   3. Proxy search, keeping only candidates whose title key AND
+     *      primary artist both match — handles id drift between the
+     *      history snapshot and today's search.
+     *
+     * Returns null when nothing matches both title and artist. Callers
+     * surface "Unable to play" rather than silently playing a wrong
+     * track that happens to share a title.
      */
     suspend fun refreshSong(song: Song): Song? {
         refreshSongById(song.id)?.let { return it }
+
         val hint = song.name.takeIf { it.isNotBlank() && it != "Unknown" } ?: return null
         val targetKey = com.waveyy.app.domain.usecase.SearchRanking.titleKey(song.name)
+        val targetArtist = song.artist.lowercase().split(",").first().trim()
 
         return runCatching {
             val body = api.searchSongs(query = hint, limit = 15)
             if (!body.error.isNullOrBlank()) return null
             val candidates = body.data?.results.orEmpty() + body.data?.songs.orEmpty()
 
-            // 1. Exact id match (best).
-            val byId = candidates
+            // 1. Exact id match (best — happens when the proxy response
+            //    carries the same id the history row has).
+            candidates
                 .firstOrNull { it.id == song.id }
                 ?.let(SongMapper::toDomain)
                 ?.takeIf { it.streams.any { s -> s.url.isNotBlank() } }
-            if (byId != null) return@runCatching byId
+                ?.let { return@runCatching it }
 
-            // 2. Title-key match (handles id drift).
-            candidates
-                .firstOrNull { dto ->
-                    com.waveyy.app.domain.usecase.SearchRanking
-                        .titleKey(dto.name ?: dto.title ?: dto.song) == targetKey
+            // 2. Title key + artist match (id-drift fallback). Both
+            //    conditions must hold so a different artist's song with
+            //    the same title can't win.
+            val dto = candidates.firstOrNull { candidate ->
+                val candidateTitle = com.waveyy.app.domain.usecase.SearchRanking
+                    .titleKey(candidate.name ?: candidate.title ?: candidate.song)
+                if (candidateTitle != targetKey) return@firstOrNull false
+
+                val candidateArtist = (candidate.artists?.primary.orEmpty()
+                    .mapNotNull { it.name }
+                    .firstOrNull()
+                    ?: candidate.artist)
+                    ?.lowercase()
+                    ?.split(",")
+                    ?.firstOrNull()
+                    ?.trim()
+                    .orEmpty()
+
+                if (candidateTitle == targetKey && candidateArtist != targetArtist) {
+                    Timber.tag("SongRepo").d(
+                        "refreshSong rejected title-match: '%s' by '%s' (wanted '%s' by '%s')",
+                        candidate.name, candidateArtist, song.name, targetArtist
+                    )
                 }
-                ?.let(SongMapper::toDomain)
+
+                if (candidateArtist.isBlank() || targetArtist.isBlank()) return@firstOrNull false
+
+                // Fuzzy artist match: either contains the other, or a
+                // similarity check above 0.6 (catches "TheFatRat" vs
+                // "The Fat Rat" and similar formatting noise).
+                val eitherContains = candidateArtist.contains(targetArtist) ||
+                    targetArtist.contains(candidateArtist)
+                val similar = com.waveyy.app.domain.usecase.SearchRanking
+                    .similarity(candidateArtist, targetArtist) >= 0.6
+                eitherContains || similar
+            } ?: return@runCatching null
+
+            dto.let(SongMapper::toDomain)
                 ?.takeIf { it.streams.any { s -> s.url.isNotBlank() } }
         }.getOrNull()
     }
