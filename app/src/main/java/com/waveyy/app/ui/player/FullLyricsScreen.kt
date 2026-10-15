@@ -4,6 +4,8 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -230,19 +232,38 @@ fun FullLyricsScreen(
                             .fillMaxWidth()
                             .padding(32.dp)
                     )
-                    lines.isEmpty() -> Text(
-                        text = when (lyrics) {
-                            LyricsUiState.Instrumental -> "Instrumental"
-                            is LyricsUiState.Plain -> (lyrics as LyricsUiState.Plain).text
-                            else -> "Lyrics not available"
-                        },
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = Color.White.copy(alpha = 0.8f),
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(32.dp)
-                    )
+                    lines.isEmpty() -> {
+                        val plainText = (lyrics as? LyricsUiState.Plain)?.text
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .verticalScroll(rememberScrollState())
+                                .padding(horizontal = 24.dp, vertical = 24.dp),
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            if (plainText != null) {
+                                Text(
+                                    text = "Unsynced lyrics",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Color.White.copy(alpha = 0.5f),
+                                    modifier = Modifier.padding(bottom = 16.dp)
+                                )
+                            }
+                            Text(
+                                text = plainText
+                                    ?: when (lyrics) {
+                                        LyricsUiState.Instrumental -> "Instrumental"
+                                        else -> "Lyrics not available"
+                                    },
+                                style = MaterialTheme.typography.bodyLarge,
+                                lineHeight = MaterialTheme.typography.bodyLarge.fontSize * 1.6,
+                                color = Color.White.copy(alpha = 0.85f),
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    }
                     else -> LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         state = listState,
