@@ -3,13 +3,11 @@ package com.waveyy.app.ui.home
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.waveyy.app.data.local.dao.HistoryDao
-import com.waveyy.app.data.local.datastore.HomeSnapshotStore
 import com.waveyy.app.data.remote.mapper.SongMapper
 import com.waveyy.app.data.repository.AuthRepository
 import com.waveyy.app.data.repository.SongRepository
 import com.waveyy.app.domain.model.Album
 import com.waveyy.app.domain.model.Artist
-import com.waveyy.app.domain.model.HomeSnapshot
 import com.waveyy.app.domain.model.Song
 import com.waveyy.app.domain.usecase.TrendingCurator
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -29,16 +27,13 @@ import javax.inject.Inject
 
 /** Home rail bundle. */
 data class HomeSections(
-    /** Top-of-home list of 6 tracks drawn from history + recommendations. */
-    val quickPicks: List<Song> = emptyList(),
-    /** Horizontal rail: recently played songs. */
-    val recentlyPlayed: List<Song> = emptyList(),
-    /** Horizontal rail: personalized songs from genre seeds + fallbacks. */
-    val madeForYou: List<Song> = emptyList(),
-    /** Horizontal rail: artists derived from the base song set. */
-    val artists: List<Artist> = emptyList(),
-    /** Horizontal rail: albums derived from the base song set. */
-    val albums: List<Album> = emptyList()
+    val trending: List<Song> = emptyList(),
+    val popularArtists: List<Artist> = emptyList(),
+    val popularAlbums: List<Album> = emptyList(),
+    val recent: List<Song> = emptyList(),
+    val recommended: List<Song> = emptyList(),
+    val recommendedGenres: List<String> = emptyList(),
+    val newReleases: List<Song> = emptyList()
 )
 
 /** Home screen state. */
@@ -68,7 +63,6 @@ sealed interface HomeUiState {
 class HomeViewModel @Inject constructor(
     private val repository: SongRepository,
     private val historyDao: HistoryDao,
-    private val snapshotStore: HomeSnapshotStore,
     authRepository: AuthRepository
 ) : ViewModel() {
 
@@ -90,20 +84,16 @@ class HomeViewModel @Inject constructor(
     }
 
     /**
-     * Reloads every rail. When [force] is false and a Home snapshot exists
-     * that is under [FRESH_WINDOW_MS] old, skip the network entirely — the
-     * user sees the cached rails instantly.
-     *
-     * Order of operations:
-     *   1. recentlyPlayed from Room (always available synchronously).
-     *   2. Cached snapshot for the four network rails, if any.
-     *   3. Network fetch (skipped when fresh and !force), rails published
-     *      incrementally as each source lands.
-     *   4. Snapshot written on success.
+     * Reloads every rail incrementally. Emits an empty Success immediately
+     * so the UI can show skeletons, then updates each rail as it lands.
+     * The screen renders trending the moment it's ready; other rails fill
+     * in behind.
      */
-    fun refresh(force: Boolean = false) {
+    fun refresh() {
+        // Start from empty Success so the grid renders skeletons.
+        mutableState.value = HomeUiState.Success(HomeSections())
         viewModelScope.launch {
-            // 1. Recent history from Room.
+            // Recent comes from Room — synchronous, ready first.
             val recent = historyDao.recent(HISTORY_LIMIT).map { row ->
                 Song(
                     id = row.songId,
@@ -116,106 +106,39 @@ class HomeViewModel @Inject constructor(
                     streams = emptyList()
                 )
             }
+            publishSections { it.copy(recent = recent) }
 
-            // 2. Cached snapshot for the four network rails.
-            val snapshot = runCatching { snapshotStore.read() }.getOrNull()
-            if (snapshot != null) {
-                mutableState.value = HomeUiState.Success(
-                    HomeSections(
-                        quickPicks = snapshot.quickPicks,
-                        recentlyPlayed = recent,
-                        madeForYou = snapshot.madeForYou,
-                        artists = snapshot.artists,
-                        albums = snapshot.albums
-                    )
-                )
-                val ageMs = System.currentTimeMillis() - snapshot.timestampMs
-                if (!force && ageMs < FRESH_WINDOW_MS) {
-                    Timber.tag("HomeVM").d(
-                        "snapshot fresh (%ds old), skipping network", ageMs / 1000
-                    )
-                    return@launch
-                }
-                Timber.tag("HomeVM").d(
-                    "snapshot stale (%ds old), refreshing", ageMs / 1000
-                )
-            } else {
-                // No snapshot — start from empty Success so skeletons render.
-                mutableState.value = HomeUiState.Success(
-                    HomeSections(recentlyPlayed = recent)
-                )
-            }
-
-            // 3. Network fetch. Rails land incrementally.
-            coroutineScope {
-                val baseJob = async {
-                    runCatching { loadTrending() }.getOrDefault(emptyList())
-                }
-                val mfyJob = async {
-                    runCatching { loadRecommended(recent) }
-                        .getOrElse { Recommended(emptyList(), emptyList()) }
-                }
-                val newReleasesJob = async {
-                    runCatching { loadNewReleases() }.getOrDefault(emptyList())
-                }
-
-                val recs = mfyJob.await()
+            // Rails run in parallel; each updates the state as it lands.
+            val trendingJob = async {
+                val trending = runCatching { loadTrending() }
+                    .getOrDefault(emptyList())
                 publishSections {
                     it.copy(
-                        madeForYou = recs.songs,
-                        quickPicks = deriveQuickPicks(recent, recs.songs)
+                        trending = trending,
+                        popularArtists = popularArtistsOf(trending),
+                        popularAlbums = popularAlbumsOf(trending)
                     )
                 }
-
-                val base = baseJob.await()
+            }
+            val recsJob = async {
+                val recs = runCatching { loadRecommended(recent) }
+                    .getOrElse { Recommended(emptyList(), emptyList()) }
                 publishSections {
-                    it.copy(artists = popularArtistsOf(base))
-                }
-
-                val newReleases = newReleasesJob.await()
-                val popularAlbums = popularAlbumsOf(base)
-                val newReleaseAlbums = newReleases.mapNotNull { song ->
-                    val album = song.album.takeIf { it.isNotBlank() && it != "unknown" }
-                        ?: return@mapNotNull null
-                    Album(
-                        id = "album:$album:${song.artist}",
-                        name = album,
-                        artist = song.artist,
-                        imageUrl = song.imageUrl,
-                        songs = emptyList()
+                    it.copy(
+                        recommended = recs.songs,
+                        recommendedGenres = recs.genres
                     )
                 }
-                val merged = (popularAlbums + newReleaseAlbums).distinctBy { it.id }
-                publishSections { it.copy(albums = merged) }
             }
-
-            // 4. Persist snapshot for next launch.
-            val finalSections = (mutableState.value as? HomeUiState.Success)?.sections
-            if (finalSections != null && finalSections.hasNetworkContent()) {
-                runCatching {
-                    snapshotStore.write(
-                        HomeSnapshot(
-                            quickPicks = finalSections.quickPicks,
-                            madeForYou = finalSections.madeForYou,
-                            artists = finalSections.artists,
-                            albums = finalSections.albums,
-                            timestampMs = System.currentTimeMillis()
-                        )
-                    )
-                }.onFailure {
-                    Timber.tag("HomeVM").w(it, "snapshot write failed")
-                }
+            val newJob = async {
+                val newReleases = runCatching { loadNewReleases() }
+                    .getOrDefault(emptyList())
+                publishSections { it.copy(newReleases = newReleases) }
             }
+            trendingJob.await()
+            recsJob.await()
+            newJob.await()
         }
-    }
-
-    /** True when at least one network rail has content. Guards against
-     *  overwriting a good snapshot with an all-empty failure result. */
-    private fun HomeSections.hasNetworkContent(): Boolean {
-        return quickPicks.isNotEmpty() ||
-            madeForYou.isNotEmpty() ||
-            artists.isNotEmpty() ||
-            albums.isNotEmpty()
     }
 
     /**
@@ -227,40 +150,6 @@ class HomeViewModel @Inject constructor(
         if (current is HomeUiState.Success) {
             mutableState.value = HomeUiState.Success(transform(current.sections))
         }
-    }
-
-    /**
-     * Interleaves [recent] and [recommended] to produce up to
-     * [QUICK_PICKS_LIMIT] tracks, deduped by title-key + primary artist.
-     * Yields the YT Music-style "quick picks" list.
-     */
-    private fun deriveQuickPicks(
-        recent: List<Song>,
-        recommended: List<Song>
-    ): List<Song> {
-        val out = mutableListOf<Song>()
-        val seen = mutableSetOf<String>()
-        val max = if (recent.size >= recommended.size) recent.size else recommended.size
-        for (i in 0 until max) {
-            if (out.size >= QUICK_PICKS_LIMIT) break
-            recent.getOrNull(i)?.let { song ->
-                val key = quickPickKey(song)
-                if (seen.add(key)) out += song
-            }
-            if (out.size >= QUICK_PICKS_LIMIT) break
-            recommended.getOrNull(i)?.let { song ->
-                val key = quickPickKey(song)
-                if (seen.add(key)) out += song
-            }
-        }
-        return out
-    }
-
-    /** Dedupe key for Quick Picks. */
-    private fun quickPickKey(song: Song): String {
-        val title = com.waveyy.app.domain.usecase.SearchRanking.titleKey(song.name)
-        val artist = song.artist.lowercase().split(",").first().trim()
-        return "$title||$artist"
     }
 
     /** Fresh-release rail, locale-aware like the trending chain. */
@@ -276,64 +165,54 @@ class HomeViewModel @Inject constructor(
         return SongMapper.toDomainList(selected)
     }
 
-    /**
-     * Builds the trending rail by firing every source query in parallel,
-     * then curating the results in the same priority order the old
-     * sequential version used: locale → topCharts → fallbacks →
-     * english. Parallelising drops first-paint time from the sum of every
-     * request to the slowest single request.
-     */
     private suspend fun loadTrending(): List<Song> {
+        // Locale-first chain (F6): the `/api/jiosaavn` proxy hardcodes
+        // `language=hindi` for topCharts (route.js `buildTargets`), so the
+        // device locale is honored through `searchSongs` queries instead:
+        // locale hits -> proxy charts -> english -> bundled fallbacks.
         val localeLang = java.util.Locale.getDefault().getDisplayLanguage(java.util.Locale.ENGLISH)
         val localeIsHindi = localeLang.equals("hindi", ignoreCase = true)
-
-        // Each source is a (query, limit) pair. A special "__charts__"
-        // marker means "call repository.topCharts() instead of searchSongs".
-        val sources = buildList {
-            if (!localeIsHindi) add("$localeLang top hits" to TRENDING_LIMIT)
-            add("__charts__" to TRENDING_LIMIT)
-            TRENDING_FALLBACKS.forEach { (query, max) -> add(query to max) }
-            if (!localeIsHindi) add("English top hits" to TRENDING_LIMIT)
-        }
-
-        // Fire all requests in parallel.
-        val results: List<List<Song>> = coroutineScope {
-            sources.map { (query, _) ->
-                async {
-                    runCatching {
-                        if (query == "__charts__") {
-                            repository.topCharts().first()
-                        } else {
-                            repository.searchSongs(query).first()
-                        }
-                    }.getOrDefault(emptyList())
-                }
-            }.awaitAll()
-        }
-
-        // Curate in priority order. Curation itself stays sequential so
-        // cross-source dedupe via trackKeys works exactly as before.
         var trackKeys = emptySet<String>()
         val trending = mutableListOf<Song>()
-        sources.forEachIndexed { index, (query, max) ->
-            if (trending.size >= TRENDING_LIMIT || max <= 0) return@forEachIndexed
-            val songs = results.getOrNull(index).orEmpty()
-            if (songs.isEmpty()) {
-                Timber.tag("HomeVM").d("trending source '%s' empty", query)
-                return@forEachIndexed
-            }
+        suspend fun pull(songs: List<Song>, limit: Int) {
+            if (trending.size >= TRENDING_LIMIT || limit <= 0) return
             runCatching {
-                val (picked, next) = TrendingCurator.curate(
-                    songs.map(::toDto),
-                    minOf(max, TRENDING_LIMIT - trending.size),
-                    trackKeys
-                )
+                val (picked, next) = TrendingCurator.curate(songs.map(::toDto), limit, trackKeys)
                 trending += SongMapper.toDomainList(picked)
                 trackKeys = next
             }.onFailure {
-                Timber.tag("HomeVM").w(it, "curate failed for '%s'", query)
+                Timber.tag("HomeVM").w(it, "pull failed, continuing")
             }
         }
+        if (!localeIsHindi) {
+            pull(
+                runCatching { repository.searchSongs("$localeLang top hits").first() }
+                    .getOrDefault(emptyList()),
+                TRENDING_LIMIT
+            )
+        }
+        pull(
+            runCatching { repository.topCharts().first() }.getOrDefault(emptyList()),
+            TRENDING_LIMIT - trending.size
+        )
+        for ((query, max) in TRENDING_FALLBACKS) {
+            if (trending.size >= TRENDING_LIMIT) break
+            pull(
+                runCatching { repository.searchSongs(query).first() }.getOrDefault(emptyList()),
+                minOf(max, TRENDING_LIMIT - trending.size)
+            )
+        }
+        if (!localeIsHindi && trending.size < TRENDING_LIMIT) {
+            pull(
+                runCatching { repository.searchSongs("English top hits").first() }
+                    .getOrDefault(emptyList()),
+                TRENDING_LIMIT - trending.size
+            )
+        }
+        // Never throw here. An empty trending rail is a valid state — the
+        // other rails (Continue, Made for You, recommendations) may still
+        // populate. The Home screen renders an empty state if everything is
+        // empty; the current behaviour of throwing kills the whole screen.
         return trending
     }
 
@@ -448,7 +327,7 @@ class HomeViewModel @Inject constructor(
             // refresh() now emits incrementally; keep the spinner alive for
             // a minimum duration so the gesture always reads as
             // acknowledged.
-            refresh(force = true)
+            refresh()
             val elapsed = System.currentTimeMillis() - started
             if (elapsed < MIN_REFRESH_SPINNER_MS) {
                 kotlinx.coroutines.delay(MIN_REFRESH_SPINNER_MS - elapsed)
@@ -460,12 +339,6 @@ class HomeViewModel @Inject constructor(
     companion object {
         /** Minimum time the pull-to-refresh spinner stays visible. */
         private const val MIN_REFRESH_SPINNER_MS = 600L
-
-        /** Snapshot TTL: skip the network when cached this recently. */
-        private const val FRESH_WINDOW_MS = 15L * 60L * 1000L
-
-        /** Quick Picks list size (top of Home). */
-        private const val QUICK_PICKS_LIMIT = 6
 
         private const val TRENDING_LIMIT = 20
         private const val NEW_RELEASE_LIMIT = 10

@@ -4,8 +4,6 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -52,7 +50,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -85,27 +82,17 @@ fun FullLyricsScreen(
     val song = queue.firstOrNull { it.id == songId }
     LaunchedEffect(song?.id) { song?.let { viewModel.loadLyrics(it) } }
     val lines = (lyrics as? LyricsUiState.Ready)?.lines.orEmpty()
-    // activeIdx = -1 means nothing should be highlighted (before the
-    // first line or after the last line has faded).
-    val activeIdx = activeLyricIndex(lyrics, state.positionMs)
-    // Scroll target. During intro, focus the first line; during outro,
-    // focus the last line. Otherwise, the active line.
-    val scrollIdx = when {
-        lines.isEmpty() -> 0
-        activeIdx >= 0 -> activeIdx
-        state.positionMs < lines.first().timeMs -> 0
-        else -> lines.lastIndex
-    }
+    val idx = activeLyricIndex(lyrics, state.positionMs).coerceAtLeast(0)
     val listState = rememberLazyListState()
+    LaunchedEffect(idx) {
+        if (lines.isNotEmpty()) listState.animateScrollToItem(idx)
+    }
     val accent = rememberAlbumAccent(song?.imageUrl, song?.id)
 
     // Track height for the gradient so it scales with screen size.
     BoxWithConstraints(
         modifier = Modifier.fillMaxSize()
     ) {
-        // maxH is only used for the gradient below — the lyrics area has
-        // its own BoxWithConstraints further down (it's ~half the screen,
-        // so centering maths must use that inner height, not this one).
         val maxH = constraints.maxHeight.toFloat()
 
         // Base: near-black with a whisper of accent.
@@ -191,28 +178,11 @@ fun FullLyricsScreen(
                     }
                 }
             }
-            BoxWithConstraints(
+            Box(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
             ) {
-                // Real LazyColumn viewport height — NOT the whole screen.
-                // The previous version used screen height (~2x larger than
-                // the lyrics area) and pushed the active line off-screen.
-                val viewportH = constraints.maxHeight.toFloat()
-                val densityFloat = LocalDensity.current.density
-                // Top padding = half the viewport so the active line's
-                // vertical center lands at the viewport center.
-                val lyricTopPadDp = (viewportH / densityFloat / 2f).dp
-
-                LaunchedEffect(scrollIdx, lines.size, viewportH) {
-                    if (lines.isEmpty()) return@LaunchedEffect
-                    // No scroll offset: top padding already centers the
-                    // item. Compose clamps to maxScroll near the end, so
-                    // the last line naturally parks at the viewport bottom.
-                    listState.animateScrollToItem(scrollIdx)
-                }
-
                 when {
                     song == null -> Text(
                         text = "Song unavailable",
@@ -232,49 +202,27 @@ fun FullLyricsScreen(
                             .fillMaxWidth()
                             .padding(32.dp)
                     )
-                    lines.isEmpty() -> {
-                        val plainText = (lyrics as? LyricsUiState.Plain)?.text
-                        Column(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .verticalScroll(rememberScrollState())
-                                .padding(horizontal = 24.dp, vertical = 24.dp),
-                            verticalArrangement = Arrangement.Center,
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            if (plainText != null) {
-                                Text(
-                                    text = "Unsynced lyrics",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = Color.White.copy(alpha = 0.5f),
-                                    modifier = Modifier.padding(bottom = 16.dp)
-                                )
-                            }
-                            Text(
-                                text = plainText
-                                    ?: when (lyrics) {
-                                        LyricsUiState.Instrumental -> "Instrumental"
-                                        else -> "Lyrics not available"
-                                    },
-                                style = MaterialTheme.typography.bodyLarge,
-                                lineHeight = MaterialTheme.typography.bodyLarge.fontSize * 1.6,
-                                color = Color.White.copy(alpha = 0.85f),
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
-                    }
+                    lines.isEmpty() -> Text(
+                        text = when (lyrics) {
+                            LyricsUiState.Instrumental -> "Instrumental"
+                            is LyricsUiState.Plain -> (lyrics as LyricsUiState.Plain).text
+                            else -> "Lyrics not available"
+                        },
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = Color.White.copy(alpha = 0.8f),
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(32.dp)
+                    )
                     else -> LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         state = listState,
-                        contentPadding = PaddingValues(
-                            top = lyricTopPadDp,
-                            bottom = 0.dp
-                        ),
+                        contentPadding = PaddingValues(vertical = 200.dp),
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         itemsIndexed(lines) { i, line ->
-                            val distance = kotlin.math.abs(i - activeIdx)
+                            val distance = kotlin.math.abs(i - idx)
                             // Heavier blur so distant lines are clearly out of focus.
                             val blurRadius = (distance * 1.4f).coerceAtMost(7f)
                             // Strong alpha falloff.

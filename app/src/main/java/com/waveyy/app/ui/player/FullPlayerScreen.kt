@@ -44,7 +44,6 @@ import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Slider
-import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
@@ -131,17 +130,9 @@ fun FullPlayerScreen(
     val snackbarHost = remember { SnackbarHostState() }
     LaunchedEffect(vmError, state.error) {
         val message = vmError ?: state.error ?: return@LaunchedEffect
-        // Clear source errors BEFORE awaiting the Snackbar so a subsequent
-        // failure can retrigger this effect cleanly and the banner's own
-        // dismissal can't be masked by stale error state.
+        val result = snackbarHost.showSnackbar(message, actionLabel = "Retry")
         viewModel.clearPlayerError()
         connection.clearError()
-        val result = snackbarHost.showSnackbar(
-            message = message,
-            actionLabel = "Retry",
-            withDismissAction = true,
-            duration = SnackbarDuration.Long
-        )
         if (result == SnackbarResult.ActionPerformed) {
             currentSong?.let { viewModel.playSong(it) }
         }

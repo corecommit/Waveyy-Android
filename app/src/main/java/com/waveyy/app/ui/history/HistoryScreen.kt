@@ -11,8 +11,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material3.Icon
@@ -30,7 +32,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.waveyy.app.playback.QueueSource
 import com.waveyy.app.ui.components.SkeletonRows
 import com.waveyy.app.ui.components.WaveyyBackButton
-import com.waveyy.app.ui.components.SongRow
+import com.waveyy.app.ui.home.GridSongCard
 import com.waveyy.app.ui.player.rememberChromeBottomReserve
 
 /**
@@ -53,17 +55,21 @@ fun HistoryScreen(
     when (val current = state) {
         HistoryUiState.Loading -> SkeletonRows(count = 8)
         is HistoryUiState.Ready -> {
-            LazyColumn(
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(2),
                 modifier = Modifier
                     .fillMaxSize()
                     .statusBarsPadding(),
                 contentPadding = PaddingValues(
+                    start = 16.dp,
+                    end = 16.dp,
                     top = 8.dp,
                     bottom = chromeBottom
                 ),
-                verticalArrangement = Arrangement.spacedBy(2.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                item {
+                item(span = { GridItemSpan(2) }) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -96,7 +102,7 @@ fun HistoryScreen(
                 }
 
                 if (current.songs.isEmpty()) {
-                    item {
+                    item(span = { GridItemSpan(2) }) {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -124,28 +130,16 @@ fun HistoryScreen(
                     }
                 } else {
                     items(current.songs, key = { it.id }) { song ->
-                        SongRow(
-                            title = song.name,
-                            artist = song.artist,
-                            imageUrl = song.imageUrl,
-                            songId = song.id,
-                            onPlay = { _ ->
+                        GridSongCard(
+                            song = song,
+                            onPlay = {
                                 val index = current.songs.indexOf(song)
                                 onPlaySong(QueueSource.Custom(current.songs), index)
-                            },
-                            duration = formatDurationSecs(song.durationSec)
+                            }
                         )
                     }
                 }
             }
         }
     }
-}
-
-/** Formats seconds as m:ss; empty when zero. */
-private fun formatDurationSecs(totalSeconds: Long): String {
-    if (totalSeconds <= 0L) return ""
-    val minutes = totalSeconds / 60L
-    val seconds = (totalSeconds % 60L).toString().padStart(2, '0')
-    return "$minutes:$seconds"
 }
